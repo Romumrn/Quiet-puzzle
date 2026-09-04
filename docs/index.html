@@ -1,0 +1,4455 @@
+<title>Puzzle Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* ==========================================================================
+   Puzzle Quest — prototype
+   Identité : rose pastel, sobre, épuré. Toute la chromie de l'habillage dérive
+   d'une seule teinte `--h`, qui glisse du rose au vert d'eau à mesure que le
+   joueur descend dans les niveaux (voir src/ui/theme.js).
+   ========================================================================== */
+
+:root {
+  /* Teinte de départ. src/ui/theme.js la remplace sur #app à chaque niveau. */
+  --h: 345;
+
+  /* Surfaces — un blanc très légèrement teinté, jamais un blanc pur : sur un
+     fond pastel, le blanc pur fait un trou. */
+  --ground: hsl(var(--h) 62% 96.5%);
+  --ground-deep: hsl(var(--h) 56% 89%);
+  --surface: hsl(var(--h) 60% 99.2%);
+  --line: hsl(var(--h) 28% 88%);
+  --line-soft: hsl(var(--h) 30% 92%);
+
+  /* Encre — un gris profond teinté, pas du noir : le noir durcit le pastel. */
+  --ink: hsl(var(--h) 22% 24%);
+  --ink-soft: hsl(var(--h) 14% 46%);
+  --ink-faint: hsl(var(--h) 16% 66%);
+
+  --accent: hsl(var(--h) 58% 66%);
+  --accent-deep: hsl(var(--h) 52% 54%);
+  --accent-wash: hsl(var(--h) 72% 94%);
+
+  --award: #d9a441;   /* étoiles : un ambre discret, stable quelle que soit --h */
+  --alert: #d4697e;
+
+  /* Blocs : fixes. Ils portent la règle du jeu, ils ne suivent pas la teinte. */
+  --c0: #eb9aad;  /* rose      ● */
+  --c1: #93bde4;  /* bleu      ◆ */
+  --c2: #97cfb6;  /* vert      ▲ */
+  --c3: #e9cd8c;  /* paille    ★ */
+  --c4: #bdaadd;  /* lilas     ■ */
+  --c5: #f0b18b;  /* pêche     ⬢ */
+  --sealed: #c9c2ce;
+
+  --font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+  --font-ui: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --radius: 18px;
+  --cell: 40px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* `hidden` doit gagner contre les display: grid/flex des composants. */
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  background: #ece7ec;
+  color: var(--ink);
+  font: 400 15px/1.5 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+body { display: grid; place-items: center; }
+
+/* Cadre 9:16. La largeur est aussi bornée par la hauteur disponible : fixer
+   largeur ET hauteur annulerait l'aspect-ratio et rognerait le plateau. */
+.device {
+  position: relative;
+  width: min(100vw, 430px, calc(100vh * 9 / 16));
+  aspect-ratio: 9 / 16;
+  max-height: 100vh;
+  overflow: hidden;
+  border-radius: clamp(0px, calc((100vw - 430px) * 999), 26px);
+  box-shadow: 0 24px 60px rgba(60, 40, 55, 0.16);
+}
+
+.app {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--ground) 0%, var(--ground-deep) 100%);
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  /* La teinte glisse doucement d'un niveau à l'autre plutôt que de sauter. */
+  transition: background 700ms ease;
+}
+
+/* ---------- Écrans ---------- */
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  padding: max(18px, env(safe-area-inset-top)) 20px 20px;
+}
+.screen.active { display: flex; animation: screen-in 0.34s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.topbar {
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.topbar-title {
+  text-align: center;
+  font: 400 15px var(--font-ui);
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+.topbar-title b { color: var(--ink); font-weight: 500; }
+
+.icon-btn {
+  width: 38px; height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 19px; line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.icon-btn:hover { border-color: var(--accent); }
+.icon-btn:active { transform: scale(0.95); }
+
+.pill {
+  justify-self: end;
+  white-space: nowrap;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Boutons ---------- */
+
+.btn {
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 15px var(--font-ui);
+  padding: 13px 20px;
+  cursor: pointer;
+  transition: transform 0.14s ease, background 0.16s ease, border-color 0.16s ease;
+}
+.btn:active { transform: scale(0.975); }
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.btn-primary:hover { background: var(--accent-deep); }
+.btn-ghost { background: var(--surface); border: 1px solid var(--line); color: var(--ink-soft); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--ink); }
+.btn-lg { width: 100%; padding: 16px; font-size: 16px; }
+.btn-sm { padding: 8px 12px; font-size: 12px; }
+.btn[disabled] { opacity: 0.42; pointer-events: none; }
+
+/* ---------- Menu ---------- */
+
+#screen-menu { justify-content: center; align-items: center; gap: 14px; text-align: center; }
+
+/* Formes de fond : à peine perceptibles, elles donnent de la profondeur sans
+   charger la page. */
+.menu-art { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.menu-art span {
+  position: absolute; width: 260px; height: 260px; border-radius: 50%;
+  filter: blur(48px); opacity: 0.4;
+}
+.menu-art span:nth-child(1) { background: hsl(var(--h) 70% 84%); top: -6%; left: -22%; }
+.menu-art span:nth-child(2) { background: hsl(calc(var(--h) - 40) 62% 86%); top: 18%; right: -26%; }
+.menu-art span:nth-child(3) { background: hsl(calc(var(--h) + 30) 60% 88%); bottom: 6%; left: -18%; }
+.menu-art span:nth-child(4) { background: hsl(var(--h) 55% 90%); bottom: -8%; right: -14%; }
+
+.logo {
+  font: 300 46px/1.05 var(--font-display);
+  font-variation-settings: 'SOFT' 40, 'WONK' 1;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.logo em { display: block; font-style: normal; font-weight: 500; color: var(--accent-deep); }
+.tagline { color: var(--ink-soft); font-size: 14px; margin-bottom: 12px; }
+
+.menu-stats { display: flex; gap: 10px; margin: 6px 0 20px; }
+.stat {
+  min-width: 88px; padding: 14px 10px;
+  background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius);
+}
+.stat b {
+  display: block; font: 400 24px var(--font-ui); color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.stat small { color: var(--ink-faint); font-size: 11px; letter-spacing: 0.04em; }
+
+#screen-menu .btn-lg, #screen-menu .btn-daily { max-width: 268px; }
+
+/* ---------- Étoiles ---------- */
+
+.stars { display: flex; gap: 3px; }
+.stars i { font-style: normal; color: var(--line); font-size: 14px; }
+.stars i.on { color: var(--award); }
+.stars-lg { justify-content: center; gap: 10px; }
+.stars-lg i { font-size: 30px; }
+.stars-lg i.on { animation: star-pop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+.stars-lg i.on:nth-child(2) { animation-delay: 0.12s; }
+.stars-lg i.on:nth-child(3) { animation-delay: 0.24s; }
+@keyframes star-pop { from { transform: scale(0.3); opacity: 0; } }
+
+/* ---------- Cadeau du jour ---------- */
+
+.btn-daily {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  text-align: left;
+}
+.btn-daily:hover { border-color: var(--accent); }
+.daily-flame { font-size: 18px; }
+.daily-text { flex: 1; display: flex; flex-direction: column; }
+.daily-text b { font-size: 14px; font-weight: 500; }
+.daily-text small { color: var(--ink-faint); font-size: 11px; }
+.daily-amount { font: 400 17px var(--font-ui); color: var(--award); font-variant-numeric: tabular-nums; }
+
+/* ---------- Carte des niveaux ---------- */
+
+.map-scroll { flex: 1; overflow-y: auto; padding: 4px 0 24px; scrollbar-width: none; }
+.map-scroll::-webkit-scrollbar { display: none; }
+
+/* Chaque monde porte sa propre teinte : en faisant défiler, on voit la
+   gradation chromatique de la progression. */
+.realm {
+  padding: 6px 0 18px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, transparent, hsl(var(--h) 60% 96%) 40%, transparent);
+}
+.realm-label {
+  display: flex; align-items: center; gap: 12px;
+  margin: 14px 0 14px; color: var(--ink-faint);
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em;
+}
+.realm-label::before, .realm-label::after {
+  content: ''; flex: 1; height: 1px; background: var(--line);
+}
+
+.map-path { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+.map-node {
+  position: relative;
+  width: 60px; padding: 9px 0 7px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.16s ease;
+}
+.map-node:hover { border-color: var(--accent); }
+.map-node:active { transform: scale(0.95); }
+.map-node b { font: 400 18px var(--font-ui); font-variant-numeric: tabular-nums; }
+.map-node.current {
+  background: var(--accent); border-color: transparent; color: #fff;
+}
+.map-node.current .stars i { color: rgba(255, 255, 255, 0.45); }
+.map-node.current .stars i.on { color: #fff; }
+.map-node.current::after {
+  content: 'Suivant'; position: absolute; top: -9px;
+  font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: var(--ink); color: var(--ground); padding: 2px 8px; border-radius: 999px;
+}
+.map-node.locked { opacity: 0.4; cursor: not-allowed; }
+.map-node.locked b::after { content: '·'; }
+.map-node.done { border-color: hsl(var(--h) 40% 82%); }
+
+/* ---------- Pré-niveau ---------- */
+
+#screen-brief { justify-content: flex-start; }
+.brief-card {
+  margin: auto 0; padding: 30px 22px 22px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 26px;
+  text-align: center;
+}
+.brief-badge {
+  width: 62px; height: 62px; margin: -52px auto 16px;
+  display: grid; place-items: center;
+  background: var(--accent); color: #fff; border-radius: 20px;
+  font: 400 25px var(--font-ui);
+  box-shadow: 0 8px 20px hsl(var(--h) 50% 70% / 0.4);
+}
+.brief-objective { font-size: 17px; margin: 18px 0 20px; color: var(--ink); }
+.brief-meta { display: flex; justify-content: space-around; margin-bottom: 24px; }
+.brief-meta dt { color: var(--ink-faint); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; }
+.brief-meta dd { font: 400 18px var(--font-ui); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+/* ---------- HUD ---------- */
+
+.hud {
+  padding: 12px 16px 14px;
+  margin-bottom: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+}
+.hud-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.hud-stat { display: flex; flex-direction: column; gap: 3px; }
+.hud-stat-stars { align-items: flex-end; }
+.hud-label { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint); }
+.hud-stat b {
+  font: 400 23px var(--font-ui); font-variant-numeric: tabular-nums; line-height: 1;
+  transition: transform 0.2s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.hud-stat b.pop { transform: scale(1.32); }
+.hud-stat b.urgent { color: var(--alert); }
+.hud-stat .stars { padding-bottom: 5px; }
+
+.time-track {
+  height: 3px; margin-top: 12px; border-radius: 999px;
+  background: var(--line-soft); overflow: hidden;
+}
+.time-track i {
+  display: block; height: 100%; width: 100%;
+  background: var(--accent);
+  transition: width 1s linear, background 0.3s ease;
+}
+.time-track i.urgent { background: var(--alert); }
+
+/* ---------- Plateau ---------- */
+
+.board-wrap {
+  position: relative; flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 0;
+}
+
+/* Le mur est un vrai cadre : les portes se posent dessus, en débord. */
+.board {
+  position: relative;
+  box-sizing: content-box;
+  border: var(--wall) solid hsl(var(--h) 34% 90%);
+  border-radius: calc(var(--wall) + 8px);
+  background: hsl(var(--h) 40% 98%);
+  box-shadow: 0 10px 28px hsl(var(--h) 30% 60% / 0.13);
+}
+.grid-layer, .gate-layer, .block-layer { position: absolute; inset: 0; }
+.gate-layer { pointer-events: none; }
+
+.grid-cell {
+  position: absolute; top: 0; left: 0;
+  width: var(--cell); height: var(--cell);
+  border-right: 1px solid hsl(var(--h) 26% 94%);
+  border-bottom: 1px solid hsl(var(--h) 26% 94%);
+}
+
+/* ---------- Portes ---------- */
+
+.gate {
+  position: absolute;
+  display: grid; place-items: center;
+  background: var(--tile);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: calc(var(--wall) * 0.72);
+  line-height: 1;
+}
+.gate span { transform: translateY(-0.5px); }
+.gate-top    { top: calc(var(--wall) * -1); height: var(--wall); border-radius: 7px 7px 0 0; }
+.gate-bottom { bottom: calc(var(--wall) * -1); height: var(--wall); border-radius: 0 0 7px 7px; }
+.gate-left   { left: calc(var(--wall) * -1); width: var(--wall); border-radius: 7px 0 0 7px; }
+.gate-right  { right: calc(var(--wall) * -1); width: var(--wall); border-radius: 0 7px 7px 0; }
+.gate-cap {
+  position: absolute;
+  min-width: 15px; padding: 0 3px;
+  border-radius: 999px;
+  background: var(--ink); color: var(--ground);
+  font-size: 9px; font-weight: 500; line-height: 15px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.gate-top .gate-cap    { top: calc(var(--wall) * -1 - 8px); }
+.gate-bottom .gate-cap { bottom: calc(var(--wall) * -1 - 8px); }
+.gate-left .gate-cap   { left: calc(var(--wall) * -1 - 6px); }
+.gate-right .gate-cap  { right: calc(var(--wall) * -1 - 6px); }
+.gate-full { opacity: 0.4; filter: grayscale(0.7); }
+
+@keyframes gate-flash {
+  40% { filter: brightness(1.35) saturate(1.2); box-shadow: 0 0 16px 3px var(--tile); }
+}
+
+/* ---------- Blocs ---------- */
+
+.block {
+  position: absolute; top: 0; left: 0;
+  --bevel: calc(var(--cell) * 0.3);
+  transition: transform 95ms ease-out;
+  cursor: grab;
+  touch-action: none;
+  will-change: transform;
+  /* L'ombre portée suit la SILHOUETTE réelle du polyomino, pas sa boîte : c'est
+     ce qui donne le relief sans dessiner de contour case par case. */
+  filter:
+    drop-shadow(0 calc(var(--cell) * 0.045) 0 rgba(90, 70, 95, 0.16))
+    drop-shadow(0 calc(var(--cell) * 0.1) calc(var(--cell) * 0.13) rgba(90, 70, 95, 0.16));
+}
+
+/*
+ * Verre lisse : le reflet est un dégradé unique calé sur la boîte du bloc
+ * (backgroundSize/Position posés en JS), donc continu d'une case à l'autre.
+ * Un reflet par case aurait dessiné une grille de petits carrés brillants.
+ */
+.block-cell {
+  position: absolute;
+  width: var(--cell); height: var(--cell);
+  background-color: var(--tile);
+  background-image:
+    radial-gradient(78% 52% at 26% 12%, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0) 68%),
+    linear-gradient(178deg,
+      rgba(255, 255, 255, 0.5) 0%,
+      rgba(255, 255, 255, 0.14) 24%,
+      rgba(255, 255, 255, 0) 44%,
+      rgba(120, 90, 120, 0.06) 72%,
+      rgba(90, 60, 90, 0.19) 100%);
+  background-repeat: no-repeat;
+}
+.block-mark {
+  position: absolute;
+  width: var(--cell); height: var(--cell);
+  display: grid; place-items: center;
+  font-size: calc(var(--cell) * 0.36);
+  color: rgba(255, 255, 255, 0.92);
+  pointer-events: none;
+}
+/* Le cadenas et son décompte tiennent dans une seule case. */
+.locked-mark { flex-direction: column; display: flex !important; gap: 0; line-height: 1; }
+.locked-mark span { font-size: calc(var(--cell) * 0.34); }
+.locked-mark .lock-count {
+  font-size: calc(var(--cell) * 0.28);
+  font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.block.lock-open .locked-mark span { opacity: 0.35; }
+
+.block.grabbed { z-index: 5; transition-duration: 60ms; }
+.block.grabbed .block-cell { filter: brightness(1.05); }
+.block.exiting { pointer-events: none; transition-property: transform, opacity; }
+.block.bumping { animation: bump 0.13s ease-in-out 2 alternate; }
+@keyframes bump { to { filter: brightness(1.12) saturate(1.3); } }
+
+.block.k-wall { cursor: not-allowed; }
+.block.k-wall .block-cell {
+  background-color: var(--sealed);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.42) 0 4px, transparent 4px 9px),
+    linear-gradient(178deg, rgba(255,255,255,.4) 0%, rgba(255,255,255,0) 40%, rgba(70,60,80,.2) 100%);
+  background-size: auto, auto;
+}
+.block.k-locked { cursor: not-allowed; }
+.block.k-locked .block-cell { filter: saturate(0.2) brightness(1.06); }
+.block.unlocking .block-cell { animation: unlock 0.44s ease-out; }
+@keyframes unlock {
+  0% { filter: saturate(0.2) brightness(1.06); }
+  45% { filter: saturate(1.25) brightness(1.14); }
+  100% { filter: none; }
+}
+
+/* Glissière (Rush Hour) : le rail dit sur quel axe le bloc peut aller. */
+.block-rail {
+  position: absolute; inset: 0;
+  display: block; pointer-events: none;
+}
+.block.axis-h .block-rail {
+  border-top: 2px dashed rgba(255, 255, 255, 0.55);
+  border-bottom: 2px dashed rgba(255, 255, 255, 0.55);
+  top: 34%; bottom: 34%; left: 8%; right: 8%;
+}
+.block.axis-v .block-rail {
+  border-left: 2px dashed rgba(255, 255, 255, 0.55);
+  border-right: 2px dashed rgba(255, 255, 255, 0.55);
+  left: 34%; right: 34%; top: 8%; bottom: 8%;
+}
+
+/* Joker : sort par n'importe quelle porte. */
+.block.k-joker .block-cell {
+  background-color: transparent;
+  background-image:
+    radial-gradient(78% 52% at 26% 12%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 68%),
+    linear-gradient(178deg, rgba(255,255,255,.35) 0%, rgba(255,255,255,0) 44%, rgba(90,60,90,.18) 100%),
+    linear-gradient(135deg, var(--c0), var(--c3) 34%, var(--c2) 62%, var(--c1));
+}
+
+.block.smashed { pointer-events: none; animation: smash 0.32s ease-in forwards; }
+@keyframes smash { to { transform: scale(0.3) rotate(14deg); opacity: 0; } }
+
+.block.hinted { z-index: 4; }
+.block.hinted .block-cell { animation: hint 1.15s ease-in-out 3; }
+@keyframes hint { 50% { box-shadow: inset 0 0 0 3px var(--ink); } }
+
+/* ---------- Sortie d'un bloc : la récompense ---------- */
+
+.fx-layer { position: absolute; inset: 0; pointer-events: none; z-index: 6; overflow: visible; }
+
+.spark {
+  position: absolute; border-radius: 50%;
+  background: var(--tile);
+  margin: calc(var(--cell) * -0.07) 0 0 calc(var(--cell) * -0.07);
+  animation: spark 620ms cubic-bezier(0.15, 0.75, 0.35, 1) forwards;
+}
+@keyframes spark {
+  0% { transform: translate3d(0, 0, 0) scale(0.5); opacity: 0; }
+  18% { opacity: 1; }
+  100% { transform: translate3d(var(--dx), var(--dy), 0) scale(0.18); opacity: 0; }
+}
+
+.ring {
+  position: absolute; border-radius: 50%;
+  border: 2px solid var(--tile);
+  transform: translate(-50%, -50%);
+  animation: ring 560ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+@keyframes ring {
+  0% { transform: translate(-50%, -50%) scale(0.25); opacity: 0.85; }
+  100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0; }
+}
+
+.gate.flash { animation: gate-flash 0.5s ease-out; }
+
+/* Couleurs des blocs : fixes, elles ne suivent pas la teinte de progression. */
+.c0 { --tile: var(--c0); }
+.c1 { --tile: var(--c1); }
+.c2 { --tile: var(--c2); }
+.c3 { --tile: var(--c3); }
+.c4 { --tile: var(--c4); }
+.c5 { --tile: var(--c5); }
+
+/* ---------- Actions en partie ---------- */
+
+.game-actions { display: flex; gap: 7px; margin-top: 14px; }
+.action {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  padding: 9px 4px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  color: var(--ink-soft); font: 400 13px var(--font-ui);
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+.action:hover { border-color: var(--accent); color: var(--ink); }
+.action:active { transform: scale(0.97); }
+.action[disabled] { opacity: 0.4; pointer-events: none; }
+.action-icon { font-size: 17px; line-height: 1; }
+.action-plain { flex: 0 0 46px; }
+.action-cost {
+  padding: 1px 7px; border-radius: 999px;
+  background: var(--accent-wash); color: var(--accent-deep);
+  font-size: 10px; font-variant-numeric: tabular-nums;
+}
+/* Un bonus obtenu par pub est signalé comme tel : le joueur doit savoir ce
+   qu'il déclenche avant d'appuyer. */
+.action-cost.ad { background: hsl(150 40% 92%); color: hsl(150 38% 32%); }
+
+/* Mode marteau : on désigne la cible, le plateau le dit clairement. */
+.app.hammer .board { box-shadow: 0 0 0 3px var(--alert), 0 10px 28px hsl(var(--h) 30% 60% / 0.13); }
+.app.hammer .block:not(.k-wall) { cursor: crosshair; }
+.action-cost.free { background: hsl(150 45% 93%); color: hsl(150 40% 38%); }
+
+/* ---------- Superpositions ---------- */
+
+.overlay {
+  position: absolute; inset: 0; z-index: 20;
+  display: grid; place-items: center; padding: 26px;
+  background: hsl(var(--h) 30% 96% / 0.86);
+  backdrop-filter: blur(8px);
+  animation: screen-in 0.26s ease both;
+}
+.result-card, .offer-card {
+  width: 100%; padding: 30px 24px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line); border-radius: 26px;
+  box-shadow: 0 18px 44px hsl(var(--h) 30% 50% / 0.14);
+  text-align: center;
+  animation: card-in 0.42s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+@keyframes card-in { from { transform: scale(0.94) translateY(14px); opacity: 0; } }
+
+.result-card h2, .offer-card h2 {
+  font: 300 26px var(--font-display);
+  font-variation-settings: 'SOFT' 40;
+  margin-bottom: 20px;
+}
+.result-score { margin: 20px 0 6px; }
+.result-score span { font: 400 40px var(--font-ui); font-variant-numeric: tabular-nums; }
+.result-score small {
+  display: block; color: var(--ink-faint); font-size: 10px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+}
+.result-near {
+  margin: 8px 0 0; padding: 9px 14px;
+  background: var(--accent-wash); border-radius: 12px;
+  color: var(--accent-deep); font-size: 13px;
+}
+.result-reward { color: var(--award); margin: 14px 0 18px; min-height: 21px; }
+.result-actions { display: flex; gap: 9px; }
+.result-actions .btn { flex: 1; }
+
+.btn-reward {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  width: 100%; margin-bottom: 10px;
+  background: hsl(150 40% 92%); color: hsl(150 38% 32%);
+  border: 1px solid hsl(150 34% 82%);
+}
+.btn-reward:hover { background: hsl(150 44% 89%); }
+.btn-reward span { font-size: 11px; }
+
+.offer-lead { margin: 12px 0 2px; color: var(--ink-soft); font-size: 14px; }
+.offer-lead b { color: var(--ink); font-size: 17px; }
+.offer-bonus { margin: 14px 0 22px; font-size: 14px; color: var(--ink-soft); }
+.offer-bonus b { color: var(--accent-deep); }
+.offer-actions { display: flex; flex-direction: column; gap: 9px; }
+
+/* ---------- Publicité simulée ---------- */
+
+.ad-overlay { background: hsl(var(--h) 20% 20% / 0.9); }
+.ad-card {
+  width: 100%; padding: 26px 22px 22px;
+  border: 1px dashed hsl(var(--h) 15% 55%); border-radius: 22px;
+  background: hsl(var(--h) 18% 26%);
+  color: hsl(var(--h) 20% 92%);
+  text-align: center;
+}
+.ad-tag {
+  display: inline-block; margin-bottom: 14px; padding: 3px 11px;
+  border-radius: 999px; background: hsl(var(--h) 14% 34%);
+  font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: hsl(var(--h) 15% 72%);
+}
+.ad-title { font: 300 20px var(--font-display); margin-bottom: 18px; }
+.ad-visual {
+  display: grid; place-items: center;
+  aspect-ratio: 4 / 3; margin-bottom: 18px;
+  border-radius: 16px;
+  background: repeating-linear-gradient(45deg, hsl(var(--h) 12% 31%) 0 10px, hsl(var(--h) 12% 29%) 10px 20px);
+}
+.ad-count { font: 400 44px var(--font-ui); color: hsl(var(--h) 14% 62%); font-variant-numeric: tabular-nums; }
+.ad-note { margin-bottom: 18px; color: hsl(var(--h) 14% 68%); font-size: 12px; }
+.ad-close { background: var(--accent); color: #fff; }
+
+/* ---------- Bannière ---------- */
+
+/* Jamais pendant une partie : elle volerait de la place au plateau et
+   provoquerait des clics accidentels en plein glissé. */
+.banner {
+  position: absolute; left: 50%; bottom: 0; z-index: 15;
+  transform: translateX(-50%);
+  width: 320px; max-width: 100%; height: 50px;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  color: var(--ink-faint); font-size: 12px;
+}
+.banner-tag {
+  padding: 2px 7px; border-radius: 4px;
+  background: var(--accent-wash); color: var(--accent-deep);
+  font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.app.with-banner .screen { padding-bottom: 62px; }
+
+/* ---------- Toast ---------- */
+
+.toast {
+  position: absolute; left: 50%; bottom: 84px; z-index: 10;
+  transform: translateX(-50%);
+  padding: 10px 18px; border-radius: 999px;
+  background: var(--ink); color: var(--ground);
+  font-size: 13px;
+  animation: toast 1.4s ease both;
+  pointer-events: none; white-space: nowrap;
+}
+@keyframes toast { 0%, 100% { opacity: 0; } 15%, 75% { opacity: 1; } }
+
+/* ---------- Focus clavier ---------- */
+
+.btn:focus-visible,
+.icon-btn:focus-visible,
+.map-node:focus-visible,
+.action:focus-visible,
+.debug-toggle:focus-visible,
+.debug-panel input:focus-visible {
+  outline: 2px solid var(--accent-deep);
+  outline-offset: 3px;
+}
+
+/* ---------- Éditeur ---------- */
+
+.ed-scroll { flex: 1; overflow-y: auto; scrollbar-width: none; }
+.ed-scroll::-webkit-scrollbar { display: none; }
+
+.ed-grid-wrap { display: flex; justify-content: center; padding: 14px 0 6px; }
+.ed-grid {
+  --ec: 30px;
+  position: relative;
+  width: calc(var(--ew) * var(--ec));
+  height: calc(var(--eh) * var(--ec));
+  border: 11px solid hsl(var(--h) 34% 90%);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.ed-cell {
+  position: absolute;
+  width: var(--ec); height: var(--ec);
+  left: calc(var(--x) * var(--ec)); top: calc(var(--y) * var(--ec));
+  border: 1px solid hsl(var(--h) 26% 94%);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px; cursor: pointer; padding: 0;
+}
+.ed-cell.plein { background: var(--tile); border-color: transparent; border-radius: 4px; }
+.ed-cell.k-wall { background: var(--sealed); }
+.ed-cell.k-joker { background: linear-gradient(135deg, var(--c0), var(--c3) 40%, var(--c1)); }
+.ed-cell.k-locked { filter: saturate(0.35); }
+
+.ed-wall {
+  position: absolute;
+  border: 0; padding: 0; cursor: pointer;
+  background: hsl(var(--h) 30% 84%);
+  color: #fff; font-size: 9px; line-height: 1;
+}
+.ed-wall.ouvert { background: var(--tile); }
+.ed-wall-top, .ed-wall-bottom { width: var(--ec); height: 11px; left: calc(var(--i) * var(--ec)); }
+.ed-wall-top { top: -11px; }
+.ed-wall-bottom { bottom: -11px; }
+.ed-wall-left, .ed-wall-right { height: var(--ec); width: 11px; top: calc(var(--i) * var(--ec)); }
+.ed-wall-left { left: -11px; }
+.ed-wall-right { right: -11px; }
+
+.ed-status { min-height: 32px; padding: 6px 4px; font-size: 12px; color: var(--ink-soft); text-align: center; }
+.ed-status.ok { color: hsl(150 40% 34%); }
+.ed-status.ko { color: var(--alert); }
+
+.ed-section { margin-bottom: 12px; }
+.ed-legend {
+  display: block; margin-bottom: 6px;
+  font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint);
+}
+.ed-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 3px; scrollbar-width: none; }
+.ed-row::-webkit-scrollbar { display: none; }
+.ed-wrap { flex-wrap: wrap; overflow: visible; }
+
+.ed-shape, .ed-color, .ed-kind {
+  flex: 0 0 auto;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.ed-shape { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; }
+.ed-shape span { display: grid; gap: 1px; }
+.ed-shape i { background: var(--line); border-radius: 1px; }
+.ed-shape i.on { background: var(--ink-soft); }
+.ed-color { width: 36px; height: 36px; background: var(--tile); color: #fff; font-size: 14px; }
+.ed-kind { padding: 7px 11px; font: 400 12px var(--font-ui); color: var(--ink-soft); }
+.sel { border-color: var(--accent-deep); box-shadow: 0 0 0 2px var(--accent-wash); }
+
+.ed-num { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-soft); }
+.ed-num input {
+  width: 54px; padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink); font: inherit;
+}
+
+.ed-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ed-actions .btn { flex: 1; min-width: 84px; }
+.ed-json {
+  width: 100%; height: 130px; margin-top: 10px; padding: 10px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); color: var(--ink-soft);
+  font-family: ui-monospace, Menlo, monospace; font-size: 10px; resize: vertical;
+}
+
+/* ---------- Debug ---------- */
+
+.debug-toggle {
+  position: absolute; right: 8px; bottom: 8px; z-index: 30;
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink-faint); font-size: 13px; cursor: pointer; opacity: 0.55;
+}
+.debug-toggle:hover { opacity: 1; }
+.debug-panel {
+  position: absolute; right: 8px; bottom: 42px; z-index: 30; width: 222px;
+  padding: 13px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 12px 30px hsl(var(--h) 30% 50% / 0.16);
+  font-size: 12px;
+}
+.debug-panel label { display: block; color: var(--ink-faint); margin-bottom: 9px; }
+.debug-panel input {
+  width: 100%; margin-top: 5px; padding: 6px 9px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 8px; color: var(--ink);
+}
+.debug-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.debug-info { margin-top: 9px; color: var(--ink-faint); line-height: 1.4; white-space: pre-line; }
+.debug-events {
+  margin: 9px 0 0; padding-left: 16px; max-height: 160px; overflow-y: auto;
+  color: var(--ink-faint); font-size: 10px; line-height: 1.5;
+}
+.debug-events b { color: var(--ink); font-weight: 500; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+</style>
+
+<div class="device">
+  <main class="app" id="app">
+
+    <!-- ============ MENU ============ -->
+    <section class="screen active" id="screen-menu">
+      <div class="menu-art" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <h1 class="logo">Puzzle<em>Quest</em></h1>
+      <p class="tagline">Videz la grille par les portes de couleur</p>
+      <div class="menu-stats">
+        <div class="stat"><b id="menu-stars">0</b><small>étoiles</small></div>
+        <div class="stat"><b id="menu-coins">0</b><small>pièces</small></div>
+        <div class="stat"><b id="menu-progress">1</b><small>niveau</small></div>
+      </div>
+      <button class="btn btn-daily" id="btn-daily" hidden>
+        <span class="daily-flame">🔥</span>
+        <span class="daily-text">
+          <b id="daily-title">Cadeau du jour</b>
+          <small id="daily-sub">Série de 1 jour</small>
+        </span>
+        <span class="daily-amount" id="daily-amount">+50</span>
+      </button>
+      <button class="btn btn-primary btn-lg" id="btn-play">Jouer</button>
+      <button class="btn btn-ghost btn-sm" id="btn-reset">Réinitialiser la progression</button>
+    </section>
+
+    <!-- ============ CARTE DES NIVEAUX ============ -->
+    <section class="screen" id="screen-map">
+      <header class="topbar">
+        <button class="icon-btn" data-nav="menu" aria-label="Retour au menu">‹</button>
+        <span class="topbar-title">Carte</span>
+        <span class="pill" id="map-stars">★ 0</span>
+      </header>
+      <div class="map-scroll" id="map-scroll"></div>
+    </section>
+
+    <!-- ============ PRE-NIVEAU ============ -->
+    <section class="screen" id="screen-brief">
+      <header class="topbar">
+        <button class="icon-btn" data-nav="map" aria-label="Retour à la carte">‹</button>
+        <span class="topbar-title" id="brief-realm">—</span>
+        <span></span>
+      </header>
+      <div class="brief-card">
+        <div class="brief-badge" id="brief-number">1</div>
+        <div class="stars stars-lg" id="brief-stars"></div>
+        <p class="brief-objective" id="brief-objective">—</p>
+        <dl class="brief-meta">
+          <div><dt>Coups</dt><dd id="brief-moves">—</dd></div>
+          <div><dt>Difficulté</dt><dd id="brief-difficulty">—</dd></div>
+          <div><dt>Record</dt><dd id="brief-best">—</dd></div>
+        </dl>
+        <button class="btn btn-primary btn-lg" id="btn-start">Jouer</button>
+      </div>
+    </section>
+
+    <!-- ============ JEU ============ -->
+    <section class="screen" id="screen-game">
+      <header class="topbar">
+        <button class="icon-btn" data-nav="map" aria-label="Quitter le niveau">‹</button>
+        <span class="topbar-title">Niveau <b id="hud-level">1</b></span>
+        <span class="pill" id="hud-moves">0</span>
+      </header>
+
+      <div class="hud">
+        <div class="hud-row">
+          <div class="hud-stat">
+            <span class="hud-label">Temps</span>
+            <b id="hud-time">0:00</b>
+          </div>
+          <div class="hud-stat">
+            <span class="hud-label">Blocs</span>
+            <b id="hud-blocks">0</b>
+          </div>
+          <div class="hud-stat hud-stat-stars">
+            <span class="hud-label">Étoiles</span>
+            <div class="stars" id="hud-stars"></div>
+          </div>
+        </div>
+        <div class="time-track"><i id="hud-time-fill"></i></div>
+      </div>
+
+      <div class="board-wrap">
+        <div class="board" id="board">
+          <div class="grid-layer"></div>
+          <div class="gate-layer"></div>
+          <div class="block-layer"></div>
+          <div class="fx-layer"></div>
+        </div>
+      </div>
+
+      <div class="game-actions">
+        <button class="action" id="btn-hint" title="Désigne le prochain bloc à jouer">
+          <span class="action-icon">💡</span>
+          <span class="action-cost" id="hint-cost">50</span>
+        </button>
+        <button class="action" id="btn-hammer" title="Retire un bloc de votre choix">
+          <span class="action-icon">🔨</span>
+          <span class="action-cost ad">Pub</span>
+        </button>
+        <button class="action" id="btn-time" title="Ajoute 30 secondes">
+          <span class="action-icon">⏱</span>
+          <span class="action-cost ad">Pub</span>
+        </button>
+        <button class="action" id="btn-undo" title="Annule le dernier geste">
+          <span class="action-icon">↶</span>
+          <span class="action-cost ad">Pub</span>
+        </button>
+        <button class="action action-plain" id="btn-restart" title="Recommencer le niveau">
+          <span class="action-icon">↺</span>
+        </button>
+      </div>
+      <div class="toast" id="toast" hidden></div>
+    </section>
+
+    <!-- ============ RESULTAT ============ -->
+    <div class="overlay" id="overlay-result" hidden>
+      <div class="result-card">
+        <h2 id="result-title">Niveau terminé</h2>
+        <div class="stars stars-lg" id="result-stars"></div>
+        <p class="result-score"><span id="result-score">0</span><small>points</small></p>
+        <p class="result-near" id="result-near" hidden></p>
+        <p class="result-reward" id="result-reward"></p>
+        <button class="btn btn-reward" id="btn-double" hidden>
+          <span>▶</span> Doubler les pièces
+        </button>
+        <div class="result-actions">
+          <button class="btn btn-ghost" id="btn-result-map">Carte</button>
+          <button class="btn btn-ghost" id="btn-result-retry">Rejouer</button>
+          <button class="btn btn-primary" id="btn-result-next">Suivant</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ EDITEUR DE NIVEAUX ============ -->
+    <section class="screen" id="screen-editor">
+      <header class="topbar">
+        <button class="icon-btn" data-nav="menu" aria-label="Retour au menu">‹</button>
+        <span class="topbar-title">Éditeur</span>
+        <span></span>
+      </header>
+
+      <div class="ed-scroll">
+        <div class="ed-grid-wrap"><div class="ed-grid" id="ed-grid"></div></div>
+        <p class="ed-status" id="ed-status"></p>
+
+        <div class="ed-section">
+          <span class="ed-legend">Forme</span>
+          <div class="ed-row" id="ed-shapes"></div>
+        </div>
+        <div class="ed-section">
+          <span class="ed-legend">Couleur</span>
+          <div class="ed-row" id="ed-colors"></div>
+        </div>
+        <div class="ed-section">
+          <span class="ed-legend">Nature</span>
+          <div class="ed-row ed-wrap" id="ed-kinds"></div>
+        </div>
+        <div class="ed-section">
+          <span class="ed-legend">Grille</span>
+          <div class="ed-row">
+            <label class="ed-num">Largeur <input type="number" id="ed-w" min="4" max="8" value="6"></label>
+            <label class="ed-num">Hauteur <input type="number" id="ed-h" min="4" max="9" value="7"></label>
+          </div>
+        </div>
+
+        <div class="ed-actions">
+          <button class="btn btn-ghost btn-sm" id="ed-check">Vérifier</button>
+          <button class="btn btn-primary btn-sm" id="ed-test">Tester</button>
+          <button class="btn btn-ghost btn-sm" id="ed-export">Exporter</button>
+          <button class="btn btn-ghost btn-sm" id="ed-import">Importer</button>
+          <button class="btn btn-ghost btn-sm" id="ed-clear">Vider</button>
+        </div>
+        <textarea class="ed-json" id="ed-json" hidden placeholder="JSON du niveau"></textarea>
+      </div>
+    </section>
+
+    <!-- ============ OFFRE DE CONTINUATION ============ -->
+    <div class="overlay" id="overlay-offer" hidden>
+      <div class="offer-card">
+        <h2 id="offer-reason">Le temps est écoulé</h2>
+        <p class="offer-lead">Il ne reste que <b id="offer-remaining">0</b> blocs à sortir.</p>
+        <p class="offer-bonus">Continuez avec <b id="offer-bonus">+30 s et +3 coups</b></p>
+        <div class="offer-actions">
+          <button class="btn btn-reward btn-lg" id="btn-offer-ad"><span>▶</span> Regarder une pub</button>
+          <button class="btn btn-ghost btn-lg" id="btn-offer-coins">
+            Payer <b id="offer-coins-cost">120</b> pièces
+          </button>
+          <button class="btn btn-ghost" id="btn-offer-give-up">Abandonner</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PUBLICITE SIMULEE ============ -->
+    <div class="overlay ad-overlay" id="overlay-ad" hidden>
+      <div class="ad-card">
+        <span class="ad-tag">Emplacement publicitaire</span>
+        <h2 class="ad-title">Publicité</h2>
+        <div class="ad-visual"><span class="ad-count">5</span></div>
+        <p class="ad-note"></p>
+        <button class="btn btn-primary ad-close" hidden>Fermer</button>
+      </div>
+    </div>
+
+    <!-- ============ BANNIERE ============ -->
+    <div class="banner" id="banner" hidden>
+      <span class="banner-tag">Pub</span>
+      <span class="banner-text">Emplacement bannière 320×50</span>
+    </div>
+
+    <!-- ============ DEBUG ============ -->
+    <button class="debug-toggle" id="debug-toggle" title="Panneau de debug">⚙</button>
+    <div class="debug-panel" id="debug-panel" hidden>
+      <label>Aller au niveau
+        <input type="number" id="debug-level" min="1" max="20" value="1">
+      </label>
+      <div class="debug-actions">
+        <button class="btn btn-ghost btn-sm" id="debug-go">Charger</button>
+        <button class="btn btn-ghost btn-sm" id="debug-win">Gagner</button>
+        <button class="btn btn-ghost btn-sm" id="debug-lose">Perdre</button>
+        <button class="btn btn-ghost btn-sm" id="debug-solve">Résoudre</button>
+        <button class="btn btn-ghost btn-sm" id="debug-unlock">Tout débloquer</button>
+        <button class="btn btn-ghost btn-sm" id="debug-speed">Animations ×5</button>
+        <button class="btn btn-ghost btn-sm" id="debug-noads">Activer sans-pub</button>
+        <button class="btn btn-ghost btn-sm" id="debug-coins">+500 pièces</button>
+        <button class="btn btn-ghost btn-sm" id="debug-events">Journal analytics</button>
+        <button class="btn btn-ghost btn-sm" id="debug-editor">Éditeur de niveaux</button>
+      </div>
+      <p class="debug-info" id="debug-info"></p>
+      <ol class="debug-events" id="debug-events-list" hidden></ol>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const __m_block = (() => {
+/**
+ * Block — équivalent de Scripts/Gameplay/BlockController.cs (doc §4)
+ *
+ * Donnée pure, aucun accès au DOM. Un bloc est un polyomino : une liste de
+ * cases relatives, une couleur, une position d'origine sur la grille.
+ */
+
+/**
+ * Nature d'un bloc. Les trois derniers types sont les "effets" du jeu ; ils
+ * reprennent des mécaniques éprouvées du genre plutôt que d'en inventer :
+ *
+ *  - RAIL   : un bloc monté sur glissière, qui ne bouge que sur un axe. C'est
+ *             la mécanique de Rush Hour, et de loin la plus efficace pour
+ *             créer de la difficulté sans ajouter de règle à expliquer.
+ *  - JOKER  : un bloc multicolore qui sort par n'importe quelle porte. Sert de
+ *             soupape : il détend une grille trop contrainte.
+ *  - LOCKED : un bloc scellé jusqu'à ce que N blocs soient sortis. La condition
+ *             est un simple décompte, affiché sur le bloc — le joueur doit
+ *             pouvoir lire ce qui l'ouvrira sans le deviner.
+ */
+const KIND = Object.freeze({
+  NORMAL: 'normal',
+  WALL: 'wall',
+  LOCKED: 'locked',
+  RAIL: 'rail',
+  JOKER: 'joker',
+});
+
+/** Types qu'un joueur peut saisir (les murs, non). */
+const DEPLACABLES = new Set([KIND.NORMAL, KIND.LOCKED, KIND.RAIL, KIND.JOKER]);
+
+/**
+ * Palette. Le glyphe n'est pas décoratif : il est repris à l'identique sur la
+ * porte correspondante, pour que l'appariement bloc/porte reste lisible sans
+ * dépendre de la couleur (daltonisme).
+ */
+const COLORS = Object.freeze([
+  { id: 0, name: 'Rubis', glyph: '●' },
+  { id: 1, name: 'Saphir', glyph: '◆' },
+  { id: 2, name: 'Émeraude', glyph: '▲' },
+  { id: 3, name: 'Ambre', glyph: '★' },
+  { id: 4, name: 'Améthyste', glyph: '■' },
+  { id: 5, name: 'Topaze', glyph: '⬢' },
+]);
+
+/**
+ * Formes disponibles. `cells` liste les cases relatives ; `w`/`h` l'encombrement.
+ * Une forme ne peut sortir que par une porte au moins aussi large que son
+ * encombrement perpendiculaire à la sortie.
+ */
+const SHAPES = Object.freeze([
+  { key: 'i1', cells: [[0, 0]] },
+  { key: 'i2h', cells: [[0, 0], [1, 0]] },
+  { key: 'i2v', cells: [[0, 0], [0, 1]] },
+  { key: 'i3h', cells: [[0, 0], [1, 0], [2, 0]] },
+  { key: 'i3v', cells: [[0, 0], [0, 1], [0, 2]] },
+  { key: 'o4', cells: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+  { key: 'l3a', cells: [[0, 0], [0, 1], [1, 1]] },
+  { key: 'l3b', cells: [[1, 0], [0, 1], [1, 1]] },
+  { key: 'l3c', cells: [[0, 0], [1, 0], [0, 1]] },
+  { key: 'l3d', cells: [[0, 0], [1, 0], [1, 1]] },
+  { key: 't4', cells: [[0, 0], [1, 0], [2, 0], [1, 1]] },
+].map((s) => ({
+  ...s,
+  w: Math.max(...s.cells.map((c) => c[0])) + 1,
+  h: Math.max(...s.cells.map((c) => c[1])) + 1,
+})));
+
+let nextId = 1;
+
+class Block {
+  /** @param {{id?, color, cells, x, y, kind?, condition?}} data */
+  constructor(data) {
+    this.id = data.id ?? nextId++;
+    this.color = data.color;
+    this.cells = data.cells.map(([dx, dy]) => [dx, dy]);
+    this.x = data.x;
+    this.y = data.y;
+    this.kind = data.kind || KIND.NORMAL;
+    /**
+     * Axe autorisé pour un bloc RAIL : 'h' (horizontal) ou 'v' (vertical).
+     */
+    this.axis = data.axis || null;
+    /**
+     * Condition de déverrouillage d'un bloc LOCKED :
+     *   { type: 'exits', count: n } — n blocs doivent être sortis
+     *
+     * Le générateur n'émet que ce type. Une condition liée à une couleur
+     * ("toute la couleur ▲ sortie") est indevinable en cours de partie : le
+     * joueur ne sait pas combien de blocs de cette couleur restent, ni si le
+     * bloc verrouillé compte lui-même. Le décompte, lui, se lit sur le bloc.
+     * Le format couleur reste accepté pour les niveaux écrits à la main.
+     */
+    this.condition = data.condition || null;
+  }
+
+  /** Cases absolues occupées sur la grille. */
+  absolute() {
+    return this.cells.map(([dx, dy]) => [this.x + dx, this.y + dy]);
+  }
+
+  get width() { return Math.max(...this.cells.map((c) => c[0])) + 1; }
+  get height() { return Math.max(...this.cells.map((c) => c[1])) + 1; }
+
+  /** Lignes (resp. colonnes) couvertes — sert à tester le passage d'une porte. */
+  rows() { return [...new Set(this.cells.map((c) => this.y + c[1]))]; }
+  cols() { return [...new Set(this.cells.map((c) => this.x + c[0]))]; }
+
+  clone() {
+    return new Block({ id: this.id, color: this.color, cells: this.cells, x: this.x, y: this.y,
+                       kind: this.kind, axis: this.axis, condition: this.condition });
+  }
+}
+
+function resetBlockIds() { nextId = 1; }
+
+return { resetBlockIds, Block, KIND, DEPLACABLES, COLORS, SHAPES };
+})();
+
+const __m_gameState = (() => {
+/**
+ * GameState — équivalent de Scripts/Gameplay/GameState.cs (doc §4)
+ *
+ * Machine à états minimale du niveau en cours. La logique de plateau
+ * (core/board.js) ne connaît que ces trois valeurs, exactement comme
+ * l'enum C# `GameState { PLAYING, WON, FAILED }` du document.
+ */
+
+const GameState = Object.freeze({
+  PLAYING: 'PLAYING',
+  WON: 'WON',
+  FAILED: 'FAILED',
+});
+
+/** Transitions autorisées : un niveau terminé ne repart jamais en PLAYING. */
+const ALLOWED = {
+  PLAYING: ['WON', 'FAILED'],
+  WON: [],
+  FAILED: [],
+};
+
+function canTransition(from, to) {
+  return (ALLOWED[from] || []).includes(to);
+}
+
+return { canTransition, GameState };
+})();
+
+const __m_board = (() => {
+/**
+ * BoardManager — équivalent de Scripts/Gameplay/BoardManager.cs (doc §5.1)
+ *
+ * Puzzle de blocs à faire sortir par des portes de couleur. Le document
+ * technique appelait déjà cette condition de victoire `AreAllDoorsComplete()` :
+ * ici elle est réellement implémentée — la grille est résolue quand tous les
+ * blocs déplaçables sont sortis par une porte de leur couleur.
+ *
+ * REGLE D'OR : aucun accès au DOM. Chaque geste produit des évènements
+ * ({type:'move'|'exit'|'unlock'|'blocked'}) que render/boardView.js rejoue en
+ * animation. C'est ce qui rend cette logique testable sous Node et son portage
+ * en C# mécanique.
+ */
+
+const { Block, KIND, DEPLACABLES } = __m_block;
+const { GameState } = __m_gameState;
+
+/** Les quatre côtés, avec leur vecteur de sortie. */
+const SIDES = Object.freeze({
+  top: [0, -1],
+  right: [1, 0],
+  bottom: [0, 1],
+  left: [-1, 0],
+});
+
+class Board {
+  /** @param {object} level  objet niveau au format `GET /api/level/{n}` */
+  constructor(level) {
+    this.level = level;
+    this.W = level.width;
+    this.H = level.height;
+    this.gates = level.gates.map((g) => ({ ...g }));
+
+    this.blocks = new Map();
+    for (const data of level.blocks) this.blocks.set(data.id, new Block(data));
+
+    this.movesRemaining = level.moveLimit;
+    this.timeRemaining = level.timeLimit;
+    this.exited = [];          // ids sortis, dans l'ordre
+    this.gameState = GameState.PLAYING;
+
+    this._occupancy = new Map();
+    this._reindex();
+  }
+
+  // --- Occupation de la grille --------------------------------------------
+
+  _key(x, y) { return y * this.W + x; }
+
+  _reindex() {
+    this._occupancy.clear();
+    for (const b of this.blocks.values()) {
+      for (const [x, y] of b.absolute()) this._occupancy.set(this._key(x, y), b.id);
+    }
+  }
+
+  blockAt(x, y) {
+    const id = this._occupancy.get(this._key(x, y));
+    return id === undefined ? null : this.blocks.get(id);
+  }
+
+  inside(x, y) { return x >= 0 && x < this.W && y >= 0 && y < this.H; }
+
+  // --- Verrouillage --------------------------------------------------------
+
+  /** Un bloc verrouillé le reste tant que sa condition n'est pas remplie. */
+  conditionMet(block) {
+    const c = block.condition;
+    if (!c) return true;
+    if (c.type === 'exits') return this.exited.length >= c.count;
+    if (c.type === 'color') {
+      for (const b of this.blocks.values()) if (b.color === c.color) return false;
+      return true;
+    }
+    return true;
+  }
+
+  canMove(block) {
+    if (!block || !DEPLACABLES.has(block.kind)) return false;
+    if (block.kind === KIND.LOCKED) return this.conditionMet(block);
+    return true;
+  }
+
+  /** Ce bloc accepte-t-il un déplacement dans cette direction ? */
+  accepteDirection(block, dx, dy) {
+    if (block.kind !== KIND.RAIL) return true;
+    return block.axis === 'h' ? dy === 0 : dx === 0;
+  }
+
+  /** Combien de blocs restent à sortir avant l'ouverture d'un verrou. */
+  restantAvantOuverture(block) {
+    const c = block.condition;
+    if (!c || c.type !== 'exits') return 0;
+    return Math.max(0, c.count - this.exited.length);
+  }
+
+  /** Blocs qui viennent de se déverrouiller — pour l'animation et le HUD. */
+  _collectUnlocks() {
+    const out = [];
+    for (const b of this.blocks.values()) {
+      if (b.kind !== KIND.LOCKED) continue;
+      const met = this.conditionMet(b);
+      if (met && !b._wasUnlocked) { b._wasUnlocked = true; out.push({ type: 'unlock', id: b.id }); }
+      else if (!met) b._wasUnlocked = false;
+    }
+    return out;
+  }
+
+  // --- Déplacement ---------------------------------------------------------
+
+  /**
+   * Déplace un bloc d'une case. Si le pas sort de la grille, tente la sortie
+   * par une porte.
+   * @returns {{ok:boolean, event?:object, reason?:string}}
+   */
+  step(id, dx, dy) {
+    const block = this.blocks.get(id);
+    if (!block) return { ok: false, reason: 'inconnu' };
+    if (this.gameState !== GameState.PLAYING) return { ok: false, reason: 'terminé' };
+    if (!this.canMove(block)) return { ok: false, reason: 'verrouillé' };
+    if (!this.accepteDirection(block, dx, dy)) return { ok: false, reason: 'glissière' };
+
+    const cible = block.absolute().map(([x, y]) => [x + dx, y + dy]);
+    const sort = cible.some(([x, y]) => !this.inside(x, y));
+
+    if (sort) {
+      const porte = this._gateFor(block, dx, dy);
+      if (!porte) return { ok: false, reason: 'mur' };
+      return { ok: true, event: this._exit(block, porte, dx, dy) };
+    }
+
+    for (const [x, y] of cible) {
+      const occupant = this._occupancy.get(this._key(x, y));
+      if (occupant !== undefined && occupant !== id) return { ok: false, reason: 'occupé' };
+    }
+
+    block.x += dx;
+    block.y += dy;
+    this._reindex();
+    return { ok: true, event: { type: 'move', id, x: block.x, y: block.y } };
+  }
+
+  /**
+   * La porte qui laisserait sortir ce bloc dans cette direction, ou null.
+   * Le bloc doit être plaqué contre le mur ET tenir entièrement dans la porte :
+   * une forme de 2 cases de large ne passe pas par une porte de 1.
+   */
+  _gateFor(block, dx, dy) {
+    const side = dx === 1 ? 'right' : dx === -1 ? 'left' : dy === 1 ? 'bottom' : 'top';
+
+    const cells = block.absolute();
+    const plaque =
+      side === 'right' ? Math.max(...cells.map((c) => c[0])) === this.W - 1 :
+      side === 'left' ? Math.min(...cells.map((c) => c[0])) === 0 :
+      side === 'bottom' ? Math.max(...cells.map((c) => c[1])) === this.H - 1 :
+      Math.min(...cells.map((c) => c[1])) === 0;
+    if (!plaque) return null;
+
+    const travers = side === 'left' || side === 'right' ? block.rows() : block.cols();
+    for (const gate of this.gates) {
+      // Un JOKER sort par n'importe quelle porte : c'est tout son intérêt.
+      const couleurOk = block.kind === KIND.JOKER || gate.color === block.color;
+      if (gate.side !== side || !couleurOk) continue;
+      // Porte saturée : elle n'accepte plus ce bloc.
+      if (gate.capacity !== undefined && gate.capacity < block.cells.length) continue;
+      const couvre = travers.every((v) => v >= gate.start && v < gate.start + gate.length);
+      if (couvre) return gate;
+    }
+    return null;
+  }
+
+  _exit(block, gate, dx, dy) {
+    this.blocks.delete(block.id);
+    this.exited.push(block.id);
+    if (gate.capacity !== undefined) gate.capacity -= block.cells.length;
+    this._reindex();
+    return { type: 'exit', id: block.id, gate, dx, dy, restants: this.remaining() };
+  }
+
+  // --- Geste complet -------------------------------------------------------
+
+  /**
+   * Fait avancer un bloc vers une position visée, case par case, en préférant
+   * l'axe où il reste le plus de chemin. C'est le comportement attendu d'un
+   * glissé au doigt : le bloc suit, contourne si besoin, s'arrête sur obstacle.
+   * @returns {{events:Array, exited:boolean}}
+   */
+  dragTowards(id, targetX, targetY, maxPas = 24) {
+    const events = [];
+    for (let i = 0; i < maxPas; i++) {
+      const block = this.blocks.get(id);
+      if (!block) break;
+      const ex = targetX - block.x;
+      const ey = targetY - block.y;
+      if (ex === 0 && ey === 0) break;
+
+      const essais = Math.abs(ex) >= Math.abs(ey)
+        ? [[Math.sign(ex), 0], [0, Math.sign(ey)]]
+        : [[0, Math.sign(ey)], [Math.sign(ex), 0]];
+
+      let avance = false;
+      for (const [dx, dy] of essais) {
+        if (dx === 0 && dy === 0) continue;
+        const r = this.step(id, dx, dy);
+        if (r.ok) { events.push(r.event); avance = true; if (r.event.type === 'exit') return { events, exited: true }; break; }
+      }
+      if (!avance) break;
+    }
+    return { events, exited: false };
+  }
+
+  /** Clôt un geste : décompte un coup s'il a réellement déplacé quelque chose. */
+  endGesture(aBouge) {
+    const events = [];
+    if (!aBouge) return events;
+    this.movesRemaining--;
+    events.push(...this._collectUnlocks());
+    this._settle(events);
+    return events;
+  }
+
+  /** Écoulement du temps, appelé par la boucle de jeu (1 s). */
+  tick(seconds = 1) {
+    if (this.gameState !== GameState.PLAYING) return [];
+    this.timeRemaining = Math.max(0, this.timeRemaining - seconds);
+    const events = [];
+    this._settle(events);
+    return events;
+  }
+
+  // --- Historique et bonus -------------------------------------------------
+
+  /**
+   * Mémorise un état pour l'annulation. On peut passer un instantané pris plus
+   * tôt : l'appelant photographie AVANT de tenter le geste, puis n'empile que
+   * si le geste a réellement abouti — sinon un glissé bloqué rendrait le bouton
+   * « annuler » actif sans rien avoir à annuler.
+   */
+  memoriser(snap = null) {
+    if (!this._historique) this._historique = [];
+    this._historique.push(snap || this.snapshot());
+    if (this._historique.length > 30) this._historique.shift();
+  }
+
+  peutAnnuler() { return !!this._historique?.length; }
+
+  /** Bonus "annuler" : revient à l'état d'avant le dernier geste. */
+  annuler() {
+    const snap = this._historique?.pop();
+    if (!snap) return false;
+    this.restore(snap);
+    return true;
+  }
+
+  /** Bonus "marteau" : retire un bloc sans qu'il ait à rejoindre sa porte. */
+  briser(id) {
+    const bloc = this.blocks.get(id);
+    if (!bloc || bloc.kind === KIND.WALL) return null;
+    this.memoriser();
+    this.blocks.delete(id);
+    this.exited.push(id);
+    this._reindex();
+    const evts = this._collectUnlocks();
+    this._settle(evts);
+    return { type: 'smash', id, evts, restants: this.remaining() };
+  }
+
+  /** Bonus "temps" : rallonge le chronomètre. */
+  ajouterTemps(secondes) {
+    this.timeRemaining += secondes;
+  }
+
+  // --- Instantané ----------------------------------------------------------
+
+  /**
+   * Photographie l'état des blocs. Sert à explorer des coups sans les jouer
+   * (mesure d'équilibrage aujourd'hui, annulation et indices demain).
+   */
+  snapshot() {
+    // On garde les objets Block eux-mêmes : une simulation peut faire sortir un
+    // bloc, et il faut pouvoir le remettre en place ensuite.
+    return {
+      blocs: [...this.blocks.values()].map((b) => ({ b, x: b.x, y: b.y })),
+      sortis: [...this.exited],
+      coups: this.movesRemaining,
+      etat: this.gameState,
+      // La capacité des portes se consomme : sans elle dans l'instantané,
+      // une annulation rendrait le bloc mais pas la place dans sa porte.
+      capacites: this.gates.map((g) => g.capacity),
+    };
+  }
+
+  restore(snap) {
+    this.blocks.clear();
+    for (const { b, x, y } of snap.blocs) { b.x = x; b.y = y; this.blocks.set(b.id, b); }
+    this.exited = [...snap.sortis];
+    this.movesRemaining = snap.coups;
+    this.gameState = snap.etat;
+    this.gates.forEach((g, i) => { g.capacity = snap.capacites[i]; });
+    this._reindex();
+  }
+
+  /**
+   * Prochain bloc à jouer, d'après la solution de référence.
+   *
+   * Le joueur a pu s'écarter de l'ordre canonique : on ne se contente donc pas
+   * de lire la solution, on VERIFIE en simulant que le bloc proposé peut
+   * réellement sortir dans l'état actuel de la grille. C'est ce qui rend
+   * l'indice fiable — et donc vendable.
+   *
+   * @returns {{id:number, gate:string, chemin:Array}|null}
+   */
+  hint() {
+    // Niveau écrit dans l'éditeur : pas de solution de référence, on interroge
+    // le solveur.
+    if (!this.level.solution?.length) {
+      const { resoudre } = this._solveur || {};
+      if (!resoudre) return null;
+      const r = resoudre(this);
+      return r.resoluble ? { id: r.ordre[0], gate: null, chemin: [] } : null;
+    }
+    for (const etape of this.level.solution) {
+      const bloc = this.blocks.get(etape.id);
+      if (!bloc || !this.canMove(bloc)) continue;
+
+      const snap = this.snapshot();
+      for (const pos of etape.chemin.slice(1)) this.dragTowards(etape.id, pos.x, pos.y);
+      let sort = !this.blocks.has(etape.id);
+      if (!sort) {
+        const [dx, dy] = SIDES[etape.gate];
+        sort = this.step(etape.id, dx, dy).ok;
+      }
+      this.restore(snap);
+      if (sort) return { id: etape.id, gate: etape.gate, chemin: etape.chemin };
+    }
+    return null;
+  }
+
+  // --- Fin de niveau -------------------------------------------------------
+
+  /** Blocs restant à sortir (les murs ne comptent pas). */
+  remaining() {
+    let n = 0;
+    for (const b of this.blocks.values()) if (b.kind !== KIND.WALL) n++;
+    return n;
+  }
+
+  isSolved() { return this.remaining() === 0; }
+
+  _settle(events) {
+    if (this.isSolved()) { this.gameState = GameState.WON; return; }
+    if (this.movesRemaining <= 0) { this.gameState = GameState.FAILED; this.failReason = 'coups'; return; }
+    if (this.timeRemaining <= 0) { this.gameState = GameState.FAILED; this.failReason = 'temps'; }
+  }
+
+  /** Glissés réellement consommés depuis le début du niveau. */
+  dragsUsed() { return this.level.moveLimit - this.movesRemaining; }
+
+  /**
+   * 0 à 3 étoiles. 1★ = niveau résolu ; 2★ et 3★ mesurent l'économie de gestes
+   * par rapport à la solution de référence (`starDrags`). Le chrono et la
+   * limite de coups restent des conditions de défaite, pas des barèmes : mêler
+   * les deux rendait la note illisible.
+   */
+  stars() {
+    if (!this.isSolved()) return 0;
+    const [pour3, pour2] = this.level.starDrags;
+    const utilises = this.dragsUsed();
+    if (utilises <= pour3) return 3;
+    if (utilises <= pour2) return 2;
+    return 1;
+  }
+}
+
+return { Board, SIDES };
+})();
+
+const __m_levels = (() => {
+/**
+ * LevelManager — équivalent de Scripts/Gameplay/LevelManager.cs (doc §4)
+ *
+ * Les niveaux sont générés A L'ENVERS, et c'est le point important : au lieu de
+ * poser des blocs au hasard en espérant que ce soit jouable, on fait ENTRER
+ * chaque bloc par sa porte puis on le fait reculer dans la grille. Un niveau
+ * ainsi construit est résoluble par construction, et la marche arrière fournit
+ * gratuitement une solution de référence — utilisée par les tests, par
+ * l'équilibrage, et disponible pour un futur système d'indices.
+ *
+ * L'ordre de résolution est l'inverse de l'ordre de pose : le dernier bloc posé
+ * sort en premier, et son chemin est libre puisqu'il a été creusé alors que
+ * seuls les blocs précédents étaient là.
+ *
+ * Le RNG est seedé : le niveau n produit toujours la même grille.
+ * Chaque objet respecte la forme de `GET /api/level/{levelNumber}` (doc §6.1).
+ */
+
+const { SHAPES, KIND } = __m_block;
+const { Board, SIDES: VECTEURS } = __m_board;
+
+const TOTAL_LEVELS = 20;
+const LEVELS_PER_REALM = 5;
+
+const REALMS = [
+  { id: 0, name: 'Atelier de Verre', difficulty: 'facile' },
+  { id: 1, name: 'Fonderie', difficulty: 'moyen' },
+  { id: 2, name: 'Chambre Froide', difficulty: 'difficile' },
+  { id: 3, name: 'Tour de Contrôle', difficulty: 'expert' },
+];
+
+const SIDES = ['top', 'right', 'bottom', 'left'];
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
+const shuffled = (rng, arr) => {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+};
+
+/** Courbe de difficulté. Constantes de tuning, à ajuster après playtest. */
+function curve(n) {
+  // La DENSITE fait la difficulté, pas la longueur des chemins : un bloc isolé
+  // rejoint toujours sa porte d'un seul glissé. Ce qui fait réfléchir, c'est
+  // que les blocs se gênent et imposent un ordre de sortie. On vise donc une
+  // grille bien remplie (55 à 70 % des cases occupées).
+  const palier =
+    n <= 4 ? { W: 5, H: 6, colorCount: 3, gateCount: 3, murs: 0, verrous: 0, rails: 1, jokers: 0 } :
+    n <= 10 ? { W: 6, H: 7, colorCount: 4, gateCount: 4, murs: 1, verrous: 1, rails: 4, jokers: 1 } :
+    n <= 15 ? { W: 6, H: 7, colorCount: 5, gateCount: 5, murs: 2, verrous: 1, rails: 6, jokers: 1 } :
+              { W: 6, H: 8, colorCount: 5, gateCount: 5, murs: 3, verrous: 2, rails: 8, jokers: 1 };
+
+  // Le nombre de blocs monte en rampe continue plutôt que par paliers : sinon
+  // le premier niveau d'un nouveau monde double brutalement de charge.
+  //
+  // `marge` est le nombre de cases de rab accordé aux portes à capacité. Sans
+  // capacité, aucun ordre de sortie ne peut être mauvais — sortir un bloc ne
+  // fait que libérer de la place — et le niveau se résout au premier essai
+  // quelle que soit la méthode. La capacité est le seul levier qui crée un
+  // vrai casse-tête ; la marge décroissante en règle la sévérité.
+  return {
+    ...palier,
+    blockCount: Math.round(7 + (n - 1) * 0.5),
+    recul: [6, n <= 10 ? 11 : 14],
+    capacite: n >= 8,
+    marge: n >= 16 ? 1 : 2,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Grille de travail
+// ---------------------------------------------------------------------------
+
+class Grille {
+  constructor(W, H) { this.W = W; this.H = H; this.occ = new Map(); }
+  key(x, y) { return y * this.W + x; }
+  inside(x, y) { return x >= 0 && x < this.W && y >= 0 && y < this.H; }
+  libre(cells, sauf) {
+    return cells.every(([x, y]) => {
+      if (!this.inside(x, y)) return false;
+      const o = this.occ.get(this.key(x, y));
+      return o === undefined || o === sauf;
+    });
+  }
+  poser(id, cells) { for (const [x, y] of cells) this.occ.set(this.key(x, y), id); }
+  retirer(cells) { for (const [x, y] of cells) this.occ.delete(this.key(x, y)); }
+}
+
+const absolute = (shape, x, y) => shape.cells.map(([dx, dy]) => [x + dx, y + dy]);
+
+/** Portes : réparties sur les côtés, sans chevauchement, chaque couleur servie. */
+function makeGates({ W, H, colorCount, gateCount }, rng) {
+  const gates = [];
+  const parSide = { top: [], right: [], bottom: [], left: [] };
+  const longueurDe = (side) => (side === 'top' || side === 'bottom' ? W : H);
+
+  const couleurs = shuffled(rng, [...Array(colorCount).keys()]);
+  for (let i = 0; i < gateCount; i++) {
+    const color = couleurs[i % colorCount];
+    for (let essai = 0; essai < 40; essai++) {
+      const side = pick(rng, SIDES);
+      const max = longueurDe(side);
+      const length = Math.min(max, rng() < 0.35 ? 3 : 2);
+      const start = Math.floor(rng() * (max - length + 1));
+      const chevauche = parSide[side].some((g) => start < g.start + g.length && g.start < start + length);
+      if (chevauche) continue;
+      const gate = { side, start, length, color };
+      parSide[side].push(gate);
+      gates.push(gate);
+      break;
+    }
+  }
+  return gates;
+}
+
+/**
+ * Distance d'une forme à sa porte, en cases. C'est la mesure que la marche
+ * arrière cherche à maximiser : un bloc posé juste devant sa porte ne pose
+ * aucune question au joueur.
+ */
+function distanceALaPorte(gate, shape, x, y, W, H) {
+  if (gate.side === 'right') return W - (x + shape.w);
+  if (gate.side === 'left') return x;
+  if (gate.side === 'bottom') return H - (y + shape.h);
+  return y;
+}
+
+/** Position de pose d'une forme, plaquée dans l'ouverture d'une porte. */
+function poseAuPorte(gate, shape, W, H, rng) {
+  if (shape.w > (gate.side === 'top' || gate.side === 'bottom' ? gate.length : W)) return null;
+  if (shape.h > (gate.side === 'left' || gate.side === 'right' ? gate.length : H)) return null;
+
+  if (gate.side === 'right') {
+    if (shape.h > gate.length) return null;
+    return { x: W - shape.w, y: gate.start + Math.floor(rng() * (gate.length - shape.h + 1)) };
+  }
+  if (gate.side === 'left') {
+    if (shape.h > gate.length) return null;
+    return { x: 0, y: gate.start + Math.floor(rng() * (gate.length - shape.h + 1)) };
+  }
+  if (gate.side === 'bottom') {
+    if (shape.w > gate.length) return null;
+    return { x: gate.start + Math.floor(rng() * (gate.length - shape.w + 1)), y: H - shape.h };
+  }
+  if (shape.w > gate.length) return null;
+  return { x: gate.start + Math.floor(rng() * (gate.length - shape.w + 1)), y: 0 };
+}
+
+/**
+ * Nombre de GESTES réellement nécessaires pour résoudre le niveau.
+ *
+ * On ne peut pas le déduire des virages du chemin : un doigt qui suit un tracé
+ * en L fait tourner le bloc en un seul glissé, le moteur avançant case par case
+ * vers la position visée. Compter les changements de direction surestimait donc
+ * le coût de 60 %, et les seuils d'étoiles devenaient inatteignables à l'envers
+ * — tout le monde décrochait 3★.
+ *
+ * On mesure : pour chaque bloc, on cherche le point le plus lointain de son
+ * chemin atteignable d'un seul geste, on le joue, et on recommence.
+ */
+function mesureGestes(base) {
+  const b = new Board({ ...base, moveLimit: 9999, timeLimit: 9999, starDrags: [0, 0] });
+  let gestes = 0;
+
+  for (const etape of base.solution) {
+    const chemin = etape.chemin;
+    const dernier = chemin.length - 1;
+    let pos = 0;
+    let garde = 0;
+
+    while (pos < dernier && garde++ < 40) {
+      let atteint = pos;
+      for (let j = dernier; j > pos; j--) {
+        const snap = b.snapshot();
+        b.dragTowards(etape.id, chemin[j].x, chemin[j].y);
+        const bloc = b.blocks.get(etape.id);
+        const ok = bloc && bloc.x === chemin[j].x && bloc.y === chemin[j].y;
+        b.restore(snap);
+        if (ok) { atteint = j; break; }
+      }
+      if (atteint === pos) atteint = pos + 1; // sécurité : on avance d'un cran
+      b.dragTowards(etape.id, chemin[atteint].x, chemin[atteint].y);
+      gestes++;
+      pos = atteint;
+    }
+
+    // La sortie prolonge le dernier glissé : le doigt ne se relève pas.
+    if (b.blocks.has(etape.id)) {
+      const [dx, dy] = VECTEURS[etape.gate];
+      if (b.step(etape.id, dx, dy).ok && pos === 0) gestes++;
+    }
+    b.endGesture(true);
+  }
+  return Math.max(base.solution.length, gestes);
+}
+
+// ---------------------------------------------------------------------------
+
+function build(n) {
+  const rng = mulberry32(0x5eed * n + 1013904223);
+  const p = curve(n);
+  const { W, H } = p;
+
+  // On explore plusieurs grilles et on garde la PLUS DENSE : la difficulté de
+  // ce genre vient de l'encombrement, et se contenter de la première grille
+  // acceptable donnait des niveaux à moitié vides.
+  let meilleure = null;
+  for (let tentative = 0; tentative < 220; tentative++) {
+    const grille = new Grille(W, H);
+    const gates = makeGates(p, rng);
+    if (gates.length === 0) continue;
+    const blocks = [];
+    let idSuivant = 1;
+
+    // Murs d'abord : les chemins des blocs seront creusés en les évitant.
+    for (let i = 0; i < p.murs; i++) {
+      const x = 1 + Math.floor(rng() * (W - 2));
+      const y = 1 + Math.floor(rng() * (H - 2));
+      if (!grille.libre([[x, y]])) continue;
+      const b = { id: idSuivant++, color: -1, cells: [[0, 0]], x, y, kind: KIND.WALL };
+      grille.poser(b.id, [[x, y]]);
+      blocks.push(b);
+    }
+
+    // Pose à l'envers : entrée par la porte, puis recul dans la grille.
+    const poses = [];
+    let railsPoses = 0;
+
+    for (let i = 0; i < p.blockCount; i++) {
+      // Plusieurs tentatives par bloc : on garde la première qui éloigne
+      // suffisamment le bloc de sa porte, sinon la meilleure obtenue. Rejeter
+      // sèchement une pose trop proche faisait perdre des blocs et rendait la
+      // génération impossible sur les grilles denses.
+      let meilleurEssai = null;
+
+      for (let essai = 0; essai < 8 && (!meilleurEssai || meilleurEssai.eloignement < 3); essai++) {
+        const ordre = [gates[(i + essai) % gates.length], ...shuffled(rng, gates)];
+        let pose = null;
+        let gate = null;
+
+        for (const candidate of ordre) {
+          for (const shape of shuffled(rng, SHAPES)) {
+            const at = poseAuPorte(candidate, shape, W, H, rng);
+            if (!at) continue;
+            if (!grille.libre(absolute(shape, at.x, at.y))) continue;
+            pose = { shape, x: at.x, y: at.y };
+            gate = candidate;
+            break;
+          }
+          if (pose) break;
+        }
+        if (!pose) break; // plus de place du tout : inutile d'insister
+
+        const id = idSuivant++;
+        let { x, y } = pose;
+        grille.poser(id, absolute(pose.shape, x, y));
+        const chemin = [{ x, y }];
+
+        // Bloc sur glissière : il n'ira que sur l'axe de sa porte. On contraint
+        // donc aussi sa marche arrière, sinon le chemin retour serait injouable.
+        const axeDeLaPorte = gate.side === 'left' || gate.side === 'right' ? 'h' : 'v';
+        const surGlissiere = railsPoses < p.rails && rng() < 0.55;
+        const axe = surGlissiere ? axeDeLaPorte : null;
+
+        // Marche arrière ORIENTEE : à chaque pas on privilégie la direction qui
+        // ELOIGNE le bloc de sa porte. Une marche purement aléatoire le laissait
+        // à une ou deux cases de sa sortie, et le niveau se jouait tout seul.
+        const reculs = p.recul[0] + Math.floor(rng() * (p.recul[1] - p.recul[0] + 1));
+        for (let r = 0; r < reculs; r++) {
+          const toutes = axe === 'h' ? [[1, 0], [-1, 0]]
+            : axe === 'v' ? [[0, 1], [0, -1]]
+            : [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+          const legales = toutes.filter(([dx, dy]) =>
+            grille.libre(absolute(pose.shape, x + dx, y + dy), id));
+          if (!legales.length) break;
+
+          // 80 % du temps on s'éloigne, sinon au hasard : sans ce grain d'aléa
+          // tous les blocs filent en ligne droite vers le fond de la grille.
+          const choisi = rng() < 0.8
+            ? legales.reduce((meilleur, d) =>
+                distanceALaPorte(gate, pose.shape, x + d[0], y + d[1], W, H) >
+                distanceALaPorte(gate, pose.shape, x + meilleur[0], y + meilleur[1], W, H) ? d : meilleur)
+            : pick(rng, legales);
+
+          grille.retirer(absolute(pose.shape, x, y));
+          x += choisi[0]; y += choisi[1];
+          grille.poser(id, absolute(pose.shape, x, y));
+          chemin.push({ x, y });
+        }
+
+        const eloignement = distanceALaPorte(gate, pose.shape, x, y, W, H);
+        const candidat = { id, gate, chemin, pose, x, y, axe, eloignement, surGlissiere };
+
+        if (!meilleurEssai || eloignement > meilleurEssai.eloignement) {
+          if (meilleurEssai) grille.retirer(absolute(meilleurEssai.pose.shape, meilleurEssai.x, meilleurEssai.y));
+          meilleurEssai = candidat;
+        } else {
+          grille.retirer(absolute(pose.shape, x, y));
+        }
+      }
+
+      // Un bloc qui touche encore sa porte n'apporte rien au casse-tête.
+      if (!meilleurEssai || meilleurEssai.eloignement < 1 || meilleurEssai.chemin.length < 2) {
+        if (meilleurEssai) grille.retirer(absolute(meilleurEssai.pose.shape, meilleurEssai.x, meilleurEssai.y));
+        continue;
+      }
+
+      const { id, gate, chemin, pose, x, y, axe, surGlissiere } = meilleurEssai;
+      if (surGlissiere) railsPoses++;
+      blocks.push({
+        id, color: gate.color, cells: pose.shape.cells, x, y,
+        kind: axe ? KIND.RAIL : KIND.NORMAL,
+        axis: axe,
+      });
+      poses.push({ id, gate, chemin });
+    }
+
+    if (poses.length < Math.max(5, p.blockCount - 6)) continue;
+
+    // Solution de référence : dernier posé sorti en premier.
+    const solution = [...poses].reverse().map(({ id, gate, chemin }) => ({
+      id, gate: gate.side, chemin: [...chemin].reverse(),
+    }));
+
+    // Verrous : un bloc ne peut être verrouillé que par une condition déjà
+    // remplie au moment où la solution lui demande de bouger.
+    const parId = new Map(blocks.map((b) => [b.id, b]));
+    let poses_verrouillees = 0;
+    for (let rang = solution.length - 1; rang >= 0 && poses_verrouillees < p.verrous; rang--) {
+      const sortisAvant = rang; // nombre de blocs qui sortent avant celui-ci
+      if (sortisAvant < 2) continue;
+      const b = parId.get(solution[rang].id);
+      if (!b || b.kind !== KIND.NORMAL) continue;
+
+      // Uniquement un décompte : le joueur doit pouvoir LIRE ce qui ouvrira le
+      // bloc. Une condition du type "toute la couleur ▲ sortie" est indevinable
+      // en cours de partie et se lit comme un bug.
+      b.kind = KIND.LOCKED;
+      b.axis = null;
+      b.condition = { type: 'exits', count: Math.min(sortisAvant, 2 + Math.floor(rng() * 3)) };
+      poses_verrouillees++;
+    }
+
+    // Jokers : un bloc normal devient multicolore. Toujours sûr pour la
+    // résolubilité — un joker accepte sa porte d'origine comme toutes les autres.
+    let jokersPoses = 0;
+    for (const s of shuffled(rng, solution)) {
+      if (jokersPoses >= p.jokers) break;
+      const b = parId.get(s.id);
+      if (!b || b.kind !== KIND.NORMAL) continue;
+      b.kind = KIND.JOKER;
+      jokersPoses++;
+    }
+
+    // Capacité des portes : chaque porte n'accepte que le nombre de cases que
+    // la solution de référence lui destine, plus une petite marge. Router un
+    // bloc vers la mauvaise porte de la bonne couleur devient alors une erreur
+    // — c'est ce qui transforme la grille en énigme.
+    if (p.capacite) {
+      const demande = new Map(gates.map((g) => [g, 0]));
+      let quotaJokers = 0;
+      for (const pose of poses) {
+        const b = parId.get(pose.id);
+        if (b.kind === KIND.JOKER) { quotaJokers += b.cells.length; continue; }
+        demande.set(pose.gate, demande.get(pose.gate) + b.cells.length);
+      }
+      // Le joker sort par la porte qu'il veut : si son quota n'était compté que
+      // sur sa porte d'origine, l'envoyer ailleurs affamerait cette autre porte
+      // et rendrait le niveau infaisable — sans que le joueur puisse le prévoir.
+      // On provisionne donc sa taille sur TOUTES les portes.
+      for (const g of gates) {
+        const besoin = demande.get(g) || 0;
+        if (besoin > 0) g.capacity = besoin + quotaJokers + p.marge;
+      }
+    }
+
+    const occupees = blocks.reduce((sum, b) => sum + b.cells.length, 0);
+    const eloignementMoyen = poses.reduce((sum, pose) => {
+      const b = parId.get(pose.id);
+      const forme = { w: Math.max(...b.cells.map((c) => c[0])) + 1, h: Math.max(...b.cells.map((c) => c[1])) + 1 };
+      return sum + distanceALaPorte(pose.gate, forme, b.x, b.y, W, H);
+    }, 0) / Math.max(1, poses.length);
+
+    // On note une grille sur sa densité ET sur l'éloignement des blocs à leur
+    // porte : une grille pleine mais dont chaque bloc touche déjà sa sortie
+    // n'est pas un niveau.
+    const note = occupees / (W * H) + eloignementMoyen / 8;
+    if (!meilleure || note > meilleure.note) {
+      meilleure = { W, H, gates, blocks, solution, occupees, note, eloignementMoyen, colorCount: p.colorCount };
+    }
+    if (occupees / (W * H) >= 0.6 && eloignementMoyen >= 3.2) break;
+  }
+
+  if (!meilleure) return null;
+  meilleure.minDrags = mesureGestes({
+    width: meilleure.W, height: meilleure.H, gates: meilleure.gates,
+    blocks: meilleure.blocks, solution: meilleure.solution,
+  });
+  return meilleure;
+}
+
+const cache = new Map();
+
+/** Retourne la data du niveau `n` (1-indexé). */
+function getLevel(n) {
+  if (cache.has(n)) return cache.get(n);
+  const g = build(n);
+  if (!g) throw new Error(`Génération impossible pour le niveau ${n}`);
+
+  const realm = REALMS[Math.min(REALMS.length - 1, Math.floor((n - 1) / LEVELS_PER_REALM))];
+  const serre = 1 - Math.min(0.3, 0.016 * (n - 1)); // les marges se resserrent
+  const moveLimit = Math.max(g.minDrags + 5, Math.ceil(g.minDrags * 1.7 * serre) + 1);
+  // Le temps se joue sur la réflexion, pas sur le nombre de gestes : on le cale
+  // sur le nombre de blocs à sortir. Registre casual : une à deux minutes.
+  const jouables = g.blocks.filter((b) => b.kind !== KIND.WALL).length;
+  const timeLimit = Math.min(120, Math.max(40, Math.round((jouables * 7 + 15) * serre / 5) * 5));
+
+  const level = {
+    levelId: `lvl_${String(n).padStart(3, '0')}`,
+    number: n,
+    realm: realm.name,
+    difficulty: realm.difficulty,
+    width: g.W,
+    height: g.H,
+    colorCount: g.colorCount,
+    moveLimit,
+    timeLimit,
+    minDrags: g.minDrags,
+    objective: { type: 'clear_all', target: g.blocks.filter((b) => b.kind !== KIND.WALL).length },
+    /**
+     * Nombre maximal de glissés pour décrocher 3★ puis 2★, indexé sur la
+     * solution de référence. Une fraction de `moveLimit` ne marchait pas : la
+     * limite de coups se resserrant avec la progression, un joueur parfait
+     * plafonnait à 2★ passé le niveau 7. Ici, bien jouer paie à tout niveau.
+     */
+    starDrags: [Math.ceil(g.minDrags * 1.3), Math.ceil(g.minDrags * 1.8)],
+    estimatedTime: timeLimit,
+    gates: g.gates,
+    blocks: g.blocks,
+    solution: g.solution, // sert aux tests, à l'équilibrage et aux futurs indices
+  };
+  cache.set(n, level);
+  return level;
+}
+
+/** Libellé de l'objectif, pour le pré-niveau et le HUD. */
+function objectiveLabel(level) {
+  const n = level.objective.target;
+  return `Faire sortir les ${n} blocs`;
+}
+
+return { getLevel, objectiveLabel, TOTAL_LEVELS, LEVELS_PER_REALM, REALMS };
+})();
+
+const __m_solver = (() => {
+/**
+ * Solveur — recherche d'un ordre de sortie qui vide la grille.
+ *
+ * Sert à deux choses :
+ *  - l'éditeur, qui doit pouvoir dire si un niveau dessiné à la main tient
+ *    debout AVANT qu'on le donne à un joueur ;
+ *  - les tests, où il vérifie la résolubilité des niveaux générés SANS se
+ *    servir de la solution de référence, donc de façon réellement indépendante.
+ *
+ * Portée de la recherche : on cherche dans quel ORDRE sortir les blocs, chaque
+ * bloc rejoignant sa porte par un chemin trouvé en largeur. On n'explore pas
+ * les déplacements d'appoint — pousser un bloc de côté sans le sortir pour
+ * dégager un passage. Un « non résolu » signifie donc « aucune solution de
+ * cette forme », pas « insoluble » : le message le dit.
+ */
+
+const { KIND } = __m_block;
+
+const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+/**
+ * Toutes les portes que ce bloc peut rejoindre, une option par porte.
+ *
+ * Il faut bien les énumérer TOUTES : un joker sort par n'importe quelle porte,
+ * et avec des portes à capacité le choix de la sortie change tout. Ne retenir
+ * que la première porte trouvée faisait déclarer insolubles des niveaux qui ne
+ * l'étaient pas.
+ *
+ * @returns {Array<{x,y,dx,dy,gate}>}
+ */
+function sortiesPossibles(board, id) {
+  const bloc = board.blocks.get(id);
+  if (!bloc || !board.canMove(bloc)) return [];
+
+  const depart = { x: bloc.x, y: bloc.y };
+  const vus = new Set([`${bloc.x},${bloc.y}`]);
+  const file = [[bloc.x, bloc.y]];
+  const parPorte = new Map();
+
+  while (file.length) {
+    const [x, y] = file.shift();
+    bloc.x = x; bloc.y = y;
+    board._reindex();
+
+    for (const [dx, dy] of DIRS) {
+      if (!board.accepteDirection(bloc, dx, dy)) continue;
+
+      const porte = board._gateFor(bloc, dx, dy);
+      if (porte) {
+        if (!parPorte.has(porte)) parPorte.set(porte, { x, y, dx, dy, gate: porte });
+        continue;
+      }
+
+      const cible = bloc.absolute().map(([cx, cy]) => [cx + dx, cy + dy]);
+      if (cible.some(([cx, cy]) => !board.inside(cx, cy))) continue;
+      const libre = cible.every(([cx, cy]) => {
+        const occ = board._occupancy.get(board._key(cx, cy));
+        return occ === undefined || occ === id;
+      });
+      if (!libre) continue;
+
+      const k = `${x + dx},${y + dy}`;
+      if (!vus.has(k)) { vus.add(k); file.push([x + dx, y + dy]); }
+    }
+  }
+
+  bloc.x = depart.x; bloc.y = depart.y;
+  board._reindex();
+  return [...parPorte.values()];
+}
+
+/**
+ * @param {Board} board  plateau à résoudre (restitué intact)
+ * @returns {{resoluble:boolean, ordre:number[], etats:number, abandon:boolean}}
+ *          `abandon` signale que la recherche a été coupée par la limite.
+ */
+function resoudre(board, maxEtats = 40000) {
+  const depart = board.snapshot();
+  const vus = new Set();
+  let etats = 0;
+  let abandon = false;
+
+  // La clé doit inclure la capacité restante des portes : deux configurations
+  // de blocs identiques mais avec des portes différemment entamées ne sont pas
+  // le même état.
+  const cle = () => [...board.blocks.values()]
+    .map((b) => `${b.id}:${b.x},${b.y}`).sort().join('|')
+    + '#' + board.gates.map((g) => g.capacity ?? '-').join(',');
+
+  function explorer() {
+    if (board.remaining() === 0) return [];
+    if (etats++ > maxEtats) { abandon = true; return null; }
+    const k = cle();
+    if (vus.has(k)) return null;
+    vus.add(k);
+
+    for (const bloc of [...board.blocks.values()]) {
+      if (bloc.kind === KIND.WALL) continue;
+
+      for (const sortie of sortiesPossibles(board, bloc.id)) {
+        const snap = board.snapshot();
+        bloc.x = sortie.x; bloc.y = sortie.y;
+        board._reindex();
+        const r = board.step(bloc.id, sortie.dx, sortie.dy);
+        if (!r.ok || r.event.type !== 'exit') { board.restore(snap); continue; }
+
+        const suite = explorer();
+        if (suite) return [bloc.id, ...suite];
+        board.restore(snap);
+        if (abandon) return null;
+      }
+    }
+    return null;
+  }
+
+  const ordre = explorer();
+  board.restore(depart);
+  return { resoluble: !!ordre, ordre: ordre || [], etats, abandon };
+}
+
+return { resoudre };
+})();
+
+const __m_save = (() => {
+/**
+ * DataManager — équivalent de Scripts/Utilities/DataManager.cs (doc §4)
+ *
+ * Sauvegarde locale. Dans le jeu final, ce store est le cache local que
+ * CloudSaveManager synchronise avec le backend ; ici il fait autorité.
+ * Tous les accès sont protégés : navigation privée, quota plein ou stockage
+ * bloqué ne doivent jamais casser le jeu.
+ */
+
+const KEY = 'puzzlequest.save.v1';
+
+const EMPTY = () => ({
+  version: 2,
+  unlockedLevel: 1,
+  coins: 150,        // pécule de départ : le joueur peut goûter aux indices
+  xp: 0,
+  levels: {},        // numéro -> { stars, bestScore }
+  noAds: false,      // achat "supprimer les pubs" (doc §5.3, PRODUCT_NO_ADS)
+  streak: 0,         // jours consécutifs joués
+  lastPlayDay: null, // 'YYYY-MM-DD'
+  dailyClaimedOn: null,
+  createdAt: new Date().toISOString(),
+  lastPlayedAt: null,
+});
+
+let cached = null;
+
+function load() {
+  if (cached) return cached;
+  try {
+    const raw = localStorage.getItem(KEY);
+    cached = raw ? { ...EMPTY(), ...JSON.parse(raw) } : EMPTY();
+  } catch {
+    cached = EMPTY();
+  }
+  return cached;
+}
+
+function save(data) {
+  cached = data;
+  try {
+    localStorage.setItem(KEY, JSON.stringify(data));
+  } catch {
+    /* stockage indisponible : la partie en cours reste jouable */
+  }
+  return cached;
+}
+
+function reset() {
+  cached = EMPTY();
+  try {
+    localStorage.removeItem(KEY);
+  } catch { /* ignore */ }
+  return cached;
+}
+
+function levelRecord(n) {
+  return load().levels[n] || { stars: 0, bestScore: 0 };
+}
+
+function totalStars() {
+  return Object.values(load().levels).reduce((s, l) => s + l.stars, 0);
+}
+
+function isUnlocked(n) {
+  return n <= load().unlockedLevel;
+}
+
+return { load, save, reset, levelRecord, totalStars, isUnlocked };
+})();
+
+const __m_events = (() => {
+/**
+ * EventTracker — équivalent de Scripts/Backend/EventTracker.cs (doc §4)
+ *
+ * Journal d'évènements analytics. Les noms sont exactement ceux listés au §6.1
+ * du document (`level_started`, `ad_watched`, …) : brancher Firebase Analytics
+ * ou AppsFlyer reviendra à remplacer le corps de `track()`.
+ *
+ * Sans ce journal, aucun réglage publicitaire n'est pilotable : on ne saurait
+ * pas combien de pubs sont réellement affichées, ni à quel moment les joueurs
+ * abandonnent.
+ */
+
+const MAX = 200; // le prototype ne garde qu'une fenêtre récente
+
+const journal = [];
+const abonnes = new Set();
+const sessionId = `s_${Date.now().toString(36)}`;
+
+/** POST /api/event/track — asynchrone, ne bloque jamais le jeu. */
+function track(eventName, eventData = {}) {
+  const entree = {
+    eventName,
+    eventData,
+    timestamp: new Date().toISOString(),
+    sessionId,
+  };
+  journal.push(entree);
+  if (journal.length > MAX) journal.shift();
+  for (const fn of abonnes) fn(entree);
+  return entree;
+}
+
+function recent(n = 40) {
+  return journal.slice(-n).reverse();
+}
+
+function subscribe(fn) {
+  abonnes.add(fn);
+  return () => abonnes.delete(fn);
+}
+
+/** Compte les occurrences d'un évènement — utilisé par le cadencement des pubs. */
+function count(eventName) {
+  return journal.reduce((n, e) => n + (e.eventName === eventName ? 1 : 0), 0);
+}
+
+const SESSION_ID = sessionId;
+
+return { track, recent, subscribe, count, SESSION_ID };
+})();
+
+const __m_currency = (() => {
+/**
+ * CurrencyManager — équivalent de Scripts/Monetization/CurrencyManager.cs (doc §4)
+ * Porte-monnaie du joueur. Toute dépense passe par ici, pour qu'un seul endroit
+ * décide de ce qui est payable et journalise la transaction.
+ */
+
+const store = __m_save;
+const { track } = __m_events;
+
+/** Tarifs. Constantes de tuning, à ajuster après playtest. */
+const PRIX = Object.freeze({
+  INDICE: 50,
+  CONTINUER: 120,
+});
+
+function solde() { return store.load().coins; }
+
+function crediter(montant, source) {
+  const d = store.load();
+  d.coins += montant;
+  store.save(d);
+  track('currency_earned', { montant, source, solde: d.coins });
+  return d.coins;
+}
+
+/** @returns {boolean} vrai si la dépense a été honorée. */
+function debiter(montant, motif) {
+  const d = store.load();
+  if (d.coins < montant) {
+    track('currency_insufficient', { montant, motif, solde: d.coins });
+    return false;
+  }
+  d.coins -= montant;
+  store.save(d);
+  track('currency_spent', { montant, motif, solde: d.coins });
+  return true;
+}
+
+function peutPayer(montant) { return store.load().coins >= montant; }
+
+/** Achat "supprimer les pubs" (doc §5.3, PRODUCT_NO_ADS). */
+function aSupprimeLesPubs() { return store.load().noAds === true; }
+
+function definirSuppressionPubs(valeur) {
+  const d = store.load();
+  d.noAds = valeur;
+  store.save(d);
+  track('iap_purchased', { productId: 'com.puzzle.no.ads', actif: valeur });
+}
+
+return { solde, crediter, debiter, peutPayer, aSupprimeLesPubs, definirSuppressionPubs, PRIX };
+})();
+
+const __m_adPolicy = (() => {
+/**
+ * Politique d'affichage publicitaire — logique pure, sans SDK ni DOM.
+ *
+ * C'est ici que se joue l'essentiel : intégrer AppLovin MAX est mécanique
+ * (doc §5.2), décider QUAND montrer une pub ne l'est pas. Une interstitielle
+ * de trop au mauvais moment fait plus de dégâts en rétention qu'elle ne
+ * rapporte, et les premières minutes d'un joueur sont les plus fragiles.
+ *
+ * Séparée du reste pour être testable sous Node : voir tools/test.mjs.
+ */
+
+const REGLES = Object.freeze({
+  /** Aucune interstitielle avant ce niveau : on laisse le joueur s'attacher. */
+  NIVEAU_MIN: 3,
+  /** Délai plancher entre deux interstitielles. */
+  INTERVALLE_MIN_MS: 90_000,
+  /** Une interstitielle une fin de niveau sur N. */
+  FINS_PAR_PUB: 2,
+  /** Après une pub récompensée, on laisse respirer. */
+  DELAI_APRES_RECOMPENSE_MS: 45_000,
+  /**
+   * Jamais d'interstitielle sur la première défaite d'un niveau : c'est
+   * exactement le moment où le joueur veut recommencer immédiatement, et
+   * l'interrompre là est le meilleur moyen de le faire quitter.
+   */
+  PAS_SUR_PREMIERE_DEFAITE: true,
+});
+
+/** Écrans où une bannière est acceptable. Jamais pendant une partie. */
+const ECRANS_BANNIERE = new Set(['menu', 'map', 'brief']);
+
+class AdPolicy {
+  constructor(regles = REGLES, now = () => Date.now()) {
+    this.regles = regles;
+    this.now = now;
+    this.derniereInterstitielle = 0;
+    this.derniereRecompensee = 0;
+    this.finsDepuisPub = 0;
+  }
+
+  /**
+   * @param {{niveau:number, noAds:boolean, premiereDefaiteDuNiveau:boolean}} ctx
+   * @returns {{ok:boolean, raison:string}} la raison sert au journal analytics
+   *          et au panneau QA : on doit pouvoir expliquer chaque pub non montrée.
+   */
+  peutAfficherInterstitiel(ctx) {
+    if (ctx.noAds) return { ok: false, raison: 'achat sans pub' };
+    if (ctx.niveau < this.regles.NIVEAU_MIN) return { ok: false, raison: `avant le niveau ${this.regles.NIVEAU_MIN}` };
+    if (this.regles.PAS_SUR_PREMIERE_DEFAITE && ctx.premiereDefaiteDuNiveau) {
+      return { ok: false, raison: 'première défaite du niveau' };
+    }
+    const t = this.now();
+    if (t - this.derniereInterstitielle < this.regles.INTERVALLE_MIN_MS) {
+      return { ok: false, raison: 'intervalle minimum non écoulé' };
+    }
+    if (t - this.derniereRecompensee < this.regles.DELAI_APRES_RECOMPENSE_MS) {
+      return { ok: false, raison: 'pub récompensée trop récente' };
+    }
+    if (this.finsDepuisPub < this.regles.FINS_PAR_PUB) {
+      return { ok: false, raison: `${this.finsDepuisPub}/${this.regles.FINS_PAR_PUB} fins de niveau` };
+    }
+    return { ok: true, raison: 'ok' };
+  }
+
+  /** À appeler à chaque fin de niveau, qu'une pub soit montrée ou non. */
+  noterFinDeNiveau() { this.finsDepuisPub++; }
+
+  noterInterstitiel() {
+    this.derniereInterstitielle = this.now();
+    this.finsDepuisPub = 0;
+  }
+
+  noterRecompensee() { this.derniereRecompensee = this.now(); }
+
+  /** Une bannière ne s'affiche que hors partie : pendant le jeu, elle vole de
+   *  la place au plateau et provoque des clics accidentels sur un glissé. */
+  peutAfficherBanniere(ecran, noAds) {
+    return !noAds && ECRANS_BANNIERE.has(ecran);
+  }
+}
+
+return { AdPolicy, REGLES };
+})();
+
+const __m_adManager = (() => {
+/**
+ * AdManager — équivalent de Scripts/Monetization/AdManager.cs (doc §5.2)
+ *
+ * Façade sur le réseau publicitaire. Les méthodes reprennent celles de
+ * l'intégration AppLovin MAX du document (`showRewardedAd`, `showInterstitial`,
+ * `showBanner`, `hideBanner`) : brancher le vrai SDK reviendra à remplacer le
+ * corps de `_jouer()` par les appels `MaxSdk`, sans toucher aux appelants.
+ *
+ * Ici, les pubs sont SIMULEES par un panneau plein écran avec décompte, pour que
+ * l'emplacement et le rythme soient jugeables avant tout contrat régie.
+ *
+ * Le cadencement vit dans adPolicy.js (logique pure, testée).
+ */
+
+const { AdPolicy } = __m_adPolicy;
+const { track } = __m_events;
+const currency = __m_currency;
+
+/** Emplacements, tels qu'ils remonteront dans les rapports de la régie. */
+const PLACEMENT = Object.freeze({
+  INTERSTITIEL_FIN_NIVEAU: 'interstitial_level_end',
+  RECOMPENSE_CONTINUER: 'rewarded_continue',
+  RECOMPENSE_DOUBLER: 'rewarded_double_coins',
+  RECOMPENSE_INDICE: 'rewarded_hint',
+  RECOMPENSE_MARTEAU: 'rewarded_hammer',
+  RECOMPENSE_TEMPS: 'rewarded_extra_time',
+  RECOMPENSE_ANNULER: 'rewarded_undo',
+  BANNIERE: 'banner_menu',
+});
+
+const DUREE_INTERSTITIEL = 5;  // secondes avant de pouvoir fermer
+const DUREE_RECOMPENSEE = 5;   // secondes à regarder pour toucher la récompense
+
+class AdManager {
+  constructor({ overlay, banner, policy } = {}) {
+    this.overlay = overlay;
+    this.banner = banner;
+    this.policy = policy || new AdPolicy();
+    this.enCours = false;
+    /** Simule l'indisponibilité d'inventaire (fill rate) — doc §10, "Low Fill Rates". */
+    this.tauxRemplissage = 1;
+  }
+
+  // --- Interstitielles -----------------------------------------------------
+
+  /**
+   * @returns {Promise<{montree:boolean, raison:string}>}
+   * Ne montre la pub que si la politique l'autorise. La raison du refus est
+   * journalisée : on doit pouvoir expliquer chaque pub non affichée.
+   */
+  async montrerInterstitiel(ctx) {
+    const verdict = this.policy.peutAfficherInterstitiel(ctx);
+    if (!verdict.ok) {
+      track('ad_skipped', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU, raison: verdict.raison });
+      return { montree: false, raison: verdict.raison };
+    }
+    if (Math.random() > this.tauxRemplissage) {
+      track('ad_no_fill', { adType: 'interstitial' });
+      return { montree: false, raison: 'inventaire indisponible' };
+    }
+
+    this.policy.noterInterstitiel();
+    track('ad_started', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU });
+    await this._jouer({ type: 'interstitial', duree: DUREE_INTERSTITIEL, titre: 'Publicité' });
+    track('ad_watched', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU, revenue: 0.012 });
+    return { montree: true, raison: 'ok' };
+  }
+
+  // --- Pubs récompensées ---------------------------------------------------
+
+  /** Toujours proposées, même après l'achat "sans pub" : elles sont choisies
+   *  par le joueur et lui rapportent quelque chose. */
+  estRecompenseePrete() { return Math.random() <= this.tauxRemplissage; }
+
+  /** @returns {Promise<boolean>} vrai si la récompense est due. */
+  async montrerRecompensee(placement) {
+    if (this.enCours) return false;
+    if (!this.estRecompenseePrete()) {
+      track('ad_no_fill', { adType: 'rewarded', placement });
+      return false;
+    }
+    track('ad_started', { adType: 'rewarded', placement });
+    const termine = await this._jouer({ type: 'rewarded', duree: DUREE_RECOMPENSEE, titre: 'Publicité récompensée' });
+    this.policy.noterRecompensee();
+    if (termine) track('ad_watched', { adType: 'rewarded', placement, revenue: 0.045 });
+    else track('ad_abandoned', { adType: 'rewarded', placement });
+    return termine;
+  }
+
+  // --- Bannière ------------------------------------------------------------
+
+  majBanniere(ecran) {
+    if (!this.banner) return;
+    const visible = this.policy.peutAfficherBanniere(ecran, currency.aSupprimeLesPubs());
+    this.banner.hidden = !visible;
+    if (visible) track('ad_impression', { adType: 'banner', placement: PLACEMENT.BANNIERE, ecran });
+  }
+
+  // --- Simulation ----------------------------------------------------------
+
+  /**
+   * Remplace intégralement les appels SDK. Affiche un panneau plein écran avec
+   * décompte ; pour une récompensée, la fermeture anticipée annule la récompense.
+   * @returns {Promise<boolean>} vrai si la pub est allée à son terme
+   */
+  _jouer({ type, duree, titre }) {
+    if (!this.overlay) return Promise.resolve(true);
+    this.enCours = true;
+
+    const titreEl = this.overlay.querySelector('.ad-title');
+    const compteur = this.overlay.querySelector('.ad-count');
+    const fermer = this.overlay.querySelector('.ad-close');
+    const note = this.overlay.querySelector('.ad-note');
+
+    titreEl.textContent = titre;
+    note.textContent = type === 'rewarded'
+      ? 'Regardez jusqu’au bout pour recevoir la récompense'
+      : 'Emplacement simulé — aucun réseau publicitaire n’est branché';
+    fermer.hidden = true;
+    this.overlay.hidden = false;
+
+    return new Promise((resolve) => {
+      let reste = duree;
+      compteur.textContent = reste;
+      const fin = (termine) => {
+        clearInterval(minuteur);
+        this.overlay.hidden = true;
+        this.enCours = false;
+        fermer.onclick = null;
+        resolve(termine);
+      };
+      const minuteur = setInterval(() => {
+        reste--;
+        compteur.textContent = Math.max(0, reste);
+        if (reste <= 0) {
+          fermer.hidden = false;
+          fermer.textContent = type === 'rewarded' ? 'Récupérer la récompense' : 'Fermer';
+          fermer.onclick = () => fin(true);
+          clearInterval(minuteur);
+        }
+      }, 1000);
+
+      // Une récompensée peut être abandonnée : bouton d'abandon après 2 s.
+      if (type === 'rewarded') {
+        setTimeout(() => {
+          if (!this.overlay.hidden && fermer.hidden) {
+            fermer.hidden = false;
+            fermer.textContent = 'Passer (sans récompense)';
+            fermer.onclick = () => fin(false);
+          }
+        }, 2000);
+      }
+    });
+  }
+}
+
+return { AdManager, PLACEMENT };
+})();
+
+const __m_daily = (() => {
+/**
+ * Série quotidienne et cadeau du jour.
+ *
+ * Le levier de rétention le plus efficace du casual, et le plus honnête : il
+ * récompense le fait de revenir, sans rien retirer à qui ne revient pas. Aucune
+ * pénalité, aucun compte à rebours anxiogène — juste une récompense croissante
+ * qui repart à zéro après un jour manqué.
+ */
+
+const store = __m_save;
+const { track } = __m_events;
+const currency = __m_currency;
+
+/** Paliers de récompense selon l'ancienneté de la série. */
+const PALIERS = [50, 75, 100, 150, 200, 300, 500];
+
+const jour = (decalage = 0) => {
+  const d = new Date();
+  d.setDate(d.getDate() + decalage);
+  return d.toISOString().slice(0, 10);
+};
+
+/** À appeler au démarrage. Met la série à jour et signale un nouveau jour. */
+function ouvrirSession() {
+  const d = store.load();
+  const aujourdhui = jour();
+  if (d.lastPlayDay === aujourdhui) {
+    track('session_started', { streak: d.streak, nouveauJour: false });
+    return { streak: d.streak, nouveauJour: false };
+  }
+  d.streak = d.lastPlayDay === jour(-1) ? d.streak + 1 : 1;
+  d.lastPlayDay = aujourdhui;
+  store.save(d);
+  track('session_started', { streak: d.streak, nouveauJour: true });
+  return { streak: d.streak, nouveauJour: true };
+}
+
+function serie() { return store.load().streak; }
+
+function recompenseDuJour() {
+  return PALIERS[Math.min(Math.max(1, serie()) - 1, PALIERS.length - 1)];
+}
+
+function peutReclamer() {
+  return store.load().dailyClaimedOn !== jour();
+}
+
+/** @returns {number|0} montant crédité, 0 si déjà réclamé aujourd'hui. */
+function reclamer() {
+  if (!peutReclamer()) return 0;
+  const d = store.load();
+  d.dailyClaimedOn = jour();
+  store.save(d);
+  const montant = recompenseDuJour();
+  currency.crediter(montant, 'daily_reward');
+  track('daily_reward_claimed', { streak: d.streak, montant });
+  return montant;
+}
+
+/** Récompense qu'aurait le joueur demain — sert à donner envie de revenir. */
+function recompenseDeDemain() {
+  return PALIERS[Math.min(serie(), PALIERS.length - 1)];
+}
+
+return { ouvrirSession, serie, recompenseDuJour, peutReclamer, reclamer, recompenseDeDemain };
+})();
+
+const __m_api = (() => {
+/**
+ * APIClient — équivalent de Scripts/Backend/APIClient.cs (doc §4)
+ *
+ * Façade sur les endpoints du doc §6.1, implémentée en local (localStorage).
+ * Les méthodes portent le nom et la forme de réponse des vraies routes REST et
+ * renvoient toutes des Promises : brancher le backend Node reviendra à
+ * remplacer le CORPS de ces fonctions par un `fetch`, sans toucher à un seul
+ * appelant.
+ */
+
+const store = __m_save;
+const { getLevel: buildLevel, TOTAL_LEVELS } = __m_levels;
+
+/** GET /api/user/profile */
+async function getProfile() {
+  const d = store.load();
+  return {
+    coins: d.coins,
+    xpTotal: d.xp,
+    currentLevel: d.unlockedLevel,
+    highestLevel: d.unlockedLevel,
+    totalStars: store.totalStars(),
+    maxStars: TOTAL_LEVELS * 3,
+  };
+}
+
+/** GET /api/level/{levelNumber} */
+async function getLevel(n) {
+  if (n < 1 || n > TOTAL_LEVELS) throw new Error(`Niveau ${n} introuvable`);
+  return buildLevel(n);
+}
+
+/**
+ * POST /api/level/{levelNumber}/complete
+ * @returns {{stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems}}
+ */
+async function completeLevel(n, { score, stars, failed }) {
+  const d = store.load();
+  d.lastPlayedAt = new Date().toISOString();
+
+  if (failed) {
+    store.save(d);
+    return { stars: 0, coinsEarned: 0, xpEarned: 0, nextLevelUnlocked: false, rewardItems: [] };
+  }
+
+  const prev = d.levels[n] || { stars: 0, bestScore: 0 };
+  const isNewStars = stars > prev.stars;
+  // `score` est ici un nombre de glissés : le meilleur record est le PLUS PETIT.
+  d.levels[n] = {
+    stars: Math.max(prev.stars, stars),
+    bestScore: prev.bestScore ? Math.min(prev.bestScore, score) : score,
+  };
+
+  // Les pièces ne sont versées que sur les étoiles NOUVELLES : rejouer un
+  // niveau déjà 3★ ne doit pas être une machine à monnaie.
+  const coinsEarned = isNewStars ? (stars - prev.stars) * 25 + 20 : 10;
+  const xpEarned = stars * 10;
+  d.coins += coinsEarned;
+  d.xp += xpEarned;
+
+  const nextLevelUnlocked = n === d.unlockedLevel && n < TOTAL_LEVELS;
+  if (nextLevelUnlocked) d.unlockedLevel = n + 1;
+
+  store.save(d);
+  return { stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems: [] };
+}
+
+return { getProfile, getLevel, completeLevel };
+})();
+
+const __m_boardView = (() => {
+/**
+ * BoardView — équivalent de Scripts/Animation/BlockAnimator.cs + VFXManager.cs
+ *
+ * Seul module autorisé à toucher le DOM du plateau. Il ne décide rien : il
+ * rejoue les évènements produits par core/board.js.
+ *
+ * Les blocs sont des polyominos : chaque case porte un arrondi calculé d'après
+ * ses voisines, ce qui donne une forme fusionnée d'un seul tenant plutôt qu'un
+ * chapelet de carrés.
+ */
+
+const { COLORS, KIND } = __m_block;
+
+const BASE_TIMING = { MOVE: 95, POP: 130, EXIT: 300, UNLOCK: 420, BUMP: 130 };
+const TIMING = { ...BASE_TIMING };
+
+function setSpeed(multiplier) {
+  for (const k of Object.keys(BASE_TIMING)) TIMING[k] = Math.max(1, Math.round(BASE_TIMING[k] * multiplier));
+  return TIMING;
+}
+if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) setSpeed(0.15);
+
+/**
+ * Attente d'animation. En arrière-plan on ne patiente pas : la logique du coup
+ * est déjà résolue, seul l'affichage reste à poser. Sans ce court-circuit,
+ * revenir dans l'app rejouerait toute l'animation au ralenti (les navigateurs
+ * bloquent les timers des pages cachées à une seconde minimum).
+ */
+const wait = (ms) => (document.hidden ? Promise.resolve() : new Promise((r) => setTimeout(r, ms)));
+
+const VECTEURS = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] };
+
+class BoardView {
+  constructor(root) {
+    this.root = root;
+    this.wrap = root.parentElement;
+    this.gateLayer = root.querySelector('.gate-layer');
+    this.blockLayer = root.querySelector('.block-layer');
+    this.fxLayer = root.querySelector('.fx-layer');
+    this.gridLayer = root.querySelector('.grid-layer');
+    this.nodes = new Map(); // id -> élément
+    this.board = null;
+    this.cell = 0;
+
+    this._ro = new ResizeObserver(() => this.layout());
+    this._ro.observe(this.wrap);
+  }
+
+  destroy() { this._ro.disconnect(); }
+
+  // --- Mise en page --------------------------------------------------------
+
+  layout() {
+    if (!this.board) return;
+    const { W, H } = this.board;
+    const mur = 14;
+    const dispoW = this.wrap.clientWidth - 2 * mur - 6;
+    const dispoH = this.wrap.clientHeight - 2 * mur - 6;
+    const cell = Math.max(24, Math.floor(Math.min(dispoW / W, dispoH / H)));
+
+    this.cell = cell;
+    this.root.style.setProperty('--cell', `${cell}px`);
+    this.root.style.setProperty('--wall', `${mur}px`);
+    this.root.style.width = `${cell * W}px`;
+    this.root.style.height = `${cell * H}px`;
+
+    for (const [id, node] of this.nodes) {
+      const b = this.board.blocks.get(id);
+      if (b) this._place(node, b.x, b.y);
+    }
+    this._drawGates();
+  }
+
+  _place(node, x, y) {
+    node.style.transform = `translate3d(${x * this.cell}px, ${y * this.cell}px, 0)`;
+  }
+
+  // --- Montage -------------------------------------------------------------
+
+  mount(board) {
+    this.board = board;
+    this.nodes.clear();
+    this.blockLayer.replaceChildren();
+    this.gateLayer.replaceChildren();
+    this.gridLayer.replaceChildren();
+    this.fxLayer.replaceChildren();
+
+    this.layout();
+
+    // Fond quadrillé : repère visuel pour anticiper les déplacements.
+    for (let y = 0; y < board.H; y++) {
+      for (let x = 0; x < board.W; x++) {
+        const c = document.createElement('div');
+        c.className = 'grid-cell';
+        this.gridLayer.appendChild(c);
+        this._place(c, x, y);
+      }
+    }
+
+    for (const b of board.blocks.values()) this._createBlock(b);
+    this._drawGates();
+  }
+
+  _drawGates() {
+    if (!this.board) return;
+    this.gateLayer.replaceChildren();
+    for (const g of this.board.gates) {
+      const el = document.createElement('div');
+      el.className = `gate gate-${g.side} c${g.color}`;
+      const long = `${g.length * this.cell}px`;
+      const debut = `${g.start * this.cell}px`;
+      if (g.side === 'top' || g.side === 'bottom') { el.style.left = debut; el.style.width = long; }
+      else { el.style.top = debut; el.style.height = long; }
+      const glyphe = document.createElement('span');
+      glyphe.textContent = COLORS[g.color]?.glyph ?? '';
+      el.appendChild(glyphe);
+
+      // Une porte à capacité limitée DOIT afficher ce qu'il lui reste :
+      // une contrainte invisible se lit comme un bug, pas comme une règle.
+      if (g.capacity !== undefined) {
+        const jauge = document.createElement('b');
+        jauge.className = 'gate-cap';
+        jauge.textContent = g.capacity;
+        el.appendChild(jauge);
+      }
+      this.gateLayer.appendChild(el);
+    }
+  }
+
+  _createBlock(b) {
+    const node = document.createElement('div');
+    node.className = `block k-${b.kind}`
+      + (b.color >= 0 && b.kind !== KIND.JOKER ? ` c${b.color}` : '')
+      + (b.kind === KIND.RAIL ? ` axis-${b.axis}` : '');
+    node.dataset.id = b.id;
+    node.style.width = `${b.width * this.cell}px`;
+    node.style.height = `${b.height * this.cell}px`;
+
+    const a = (dx, dy) => b.cells.some(([p, q]) => p === dx && q === dy);
+    for (const [dx, dy] of b.cells) {
+      const c = document.createElement('i');
+      c.className = 'block-cell';
+      c.style.left = `${dx * this.cell}px`;
+      c.style.top = `${dy * this.cell}px`;
+      // Le reflet est calé sur la BOÎTE DU BLOC, pas sur la case : chaque case
+      // n'en montre que sa portion, et la forme entière paraît d'un seul tenant.
+      c.style.backgroundSize = `${b.width * this.cell}px ${b.height * this.cell}px`;
+      c.style.backgroundPosition = `${-dx * this.cell}px ${-dy * this.cell}px`;
+      // Arrondi uniquement sur les coins réellement extérieurs à la forme.
+      const r = 'var(--bevel)';
+      c.style.borderTopLeftRadius = !a(dx, dy - 1) && !a(dx - 1, dy) ? r : '0';
+      c.style.borderTopRightRadius = !a(dx, dy - 1) && !a(dx + 1, dy) ? r : '0';
+      c.style.borderBottomLeftRadius = !a(dx, dy + 1) && !a(dx - 1, dy) ? r : '0';
+      c.style.borderBottomRightRadius = !a(dx, dy + 1) && !a(dx + 1, dy) ? r : '0';
+      node.appendChild(c);
+    }
+
+    if (b.kind !== KIND.WALL) {
+      const marque = document.createElement('span');
+      marque.className = 'block-mark';
+      const [gx, gy] = this._centreCell(b);
+      marque.style.left = `${gx * this.cell}px`;
+      marque.style.top = `${gy * this.cell}px`;
+      if (b.kind === KIND.LOCKED) {
+        // Cadenas et décompte tiennent DANS la case : une étiquette débordante
+        // recouvrait les blocs voisins et rendait la grille illisible.
+        marque.classList.add('locked-mark');
+        marque.innerHTML = '<span>🔒</span><b class="lock-count"></b>';
+      } else {
+        marque.textContent = b.kind === KIND.JOKER ? '✳' : COLORS[b.color].glyph;
+      }
+      node.appendChild(marque);
+    }
+
+    // Glissière : un rail traversant, qui dit d'un coup d'œil sur quel axe le
+    // bloc peut aller.
+    if (b.kind === KIND.RAIL) {
+      const rail = document.createElement('u');
+      rail.className = 'block-rail';
+      node.appendChild(rail);
+    }
+
+    if (b.kind === KIND.LOCKED) this._majVerrou(node, b);
+
+    this._place(node, b.x, b.y);
+    this.blockLayer.appendChild(node);
+    this.nodes.set(b.id, node);
+    return node;
+  }
+
+  /** Case de la forme la plus proche de son centre — pour poser le glyphe. */
+  _centreCell(b) {
+    const cx = (b.width - 1) / 2, cy = (b.height - 1) / 2;
+    let best = b.cells[0], d = Infinity;
+    for (const [dx, dy] of b.cells) {
+      const dd = (dx - cx) ** 2 + (dy - cy) ** 2;
+      if (dd < d) { d = dd; best = [dx, dy]; }
+    }
+    return best;
+  }
+
+  // --- Rejeu des évènements ------------------------------------------------
+
+  async apply(events) {
+    for (const e of events) {
+      if (e.type === 'move') {
+        const node = this.nodes.get(e.id);
+        if (node) this._place(node, e.x, e.y);
+      } else if (e.type === 'exit') {
+        await this._exit(e);
+      } else if (e.type === 'unlock') {
+        this._unlock(e.id);
+      }
+    }
+  }
+
+  /**
+   * Sortie d'un bloc, en deux temps : il se gonfle une fraction de seconde
+   * (l'accusé de réception du geste), puis file par la porte pendant qu'une
+   * gerbe d'étincelles part de l'ouverture. C'est le seul moment de
+   * récompense du jeu : il doit se voir.
+   */
+  async _exit(e) {
+    const node = this.nodes.get(e.id);
+    if (!node) return;
+    this.nodes.delete(e.id);
+    const base = node.style.transform;
+
+    node.classList.add('exiting');
+    node.style.transitionDuration = `${TIMING.POP}ms`;
+    node.style.transform = `${base} scale(1.09)`;
+    await wait(TIMING.POP);
+
+    this._flashGate(e.gate);
+    this._gerbe(e.gate, node);
+
+    node.style.transitionTimingFunction = 'cubic-bezier(.45,0,.85,.5)';
+    node.style.transitionDuration = `${TIMING.EXIT}ms`;
+    node.style.transform =
+      `${base} translate3d(${e.dx * this.cell * 2.6}px, ${e.dy * this.cell * 2.6}px, 0) scale(0.45)`;
+    node.style.opacity = '0';
+    await wait(TIMING.EXIT);
+    node.remove();
+  }
+
+  /** Centre d'une porte, en pixels du plateau. */
+  _centrePorte(gate) {
+    const milieu = (gate.start + gate.length / 2) * this.cell;
+    if (gate.side === 'top') return { x: milieu, y: 0 };
+    if (gate.side === 'bottom') return { x: milieu, y: this.board.H * this.cell };
+    if (gate.side === 'left') return { x: 0, y: milieu };
+    return { x: this.board.W * this.cell, y: milieu };
+  }
+
+  /** Anneau + étincelles à la porte, dans la couleur du bloc sorti. */
+  _gerbe(gate, source) {
+    const { x, y } = this._centrePorte(gate);
+    const teinte = getComputedStyle(source).getPropertyValue('--tile') || 'currentColor';
+
+    const anneau = document.createElement('div');
+    anneau.className = 'ring';
+    anneau.style.setProperty('--tile', teinte);
+    anneau.style.left = `${x}px`;
+    anneau.style.top = `${y}px`;
+    anneau.style.width = anneau.style.height = `${this.cell * 1.4}px`;
+    this.fxLayer.appendChild(anneau);
+    setTimeout(() => anneau.remove(), 560);
+
+    const normale = Math.atan2(
+      gate.side === 'bottom' ? 1 : gate.side === 'top' ? -1 : 0,
+      gate.side === 'right' ? 1 : gate.side === 'left' ? -1 : 0,
+    );
+    for (let i = 0; i < 10; i++) {
+      const angle = normale + (Math.random() - 0.5) * 2.1;
+      const dist = this.cell * (0.7 + Math.random() * 1.5);
+      const p = document.createElement('div');
+      p.className = 'spark';
+      p.style.setProperty('--tile', teinte);
+      p.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+      p.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
+      p.style.left = `${x}px`;
+      p.style.top = `${y}px`;
+      p.style.animationDelay = `${Math.random() * 70}ms`;
+      const taille = this.cell * (0.12 + Math.random() * 0.14);
+      p.style.width = p.style.height = `${taille}px`;
+      this.fxLayer.appendChild(p);
+      setTimeout(() => p.remove(), 700);
+    }
+  }
+
+  _flashGate(gate) {
+    const el = [...this.gateLayer.children].find((n) =>
+      n.classList.contains(`gate-${gate.side}`) && n.classList.contains(`c${gate.color}`));
+    if (!el) return;
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 420);
+  }
+
+  _unlock(id) {
+    const node = this.nodes.get(id);
+    if (!node) return;
+    node.classList.remove('k-locked');
+    node.classList.add('k-normal', 'unlocking');
+    const b = this.board.blocks.get(id);
+    const marque = node.querySelector('.block-mark');
+    if (marque && b) marque.textContent = COLORS[b.color].glyph;
+    node.querySelector('.block-cond')?.remove();
+    setTimeout(() => node.classList.remove('unlocking'), TIMING.UNLOCK);
+  }
+
+  /** Refus de déplacement : petite secousse, pour que l'échec soit lisible. */
+  bump(id) {
+    const node = this.nodes.get(id);
+    if (!node || node.classList.contains('bumping')) return;
+    node.classList.add('bumping');
+    setTimeout(() => node.classList.remove('bumping'), TIMING.BUMP * 2);
+  }
+
+  /**
+   * Rafraîchit les étiquettes de verrou. Le décompte doit descendre à chaque
+   * bloc sorti : c'est ce qui rend la condition lisible en cours de partie.
+   */
+  refreshLocks() {
+    for (const [id, node] of this.nodes) {
+      const b = this.board.blocks.get(id);
+      if (b && b.kind === KIND.LOCKED) this._majVerrou(node, b);
+    }
+  }
+
+  _majVerrou(node, b) {
+    const compteur = node.querySelector('.lock-count');
+    if (!compteur) return;
+    const reste = this.board.restantAvantOuverture(b);
+    compteur.textContent = reste > 0 ? reste : '';
+    node.classList.toggle('lock-open', reste === 0);
+  }
+
+  /** Rafraîchit les capacités restantes affichées sur les portes. */
+  refreshGates() {
+    const jauges = this.gateLayer.querySelectorAll('.gate');
+    this.board.gates.forEach((g, i) => {
+      const jauge = jauges[i]?.querySelector('.gate-cap');
+      if (!jauge) return;
+      jauge.textContent = g.capacity;
+      jauges[i].classList.toggle('gate-full', g.capacity <= 0);
+    });
+  }
+
+  /** Retire un bloc du plateau (marteau). */
+  async removeBlock(id) {
+    const node = this.nodes.get(id);
+    if (!node) return;
+    node.classList.add('smashed');
+    this.nodes.delete(id);
+    await wait(TIMING.EXIT);
+    node.remove();
+  }
+
+  /** Reconstruit l'affichage depuis l'état du plateau (annulation). */
+  resync() {
+    const board = this.board;
+    for (const [id, node] of [...this.nodes]) {
+      if (!board.blocks.has(id)) { node.remove(); this.nodes.delete(id); }
+    }
+    for (const b of board.blocks.values()) {
+      if (!this.nodes.has(b.id)) this._createBlock(b);
+      else this._place(this.nodes.get(b.id), b.x, b.y);
+    }
+    this.refreshLocks();
+  }
+
+  /** Met en évidence le bloc désigné par un indice. */
+  highlight(id) {
+    const node = this.nodes.get(id);
+    if (!node) return;
+    node.classList.add('hinted');
+    setTimeout(() => node.classList.remove('hinted'), 3400);
+  }
+
+  setGrabbed(id, on) {
+    this.nodes.get(id)?.classList.toggle('grabbed', on);
+  }
+
+  // --- Repérage ------------------------------------------------------------
+
+  /** Case de la grille sous un point écran (peut sortir des bornes). */
+  cellFromPoint(clientX, clientY) {
+    const r = this.root.getBoundingClientRect();
+    return {
+      x: Math.floor((clientX - r.left) / this.cell),
+      y: Math.floor((clientY - r.top) / this.cell),
+    };
+  }
+
+  blockIdFromPoint(clientX, clientY) {
+    const { x, y } = this.cellFromPoint(clientX, clientY);
+    if (!this.board.inside(x, y)) return null;
+    return this.board.blockAt(x, y)?.id ?? null;
+  }
+}
+
+/**
+ * Libellé d'une condition de déverrouillage. Avec un plateau en argument, on
+ * affiche ce qu'il RESTE à faire plutôt que la condition brute : « Encore 2 »
+ * se comprend en cours de partie, « 3 sortis » demande au joueur de compter.
+ */
+function conditionLabel(condition, board = null) {
+  if (!condition) return '';
+  if (condition.type === 'exits') {
+    if (!board) return `${condition.count} sortis`;
+    const reste = Math.max(0, condition.count - board.exited.length);
+    return reste === 0 ? 'Ouvert' : `Encore ${reste}`;
+  }
+  return `${COLORS[condition.color].glyph} fini`;
+}
+
+return { setSpeed, conditionLabel, BoardView, TIMING };
+})();
+
+const __m_input = (() => {
+/**
+ * InputHandler — équivalent de Scripts/Gameplay/InputHandler.cs (doc §4)
+ *
+ * Un seul geste : on attrape un bloc et on le fait glisser. Le bloc suit le
+ * doigt case par case et s'arrête sur le premier obstacle ; s'il arrive contre
+ * une porte de sa couleur, il sort.
+ *
+ * La position visée est recalculée à chaque mouvement à partir de la case
+ * saisie au départ, et non du dernier pas : sinon le bloc dérive quand le doigt
+ * passe sur des cases occupées.
+ */
+
+class InputHandler {
+  /**
+   * @param {BoardView} view
+   * @param {{onDrag:(id,x,y)=>void, onEnd:(id,bouge:boolean)=>void,
+   *          canGrab:(id)=>boolean, onRefus:(id)=>void}} hooks
+   */
+  constructor(view, hooks) {
+    this.view = view;
+    this.hooks = hooks;
+    this.locked = false;
+    this.drag = null;
+
+    this._down = this._onDown.bind(this);
+    this._move = this._onMove.bind(this);
+    this._up = this._onUp.bind(this);
+
+    view.root.addEventListener('pointerdown', this._down);
+    window.addEventListener('pointermove', this._move);
+    window.addEventListener('pointerup', this._up);
+    window.addEventListener('pointercancel', this._up);
+  }
+
+  destroy() {
+    this.view.root.removeEventListener('pointerdown', this._down);
+    window.removeEventListener('pointermove', this._move);
+    window.removeEventListener('pointerup', this._up);
+    window.removeEventListener('pointercancel', this._up);
+  }
+
+  _onDown(ev) {
+    if (this.locked) return;
+    const id = this.view.blockIdFromPoint(ev.clientX, ev.clientY);
+    if (id === null) return;
+
+    if (!this.hooks.canGrab(id)) { this.hooks.onRefus(id); return; }
+
+    const bloc = this.view.board.blocks.get(id);
+    const saisie = this.view.cellFromPoint(ev.clientX, ev.clientY);
+    ev.preventDefault();
+    this.drag = {
+      id,
+      saisieX: saisie.x, saisieY: saisie.y,
+      origineX: bloc.x, origineY: bloc.y,
+      bouge: false,
+    };
+    this.view.setGrabbed(id, true);
+  }
+
+  _onMove(ev) {
+    if (this.locked || !this.drag) return;
+    const p = this.view.cellFromPoint(ev.clientX, ev.clientY);
+    const cibleX = this.drag.origineX + (p.x - this.drag.saisieX);
+    const cibleY = this.drag.origineY + (p.y - this.drag.saisieY);
+    const bloc = this.view.board.blocks.get(this.drag.id);
+    if (!bloc) return;
+    if (bloc.x === cibleX && bloc.y === cibleY) return;
+    if (this.hooks.onDrag(this.drag.id, cibleX, cibleY)) this.drag.bouge = true;
+  }
+
+  _onUp() {
+    if (!this.drag) return;
+    const { id, bouge } = this.drag;
+    this.drag = null;
+    this.view.setGrabbed(id, false);
+    this.hooks.onEnd(id, bouge);
+  }
+}
+
+return { InputHandler };
+})();
+
+const __m_screens = (() => {
+/**
+ * ScreenManager — équivalent de Scripts/UI/ScreenManager.cs (doc §4)
+ * Navigation entre écrans : un seul `.screen.active` à la fois.
+ */
+
+const screens = () => document.querySelectorAll('.screen');
+let currentId = 'menu';
+
+function show(name) {
+  currentId = name;
+  screens().forEach((s) => s.classList.toggle('active', s.id === `screen-${name}`));
+}
+
+const current = () => currentId;
+
+function toast(message, ms = 1400) {
+  const el = document.getElementById('toast');
+  el.textContent = message;
+  el.hidden = false;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.hidden = true; }, ms);
+}
+
+/** Rend un bloc d'étoiles (0 à 3 allumées). */
+function renderStars(el, count) {
+  el.replaceChildren(...[0, 1, 2].map((k) => {
+    const i = document.createElement('i');
+    i.textContent = '★';
+    if (k < count) i.className = 'on';
+    return i;
+  }));
+}
+
+return { show, toast, renderStars, current };
+})();
+
+const __m_theme = (() => {
+/**
+ * Teinte de l'interface, indexée sur la progression.
+ *
+ * Toute la chromie de l'habillage (fonds, traits, accents) dérive d'une seule
+ * variable CSS `--h`. En avançant dans les niveaux, cette teinte glisse
+ * lentement du rose vers le vert d'eau, en passant par le lilas et le bleu
+ * poudré : le joueur voit le monde changer sous lui sans jamais de rupture.
+ *
+ * Les COULEURS DES BLOCS, elles, ne bougent jamais. Elles portent la règle du
+ * jeu — un bloc rose sort par une porte rose — et un joueur doit pouvoir les
+ * apprendre une fois pour toutes.
+ */
+
+const { TOTAL_LEVELS } = __m_levels;
+
+/** Rose poudré au départ, vert d'eau à l'arrivée, en descendant la roue. */
+const TEINTE_DEBUT = 345;
+const TEINTE_FIN = 165;
+
+function teintePour(niveau) {
+  const t = Math.min(1, Math.max(0, (niveau - 1) / (TOTAL_LEVELS - 1)));
+  return Math.round(TEINTE_DEBUT + (TEINTE_FIN - TEINTE_DEBUT) * t);
+}
+
+/** Applique la teinte d'un niveau à toute l'application. */
+function appliquer(niveau) {
+  document.getElementById('app').style.setProperty('--h', teintePour(niveau));
+}
+
+/** Applique une teinte à un élément précis (sections de la carte). */
+function appliquerA(element, niveau) {
+  element.style.setProperty('--h', teintePour(niveau));
+}
+
+return { teintePour, appliquer, appliquerA, TEINTE_DEBUT, TEINTE_FIN };
+})();
+
+const __m_editor = (() => {
+/**
+ * Éditeur de niveaux.
+ *
+ * Permet de dessiner une grille à la main : poser des formes, choisir leur
+ * couleur et leur nature, ouvrir des portes sur les murs, puis VERIFIER que le
+ * résultat est jouable avant de le donner à qui que ce soit. La vérification
+ * s'appuie sur le solveur (src/core/solver.js), pas sur une intuition.
+ *
+ * Modèle : on choisit une forme dans la palette, on la dépose sur la grille.
+ * Un appui sur un bloc existant le retire. Un appui sur un mur fait défiler la
+ * couleur de la porte à cet endroit ; les cases voisines de même couleur sont
+ * fusionnées en une seule porte à l'export.
+ */
+
+const { SHAPES, COLORS, KIND } = __m_block;
+const { Board } = __m_board;
+const { resoudre } = __m_solver;
+
+const COTES = ['top', 'right', 'bottom', 'left'];
+const NATURES = [
+  { kind: KIND.NORMAL, label: 'Normal' },
+  { kind: KIND.RAIL, label: 'Glissière', axis: 'h' },
+  { kind: KIND.RAIL, label: 'Glissière ↕', axis: 'v' },
+  { kind: KIND.JOKER, label: 'Joker' },
+  { kind: KIND.LOCKED, label: 'Verrou' },
+  { kind: KIND.WALL, label: 'Scellé' },
+];
+
+const el = (id) => document.getElementById(id);
+
+let etat = null;
+let choix = { shape: 0, color: 0, nature: 0, verrouCount: 2 };
+let onTester = null;
+
+const vide = (W, H) => ({
+  W, H,
+  blocks: [],
+  portes: {
+    top: new Array(W).fill(null),
+    bottom: new Array(W).fill(null),
+    left: new Array(H).fill(null),
+    right: new Array(H).fill(null),
+  },
+});
+
+function init({ onTest }) {
+  onTester = onTest;
+  etat = vide(6, 7);
+  construirePalettes();
+  brancherBoutons();
+  dessiner();
+}
+
+// ---------------------------------------------------------------------------
+// Conversion vers le format de niveau
+// ---------------------------------------------------------------------------
+
+/** Fusionne les cases de mur voisines de même couleur en portes. */
+function portesFusionnees() {
+  const gates = [];
+  for (const side of COTES) {
+    const cells = etat.portes[side];
+    let i = 0;
+    while (i < cells.length) {
+      if (cells[i] === null) { i++; continue; }
+      let len = 1;
+      while (i + len < cells.length && cells[i + len] === cells[i]) len++;
+      gates.push({ side, start: i, length: len, color: cells[i] });
+      i += len;
+    }
+  }
+  return gates;
+}
+
+/** Objet niveau au format `GET /api/level/{n}` (doc §6.1). */
+function versNiveau() {
+  const jouables = etat.blocks.filter((b) => b.kind !== KIND.WALL).length;
+  const base = Math.max(4, jouables);
+  return {
+    levelId: 'custom',
+    number: 0,
+    realm: 'Éditeur',
+    difficulty: 'sur mesure',
+    width: etat.W,
+    height: etat.H,
+    colorCount: COLORS.length,
+    moveLimit: Math.round(base * 2.2) + 3,
+    timeLimit: Math.max(45, base * 10),
+    minDrags: base,
+    objective: { type: 'clear_all', target: jouables },
+    starDrags: [Math.ceil(base * 1.3), Math.ceil(base * 1.8)],
+    estimatedTime: Math.max(45, base * 10),
+    gates: portesFusionnees(),
+    blocks: etat.blocks.map((b) => ({ ...b })),
+    solution: [], // pas de solution de référence : l'indice passe par le solveur
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Palettes
+// ---------------------------------------------------------------------------
+
+function construirePalettes() {
+  const formes = el('ed-shapes');
+  formes.replaceChildren(...SHAPES.map((sh, i) => {
+    const b = document.createElement('button');
+    b.className = 'ed-shape';
+    b.title = sh.key;
+    const g = document.createElement('span');
+    g.style.gridTemplateColumns = `repeat(${sh.w}, 7px)`;
+    g.style.gridTemplateRows = `repeat(${sh.h}, 7px)`;
+    for (let y = 0; y < sh.h; y++) {
+      for (let x = 0; x < sh.w; x++) {
+        const c = document.createElement('i');
+        if (sh.cells.some(([a, d]) => a === x && d === y)) c.className = 'on';
+        g.appendChild(c);
+      }
+    }
+    b.appendChild(g);
+    b.onclick = () => { choix.shape = i; majPalettes(); };
+    return b;
+  }));
+
+  const couleurs = el('ed-colors');
+  couleurs.replaceChildren(...COLORS.map((c, i) => {
+    const b = document.createElement('button');
+    b.className = `ed-color c${i}`;
+    b.title = c.name;
+    b.textContent = c.glyph;
+    b.onclick = () => { choix.color = i; majPalettes(); };
+    return b;
+  }));
+
+  const natures = el('ed-kinds');
+  natures.replaceChildren(...NATURES.map((n, i) => {
+    const b = document.createElement('button');
+    b.className = 'ed-kind';
+    b.textContent = n.label;
+    b.onclick = () => { choix.nature = i; majPalettes(); };
+    return b;
+  }));
+
+  majPalettes();
+}
+
+function majPalettes() {
+  [...el('ed-shapes').children].forEach((b, i) => b.classList.toggle('sel', i === choix.shape));
+  [...el('ed-colors').children].forEach((b, i) => b.classList.toggle('sel', i === choix.color));
+  [...el('ed-kinds').children].forEach((b, i) => b.classList.toggle('sel', i === choix.nature));
+}
+
+// ---------------------------------------------------------------------------
+// Grille
+// ---------------------------------------------------------------------------
+
+function occupe(x, y) {
+  return etat.blocks.find((b) => b.cells.some(([dx, dy]) => b.x + dx === x && b.y + dy === y));
+}
+
+function dessiner() {
+  const grille = el('ed-grid');
+  grille.style.setProperty('--ew', etat.W);
+  grille.style.setProperty('--eh', etat.H);
+  grille.replaceChildren();
+
+  // Cases de mur : un appui fait défiler la couleur de la porte.
+  for (const side of COTES) {
+    etat.portes[side].forEach((color, i) => {
+      const m = document.createElement('button');
+      m.className = `ed-wall ed-wall-${side}` + (color !== null ? ` c${color} ouvert` : '');
+      m.style.setProperty('--i', i);
+      m.textContent = color !== null ? COLORS[color].glyph : '';
+      m.onclick = () => {
+        const suite = color === null ? choix.color : null;
+        etat.portes[side][i] = suite;
+        dessiner();
+      };
+      grille.appendChild(m);
+    });
+  }
+
+  for (let y = 0; y < etat.H; y++) {
+    for (let x = 0; x < etat.W; x++) {
+      const bloc = occupe(x, y);
+      const c = document.createElement('button');
+      c.className = 'ed-cell';
+      c.style.setProperty('--x', x);
+      c.style.setProperty('--y', y);
+      if (bloc) {
+        c.classList.add('plein', `k-${bloc.kind}`);
+        if (bloc.color >= 0 && bloc.kind !== KIND.JOKER) c.classList.add(`c${bloc.color}`);
+        c.textContent = bloc.kind === KIND.WALL ? '' : bloc.kind === KIND.JOKER ? '✳'
+          : bloc.kind === KIND.LOCKED ? '🔒' : COLORS[bloc.color].glyph;
+      }
+      c.onclick = () => (bloc ? retirer(bloc) : poser(x, y));
+      grille.appendChild(c);
+    }
+  }
+  majEtat('');
+}
+
+function poser(x, y) {
+  const forme = SHAPES[choix.shape];
+  const nature = NATURES[choix.nature];
+  if (x + forme.w > etat.W || y + forme.h > etat.H) { majEtat('La forme dépasse de la grille'); return; }
+  if (forme.cells.some(([dx, dy]) => occupe(x + dx, y + dy))) { majEtat('Emplacement déjà occupé'); return; }
+
+  etat.blocks.push({
+    id: (etat.blocks.at(-1)?.id ?? 0) + 1,
+    color: nature.kind === KIND.WALL ? -1 : choix.color,
+    cells: forme.cells.map(([a, b]) => [a, b]),
+    x, y,
+    kind: nature.kind,
+    axis: nature.axis || null,
+    condition: nature.kind === KIND.LOCKED ? { type: 'exits', count: choix.verrouCount } : null,
+  });
+  dessiner();
+}
+
+function retirer(bloc) {
+  etat.blocks = etat.blocks.filter((b) => b !== bloc);
+  dessiner();
+}
+
+// ---------------------------------------------------------------------------
+// Boutons
+// ---------------------------------------------------------------------------
+
+function majEtat(message, ton = '') {
+  const z = el('ed-status');
+  z.textContent = message;
+  z.className = 'ed-status' + (ton ? ` ${ton}` : '');
+}
+
+function brancherBoutons() {
+  el('ed-w').onchange = () => redimensionner(Number(el('ed-w').value), etat.H);
+  el('ed-h').onchange = () => redimensionner(etat.W, Number(el('ed-h').value));
+
+  el('ed-clear').onclick = () => { etat = vide(etat.W, etat.H); dessiner(); };
+
+  el('ed-check').onclick = () => {
+    const niveau = versNiveau();
+    if (!niveau.gates.length) { majEtat('Aucune porte : ouvrez au moins un passage', 'ko'); return; }
+    if (!niveau.objective.target) { majEtat('Aucun bloc à sortir', 'ko'); return; }
+    const r = resoudre(new Board({ ...niveau, moveLimit: 9999, timeLimit: 9999 }));
+    if (r.resoluble) {
+      majEtat(`Résoluble en ${r.ordre.length} sortie${r.ordre.length > 1 ? 's' : ''}`
+        + ` (${r.etats} état${r.etats > 1 ? 's' : ''} exploré${r.etats > 1 ? 's' : ''})`, 'ok');
+    } else if (r.abandon) {
+      majEtat('Recherche interrompue : grille trop vaste pour être tranchée', 'ko');
+    } else {
+      majEtat('Non résolu. Le solveur ne déplace pas les blocs sans les sortir : '
+        + 'une solution demandant de pousser un bloc de côté lui échappe.', 'ko');
+    }
+  };
+
+  el('ed-test').onclick = () => {
+    const niveau = versNiveau();
+    if (!niveau.gates.length || !niveau.objective.target) {
+      majEtat('Il faut au moins une porte et un bloc', 'ko');
+      return;
+    }
+    onTester?.(niveau);
+  };
+
+  el('ed-export').onclick = async () => {
+    const json = JSON.stringify(versNiveau(), null, 2);
+    el('ed-json').value = json;
+    el('ed-json').hidden = false;
+    try {
+      await navigator.clipboard.writeText(json);
+      majEtat('JSON copié dans le presse-papiers', 'ok');
+    } catch {
+      majEtat('JSON affiché ci-dessous (copie manuelle)', 'ok');
+    }
+  };
+
+  el('ed-import').onclick = () => {
+    const zone = el('ed-json');
+    zone.hidden = false;
+    if (!zone.value.trim()) { majEtat('Collez un JSON de niveau dans la zone puis réappuyez'); return; }
+    try {
+      const n = JSON.parse(zone.value);
+      etat = vide(n.width, n.height);
+      etat.blocks = n.blocks.map((b) => ({ ...b }));
+      for (const g of n.gates) {
+        for (let k = 0; k < g.length; k++) etat.portes[g.side][g.start + k] = g.color;
+      }
+      el('ed-w').value = n.width;
+      el('ed-h').value = n.height;
+      dessiner();
+      majEtat('Niveau importé', 'ok');
+    } catch (e) {
+      majEtat('JSON illisible : ' + e.message, 'ko');
+    }
+  };
+}
+
+function redimensionner(W, H) {
+  W = Math.max(4, Math.min(8, W));
+  H = Math.max(4, Math.min(9, H));
+  const ancien = etat;
+  etat = vide(W, H);
+  // On garde ce qui tient encore dans la nouvelle grille.
+  etat.blocks = ancien.blocks.filter((b) => {
+    const maxX = Math.max(...b.cells.map((c) => c[0])) + b.x;
+    const maxY = Math.max(...b.cells.map((c) => c[1])) + b.y;
+    return maxX < W && maxY < H;
+  });
+  for (const side of COTES) {
+    ancien.portes[side].forEach((c, i) => { if (i < etat.portes[side].length) etat.portes[side][i] = c; });
+  }
+  el('ed-w').value = W;
+  el('ed-h').value = H;
+  dessiner();
+}
+
+return { init, versNiveau };
+})();
+
+const __m_failOffer = (() => {
+/**
+ * FailOfferController — équivalent de Scripts/Monetization/FailOfferController.cs
+ * (doc §4, désigné comme "critical monetization")
+ *
+ * Au moment de la défaite, on propose de repartir avec du temps et des coups
+ * plutôt que de tout perdre : soit contre une pub récompensée, soit contre des
+ * pièces.
+ *
+ * Deux garde-fous délibérés :
+ *  - l'offre n'est proposée QU'UNE FOIS par tentative. Enchaîner les
+ *    continuations transforme un niveau raté en pompe à pubs et détruit la
+ *    valeur de la difficulté.
+ *  - « Abandonner » est un bouton normal, pas un lien minuscule : refuser doit
+ *    être aussi facile qu'accepter.
+ */
+
+const currency = __m_currency;
+const { PLACEMENT } = __m_adManager;
+const { track } = __m_events;
+
+/** Ce que rend une continuation acceptée. */
+const BONUS = Object.freeze({ SECONDES: 30, COUPS: 3 });
+
+const el = (id) => document.getElementById(id);
+
+/**
+ * @returns {Promise<'ad'|'coins'|null>} le moyen choisi, ou null si refus.
+ */
+function proposer({ board, ads }) {
+  const panneau = el('overlay-offer');
+  const raison = board.failReason === 'temps' ? 'Le temps est écoulé' : 'Plus aucun coup';
+  el('offer-reason').textContent = raison;
+  el('offer-remaining').textContent = board.remaining();
+  el('offer-coins-cost').textContent = currency.PRIX.CONTINUER;
+  el('offer-bonus').textContent = `+${BONUS.SECONDES} s et +${BONUS.COUPS} coups`;
+
+  const boutonPieces = el('btn-offer-coins');
+  boutonPieces.disabled = !currency.peutPayer(currency.PRIX.CONTINUER);
+
+  track('fail_offer_shown', { level: board.level.number, raison: board.failReason, restants: board.remaining() });
+  panneau.hidden = false;
+
+  return new Promise((resolve) => {
+    const fermer = (choix) => {
+      panneau.hidden = true;
+      el('btn-offer-ad').onclick = null;
+      el('btn-offer-coins').onclick = null;
+      el('btn-offer-give-up').onclick = null;
+      resolve(choix);
+    };
+
+    el('btn-offer-ad').onclick = async () => {
+      panneau.hidden = true;
+      const recompense = await ads.montrerRecompensee(PLACEMENT.RECOMPENSE_CONTINUER);
+      if (recompense) {
+        track('fail_offer_accepted', { level: board.level.number, moyen: 'ad' });
+        fermer('ad');
+      } else {
+        panneau.hidden = false; // pub abandonnée : on repropose le choix
+      }
+    };
+
+    el('btn-offer-coins').onclick = () => {
+      if (!currency.debiter(currency.PRIX.CONTINUER, 'continue')) return;
+      track('fail_offer_accepted', { level: board.level.number, moyen: 'coins' });
+      fermer('coins');
+    };
+
+    el('btn-offer-give-up').onclick = () => {
+      track('fail_offer_declined', { level: board.level.number });
+      fermer(null);
+    };
+  });
+}
+
+/** Applique la continuation au plateau. */
+function appliquer(board) {
+  board.timeRemaining += BONUS.SECONDES;
+  board.movesRemaining += BONUS.COUPS;
+  board.gameState = 'PLAYING';
+  board.failReason = null;
+}
+
+return { proposer, appliquer, BONUS };
+})();
+
+const __m_mapScreen = (() => {
+/**
+ * LevelScreen — équivalent de Scripts/UI/LevelScreen.cs (doc §4)
+ * Carte des niveaux : chemin serpentin, étoiles obtenues, verrouillage.
+ */
+
+const { TOTAL_LEVELS, LEVELS_PER_REALM, REALMS } = __m_levels;
+const store = __m_save;
+const { renderStars } = __m_screens;
+const theme = __m_theme;
+
+/** Décalage horizontal du serpentin, en fraction de la largeur disponible. */
+const OFFSETS = [0, 0.62, 0.9, 0.62, 0, -0.62, -0.9, -0.62];
+
+function render(onSelect) {
+  const scroll = document.getElementById('map-scroll');
+  const unlocked = store.load().unlockedLevel;
+  scroll.replaceChildren();
+
+  for (let realm = 0; realm < REALMS.length; realm++) {
+    const from = realm * LEVELS_PER_REALM + 1;
+
+    // Chaque monde adopte la teinte de son premier niveau : en faisant défiler
+    // la carte, on voit la gradation chromatique de toute la progression.
+    const section = document.createElement('section');
+    section.className = 'realm';
+    theme.appliquerA(section, from);
+
+    const label = document.createElement('div');
+    label.className = 'realm-label';
+    label.textContent = REALMS[realm].name;
+    section.appendChild(label);
+
+    const path = document.createElement('div');
+    path.className = 'map-path';
+
+    for (let n = from; n < from + LEVELS_PER_REALM && n <= TOTAL_LEVELS; n++) {
+      const rec = store.levelRecord(n);
+      const locked = n > unlocked;
+
+      const node = document.createElement('button');
+      node.className = 'map-node';
+      node.style.transform = `translateX(${OFFSETS[(n - 1) % OFFSETS.length] * 92}px)`;
+      if (locked) node.classList.add('locked');
+      else if (n === unlocked) node.classList.add('current');
+      if (rec.stars > 0) node.classList.add('done');
+
+      const num = document.createElement('b');
+      num.textContent = n;
+      const stars = document.createElement('div');
+      stars.className = 'stars';
+      renderStars(stars, rec.stars);
+      node.append(num, stars);
+
+      if (!locked) node.addEventListener('click', () => onSelect(n));
+      path.appendChild(node);
+    }
+    section.appendChild(path);
+    scroll.appendChild(section);
+  }
+
+  document.getElementById('map-stars').textContent = `★ ${store.totalStars()}`;
+
+  // Amène le niveau courant sous les yeux du joueur.
+  requestAnimationFrame(() => {
+    scroll.querySelector('.map-node.current')?.scrollIntoView({ block: 'center' });
+  });
+}
+
+return { render };
+})();
+
+const __m_gameplayUI = (() => {
+/**
+ * GameplayUI — équivalent de Scripts/UI/GameplayUI.cs (doc §4)
+ * HUD in-game : chrono, coups restants, blocs restants, aperçu des étoiles.
+ */
+
+const { objectiveLabel } = __m_levels;
+const { renderStars } = __m_screens;
+
+const el = (id) => document.getElementById(id);
+
+/** Libellé de l'objectif (réutilisé par le pré-niveau). */
+function labelFor(level) { return objectiveLabel(level); }
+
+const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, '0')}`;
+
+function mount(level) {
+  el('hud-level').textContent = level.number;
+  dernierRestant = null;
+}
+
+let dernierRestant = null;
+
+function update(board) {
+  const level = board.level;
+  el('hud-moves').textContent = `${board.movesRemaining} coups`;
+
+  // Le compteur tressaute quand il descend : la sortie d'un bloc doit se voir
+  // aussi dans le HUD, pas seulement sur le plateau.
+  const restants = board.remaining();
+  const compteur = el('hud-blocks');
+  if (dernierRestant !== null && restants < dernierRestant) {
+    compteur.classList.add('pop');
+    setTimeout(() => compteur.classList.remove('pop'), 200);
+  }
+  dernierRestant = restants;
+  compteur.textContent = restants;
+  el('hud-time').textContent = mmss(board.timeRemaining);
+
+  const part = board.timeRemaining / level.timeLimit;
+  el('hud-time-fill').style.width = `${Math.max(0, Math.min(1, part)) * 100}%`;
+  el('hud-time-fill').classList.toggle('urgent', board.timeRemaining <= 15);
+  el('hud-time').classList.toggle('urgent', board.timeRemaining <= 15);
+
+  // Aperçu : les étoiles encore atteignables avec les glissés déjà consommés.
+  const [pour3, pour2] = level.starDrags;
+  const utilises = board.dragsUsed();
+  renderStars(el('hud-stars'), utilises <= pour3 ? 3 : utilises <= pour2 ? 2 : 1);
+}
+
+return { labelFor, mount, update };
+})();
+
+const __m_resultScreen = (() => {
+/**
+ * ResultScreen — équivalent de Scripts/UI/ResultScreen.cs (doc §4)
+ * Overlay de fin de niveau : victoire (étoiles, score, récompense) ou échec.
+ */
+
+const { TOTAL_LEVELS } = __m_levels;
+const { renderStars } = __m_screens;
+
+const el = (id) => document.getElementById(id);
+
+/**
+ * @param {{won:boolean, stars:number, score:number, level:number,
+ *          coinsEarned:number, onRetry:Function, onMap:Function, onNext:Function}} r
+ */
+function show(r) {
+  el('result-title').textContent = r.won ? 'Grille vidée !'
+    : r.raison === 'temps' ? 'Temps écoulé' : 'Plus de coups';
+  renderStars(el('result-stars'), r.won ? r.stars : 0);
+  el('result-score').textContent = r.score;
+  el('result-reward').textContent = r.won
+    ? `+${r.coinsEarned} pièces`
+    : r.raison === 'temps' ? 'Le chrono est tombé avant la fin' : 'Il ne restait plus de coups';
+
+  // Défaite de peu : le dire est motivant et honnête — c'est l'écart réel.
+  const proche = el('result-near');
+  if (!r.won && r.restants > 0 && r.restants <= 2) {
+    proche.textContent = r.restants === 1
+      ? 'Il ne restait qu’un seul bloc !'
+      : `Il ne restait que ${r.restants} blocs !`;
+    proche.hidden = false;
+  } else {
+    proche.hidden = true;
+  }
+
+  // Doubler les pièces contre une pub récompensée : proposé une seule fois.
+  const doubler = el('btn-double');
+  doubler.hidden = !r.won || !r.coinsEarned;
+  doubler.disabled = false;
+  doubler.onclick = async () => {
+    doubler.disabled = true;
+    const ok = await r.onDouble?.();
+    if (ok) {
+      el('result-reward').textContent = `+${r.coinsEarned * 2} pièces`;
+      doubler.hidden = true;
+    } else {
+      doubler.disabled = false;
+    }
+  };
+
+  const isLast = r.level >= TOTAL_LEVELS;
+  const next = el('btn-result-next');
+  next.hidden = !r.won || isLast;
+  el('btn-result-retry').hidden = r.won && !isLast;
+
+  el('btn-result-map').onclick = r.onMap;
+  el('btn-result-retry').onclick = r.onRetry;
+  next.onclick = r.onNext;
+  el('overlay-result').hidden = false;
+}
+
+function hide() {
+  el('overlay-result').hidden = true;
+}
+
+return { show, hide };
+})();
+
+const __m_main = (() => {
+/**
+ * GameManager — équivalent de Scripts/Managers/GameManager.cs (doc §4)
+ *
+ * Point d'entrée et coordinateur : enchaîne les écrans, instancie le plateau,
+ * relaie les gestes du joueur vers la logique puis les évènements vers le
+ * rendu, et fait tourner le chrono. Toute la règle du jeu vit dans core/, tout
+ * le DOM du plateau dans render/ : ce fichier ne fait que les brancher.
+ */
+
+const { Board } = __m_board;
+const { GameState } = __m_gameState;
+const { TOTAL_LEVELS } = __m_levels;
+const { KIND } = __m_block;
+const { BoardView, setSpeed, conditionLabel } = __m_boardView;
+const { InputHandler } = __m_input;
+const api = __m_api;
+const store = __m_save;
+const screens = __m_screens;
+const mapScreen = __m_mapScreen;
+const theme = __m_theme;
+const editor = __m_editor;
+const { resoudre } = __m_solver;
+const hud = __m_gameplayUI;
+const result = __m_resultScreen;
+const { AdManager, PLACEMENT } = __m_adManager;
+const currency = __m_currency;
+const failOffer = __m_failOffer;
+const daily = __m_daily;
+const { track, recent, subscribe } = __m_events;
+
+const el = (id) => document.getElementById(id);
+
+let view = null;
+let input = null;
+let board = null;
+let level = null;
+let chrono = null;
+let busy = false;
+let offreUtilisee = false;   // l'offre de continuation ne vaut qu'une fois par tentative
+let echecsDuNiveau = 0;      // sert à ne pas couper la toute première défaite par une pub
+let debutNiveau = 0;
+let gesteMemorise = false;   // un seul instantané par geste, pour l'annulation
+let modeMarteau = false;
+
+const ads = new AdManager({
+  overlay: el('overlay-ad'),
+  banner: el('banner'),
+});
+
+// ---------------------------------------------------------------------------
+// Navigation
+// ---------------------------------------------------------------------------
+
+async function showMenu() {
+  stopChrono();
+  const p = await api.getProfile();
+  el('menu-stars').textContent = p.totalStars;
+  el('menu-coins').textContent = p.coins;
+  el('menu-progress').textContent = p.currentLevel;
+  majCadeauDuJour();
+  theme.appliquer(p.currentLevel); // le menu prend la couleur d'où en est le joueur
+  screens.show('menu');
+  majBanniere('menu');
+}
+
+/** Cadeau du jour : visible seulement s'il est réclamable. */
+function majCadeauDuJour() {
+  const dispo = daily.peutReclamer();
+  el('btn-daily').hidden = !dispo;
+  if (!dispo) return;
+  el('daily-title').textContent = 'Cadeau du jour';
+  el('daily-sub').textContent = `Série de ${daily.serie()} jour${daily.serie() > 1 ? 's' : ''}`;
+  el('daily-amount').textContent = `+${daily.recompenseDuJour()}`;
+}
+
+/** La bannière ne vit que hors partie — la politique tranche, pas l'appelant. */
+function majBanniere(ecran) {
+  ads.majBanniere(ecran);
+  el('app').classList.toggle('with-banner', !el('banner').hidden);
+}
+
+function showMap() {
+  stopChrono();
+  result.hide();
+  mapScreen.render(showBrief);
+  screens.show('map');
+  majBanniere('map');
+}
+
+async function showBrief(n) {
+  stopChrono();
+  level = await api.getLevel(n);
+  const rec = store.levelRecord(n);
+  el('brief-realm').textContent = level.realm;
+  el('brief-number').textContent = n;
+  screens.renderStars(el('brief-stars'), rec.stars);
+  el('brief-objective').textContent = hud.labelFor(level);
+  el('brief-moves').textContent = level.moveLimit;
+  el('brief-difficulty').textContent = level.difficulty;
+  el('brief-best').textContent = rec.bestScore ? `${rec.bestScore} coups` : '—';
+  theme.appliquer(n);
+  screens.show('brief');
+  majBanniere('brief');
+}
+
+// ---------------------------------------------------------------------------
+// Partie
+// ---------------------------------------------------------------------------
+
+function startLevel() {
+  result.hide();
+  theme.appliquer(level.number);
+  offreUtilisee = false;
+  debutNiveau = Date.now();
+  track('level_started', { level: level.number, essai: echecsDuNiveau + 1 });
+  board = new Board(level);
+  board._solveur = { resoudre }; // niveaux de l'éditeur : pas de solution de référence
+  hud.mount(level);
+  hud.update(board);
+  screens.show('game');
+
+  // Montage synchrone : surtout pas dans un requestAnimationFrame, qui ne se
+  // déclenche pas si l'onglet est en arrière-plan — le plateau resterait vide.
+  if (!view) {
+    view = new BoardView(el('board'));
+    input = new InputHandler(view, { onDrag, onEnd, canGrab, onRefus });
+  }
+  view.mount(board);
+  hud.update(board);
+  majBonus();
+  busy = false;
+  input.locked = false;
+  majBanniere('game');
+  startChrono();
+}
+
+/**
+ * Etat de la barre de bonus. L'indice se paie en pièces tant qu'il y en a, et
+ * bascule sur une pub récompensée quand le joueur est fauché — mieux vaut une
+ * pub qu'un joueur bloqué qui désinstalle. Les trois autres bonus s'obtiennent
+ * uniquement contre une pub récompensée.
+ */
+function majBonus() {
+  const gratuit = !currency.peutPayer(currency.PRIX.INDICE);
+  const cout = el('hint-cost');
+  cout.textContent = gratuit ? 'Pub' : currency.PRIX.INDICE;
+  cout.classList.toggle('ad', gratuit);
+  el('btn-undo').disabled = !board || !board.peutAnnuler();
+}
+
+/** Regarde une pub récompensée pour un bonus. Le chrono est suspendu pendant. */
+async function bonusParPub(placement) {
+  stopChrono();
+  const vue = await ads.montrerRecompensee(placement);
+  if (board?.gameState === GameState.PLAYING) startChrono();
+  return vue;
+}
+
+function canGrab(id) {
+  const b = board.blocks.get(id);
+  return !!b && board.canMove(b);
+}
+
+/** Refus de saisie : on explique pourquoi plutôt que de ne rien faire. */
+function onRefus(id) {
+  const b = board.blocks.get(id);
+  if (!b) return;
+  view.bump(id);
+  if (b.kind === KIND.WALL) screens.toast('Ce bloc est scellé');
+  else if (b.kind === KIND.LOCKED) screens.toast(`Verrouillé : ${conditionLabel(b.condition)}`);
+}
+
+/** Un mouvement de doigt : renvoie vrai si le bloc a effectivement avancé. */
+function onDrag(id, x, y) {
+  if (busy || board.gameState !== GameState.PLAYING) return false;
+  const avant = gesteMemorise ? null : board.snapshot();
+  const { events } = board.dragTowards(id, x, y);
+  if (!events.length) return false;
+  if (!gesteMemorise) { board.memoriser(avant); gesteMemorise = true; }
+  view.apply(events);
+  hud.update(board);
+  return true;
+}
+
+/** Fin de geste : c'est là qu'un coup est décompté. */
+async function onEnd(id, aBouge) {
+  gesteMemorise = false;
+  majBonus();
+  if (!aBouge || board.gameState !== GameState.PLAYING) return;
+  const events = board.endGesture(true);
+  await view.apply(events);
+  view.refreshLocks();
+  view.refreshGates();
+  hud.update(board);
+  majBonus();
+  if (board.gameState !== GameState.PLAYING) await finishLevel();
+}
+
+// ---------------------------------------------------------------------------
+// Chrono
+// ---------------------------------------------------------------------------
+
+function startChrono() {
+  stopChrono();
+  chrono = setInterval(async () => {
+    if (!board || board.gameState !== GameState.PLAYING) return;
+    board.tick(1);
+    hud.update(board);
+    if (board.gameState !== GameState.PLAYING) await finishLevel();
+  }, 1000);
+}
+
+function stopChrono() {
+  if (chrono) { clearInterval(chrono); chrono = null; }
+}
+
+async function finishLevel() {
+  stopChrono();
+  busy = true;
+  input.locked = true;
+
+  const won = board.gameState === GameState.WON;
+  const duree = Math.round((Date.now() - debutNiveau) / 1000);
+
+  // Défaite : on propose de continuer AVANT d'acter l'échec.
+  if (!won && !offreUtilisee) {
+    offreUtilisee = true;
+    const choix = await failOffer.proposer({ board, ads });
+    if (choix) {
+      failOffer.appliquer(board);
+      hud.update(board);
+      busy = false;
+      input.locked = false;
+      startChrono();
+      return;
+    }
+  }
+
+  if (won) {
+    echecsDuNiveau = 0;
+    track('level_completed', { level: level.number, glisses: board.dragsUsed(), etoiles: board.stars(), duree });
+  } else {
+    echecsDuNiveau++;
+    track('level_failed', { level: level.number, raison: board.failReason, restants: board.remaining(), duree });
+  }
+
+  const stars = board.stars();
+  const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won });
+
+  // Une interstitielle à la fin d'un niveau, si et seulement si la politique
+  // de cadencement l'autorise (adPolicy.js).
+  ads.policy.noterFinDeNiveau();
+  await ads.montrerInterstitiel({
+    niveau: level.number,
+    noAds: currency.aSupprimeLesPubs(),
+    premiereDefaiteDuNiveau: !won && echecsDuNiveau === 1,
+  });
+
+  result.show({
+    won,
+    stars,
+    score: board.dragsUsed(),
+    level: level.number,
+    coinsEarned: res.coinsEarned,
+    raison: board.failReason,
+    restants: board.remaining(),
+    onDouble: async () => {
+      const vue = await ads.montrerRecompensee(PLACEMENT.RECOMPENSE_DOUBLER);
+      if (!vue) return false;
+      currency.crediter(res.coinsEarned, 'double_reward');
+      return true;
+    },
+    onMap: showMap,
+    onRetry: startLevel,
+    onNext: async () => {
+      if (level.number < TOTAL_LEVELS) { await showBrief(level.number + 1); startLevel(); }
+      else showMap();
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Câblage
+// ---------------------------------------------------------------------------
+
+el('btn-play').onclick = showMap;
+
+el('btn-daily').onclick = () => {
+  const montant = daily.reclamer();
+  if (!montant) return;
+  screens.toast(`+${montant} pièces — série de ${daily.serie()} jours`);
+  // Série quotidienne, puis menu.
+daily.ouvrirSession();
+window.addEventListener('pagehide', () => track('session_ended', {}));
+showMenu();
+};
+
+el('btn-restart').onclick = () => { if (!busy) startLevel(); };
+
+/** Marteau : le joueur DESIGNE le bloc à retirer, on n'en choisit pas un pour lui. */
+el('btn-hammer').onclick = async () => {
+  if (!board || busy || board.gameState !== GameState.PLAYING || modeMarteau) return;
+  if (!await bonusParPub(PLACEMENT.RECOMPENSE_MARTEAU)) return;
+  modeMarteau = true;
+  input.locked = true;
+  el('app').classList.add('hammer');
+  screens.toast('Touchez le bloc à retirer');
+
+  const viser = async (ev) => {
+    const id = view.blockIdFromPoint(ev.clientX, ev.clientY);
+    const cible = id !== null ? board.blocks.get(id) : null;
+    if (!cible || cible.kind === 'wall') { screens.toast('Choisissez un bloc déplaçable'); return; }
+    ev.preventDefault();
+    ev.stopPropagation();
+    fin();
+    const res = board.briser(id);
+    track('powerup_used', { type: 'hammer', level: level.number, blocId: id });
+    await view.removeBlock(id);
+    await view.apply(res.evts);
+    view.refreshLocks();
+    view.refreshGates();
+    hud.update(board);
+    majBonus();
+    if (board.gameState !== GameState.PLAYING) await finishLevel();
+  };
+  const fin = () => {
+    modeMarteau = false;
+    input.locked = false;
+    el('app').classList.remove('hammer');
+    el('board').removeEventListener('pointerdown', viser, true);
+  };
+  el('board').addEventListener('pointerdown', viser, true);
+};
+
+el('btn-time').onclick = async () => {
+  if (!board || busy || board.gameState !== GameState.PLAYING) return;
+  if (!await bonusParPub(PLACEMENT.RECOMPENSE_TEMPS)) return;
+  board.ajouterTemps(30);
+  track('powerup_used', { type: 'time', level: level.number });
+  hud.update(board);
+  screens.toast('+30 secondes');
+};
+
+el('btn-undo').onclick = async () => {
+  if (!board || busy || board.gameState !== GameState.PLAYING || !board.peutAnnuler()) return;
+  if (!await bonusParPub(PLACEMENT.RECOMPENSE_ANNULER)) return;
+  board.annuler();
+  track('powerup_used', { type: 'undo', level: level.number });
+  view.resync();
+  view.refreshGates();
+  hud.update(board);
+  majBonus();
+  screens.toast('Geste annulé');
+};
+
+/**
+ * Indice : on désigne le prochain bloc jouable, on ne le joue pas. Payant en
+ * pièces, ou par pub récompensée quand le joueur est fauché.
+ */
+el('btn-hint').onclick = async () => {
+  if (!board || busy || board.gameState !== GameState.PLAYING) return;
+  const conseil = board.hint();
+  if (!conseil) { screens.toast('Aucun coup gagnant trouvé'); return; }
+
+  if (currency.peutPayer(currency.PRIX.INDICE)) {
+    if (!currency.debiter(currency.PRIX.INDICE, 'hint')) return;
+  } else {
+    stopChrono();
+    const vue = await ads.montrerRecompensee(PLACEMENT.RECOMPENSE_INDICE);
+    startChrono();
+    if (!vue) return;
+  }
+
+  track('hint_used', { level: level.number, blocId: conseil.id });
+  view.highlight(conseil.id);
+  majBonus();
+};
+el('btn-start').onclick = startLevel;
+el('btn-reset').onclick = () => {
+  if (!confirm('Effacer toute la progression ?')) return;
+  store.reset();
+  // Série quotidienne, puis menu.
+daily.ouvrirSession();
+window.addEventListener('pagehide', () => track('session_ended', {}));
+showMenu();
+};
+document.querySelectorAll('[data-nav]').forEach((b) => {
+  b.onclick = () => (b.dataset.nav === 'menu' ? showMenu() : showMap());
+});
+
+// Le chrono ne doit pas continuer de tourner pendant que l'app est en fond.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopChrono();
+  else if (board && board.gameState === GameState.PLAYING && screens.current() === 'game') startChrono();
+});
+
+// ---------------------------------------------------------------------------
+// Panneau QA
+// ---------------------------------------------------------------------------
+
+el('debug-toggle').onclick = () => {
+  const p = el('debug-panel');
+  p.hidden = !p.hidden;
+  if (!p.hidden) refreshDebug();
+};
+
+el('debug-go').onclick = async () => {
+  const n = Math.min(TOTAL_LEVELS, Math.max(1, Number(el('debug-level').value) || 1));
+  await showBrief(n);
+  startLevel();
+};
+
+el('debug-win').onclick = async () => {
+  if (!board || board.gameState !== GameState.PLAYING) return;
+  for (const b of [...board.blocks.values()]) if (b.kind !== KIND.WALL) board.blocks.delete(b.id);
+  board._reindex();
+  board.gameState = GameState.WON;
+  hud.update(board);
+  await finishLevel();
+};
+
+el('debug-lose').onclick = async () => {
+  if (!board || board.gameState !== GameState.PLAYING) return;
+  board.timeRemaining = 0;
+  board.gameState = GameState.FAILED;
+  board.failReason = 'temps';
+  hud.update(board);
+  await finishLevel();
+};
+
+/** Rejoue la solution de référence du niveau — contrôle visuel du générateur. */
+el('debug-solve').onclick = async () => {
+  if (!board || busy) return;
+  busy = true;
+  input.locked = true;
+  for (const etape of level.solution) {
+    for (const pos of etape.chemin.slice(1)) {
+      const { events } = board.dragTowards(etape.id, pos.x, pos.y);
+      await view.apply(events);
+      await new Promise((r) => setTimeout(r, 90));
+    }
+    if (board.blocks.has(etape.id)) {
+      const [dx, dy] = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] }[etape.gate];
+      const r = board.step(etape.id, dx, dy);
+      if (r.ok) await view.apply([r.event]);
+    }
+    await view.apply(board.endGesture(true));
+    hud.update(board);
+  }
+  busy = false;
+  input.locked = false;
+  if (board.gameState !== GameState.PLAYING) await finishLevel();
+};
+
+let rapide = false;
+el('debug-speed').onclick = () => {
+  rapide = !rapide;
+  setSpeed(rapide ? 0.2 : 1);
+  el('debug-speed').textContent = rapide ? 'Animations ×1' : 'Animations ×5';
+};
+
+el('debug-noads').onclick = () => {
+  const actif = !currency.aSupprimeLesPubs();
+  currency.definirSuppressionPubs(actif);
+  el('debug-noads').textContent = actif ? 'Désactiver sans-pub' : 'Activer sans-pub';
+  screens.toast(actif ? 'Pubs supprimées (achat simulé)' : 'Pubs réactivées');
+  majBanniere(screens.current());
+};
+
+el('debug-coins').onclick = () => {
+  currency.crediter(500, 'debug');
+  screens.toast(`${currency.solde()} pièces`);
+  majBonus();
+  refreshDebug();
+};
+
+el('debug-events').onclick = () => {
+  const liste = el('debug-events-list');
+  liste.hidden = !liste.hidden;
+  if (!liste.hidden) majJournal();
+};
+
+function majJournal() {
+  const liste = el('debug-events-list');
+  if (liste.hidden) return;
+  liste.replaceChildren(...recent(25).map((e) => {
+    const li = document.createElement('li');
+    const nom = document.createElement('b');
+    nom.textContent = e.eventName;
+    li.append(nom, ' ', JSON.stringify(e.eventData));
+    return li;
+  }));
+}
+subscribe(() => majJournal());
+
+el('debug-editor').onclick = () => {
+  el('debug-panel').hidden = true;
+  editor.init({
+    onTest: (niveau) => { level = niveau; startLevel(); },
+  });
+  screens.show('editor');
+  majBanniere('editor');
+};
+
+el('debug-unlock').onclick = () => {
+  const d = store.load();
+  d.unlockedLevel = TOTAL_LEVELS;
+  store.save(d);
+  screens.toast('Tous les niveaux débloqués');
+  refreshDebug();
+};
+
+/** Crochet de debug : accès au plateau depuis la console. Prototype seulement. */
+window.__game = {
+  get board() { return board; },
+  get view() { return view; },
+  get level() { return level; },
+  get busy() { return busy; },
+};
+
+function refreshDebug() {
+  const d = store.load();
+  el('debug-info').textContent =
+    `débloqué : ${d.unlockedLevel}/${TOTAL_LEVELS} · ★ ${store.totalStars()} · ${d.coins} pièces`
+    + (board ? `\nplateau ${board.W}×${board.H} · ${board.remaining()} blocs · réf. ${level.minDrags} glissés` : '');
+}
+
+// Série quotidienne, puis menu.
+daily.ouvrirSession();
+window.addEventListener('pagehide', () => track('session_ended', {}));
+showMenu();
+
+return {  };
+})();
+</script>

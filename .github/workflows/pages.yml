@@ -1,0 +1,57 @@
+# Déploiement GitHub Pages.
+#
+# Reconstruit le fichier unique depuis les sources modulaires à chaque push,
+# donc docs/ ne peut pas dériver du code. Actif seulement si la source Pages du
+# dépôt est réglée sur « GitHub Actions » ; avec la source « branche main /docs »,
+# c'est le fichier committé qui est servi et ce workflow ne sert à rien.
+name: Déployer sur GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Tests de la logique de jeu
+        working-directory: prototype
+        run: node tools/test.mjs
+
+      - name: Construire le fichier unique
+        working-directory: prototype
+        run: node tools/bundle.mjs
+
+      - name: Préparer le site
+        run: |
+          mkdir -p _site
+          cp prototype/dist/puzzle-quest.html _site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v4

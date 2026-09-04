@@ -1,0 +1,8 @@
+# Document technique du client : marqué confidentiel, le dépôt est public.
+Document_Technique_Developpeurs.md
+
+# Sortie de build locale — la version publiée vit dans docs/
+prototype/dist/
+
+.DS_Store
+node_modules/

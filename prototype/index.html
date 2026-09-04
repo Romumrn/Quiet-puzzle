@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#141033">
+  <title>Puzzle Quest — Prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Outfit:wght@300;400;500&display=swap">
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+<div class="device">
+  <main class="app" id="app">
+
+    <!-- ============ MENU ============ -->
+    <section class="screen active" id="screen-menu">
+      <div class="menu-art" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <h1 class="logo">Puzzle<em>Quest</em></h1>
+      <p class="tagline">Videz la grille par les portes de couleur</p>
+      <div class="menu-stats">
+        <div class="stat"><b id="menu-stars">0</b><small>étoiles</small></div>
+        <div class="stat"><b id="menu-coins">0</b><small>pièces</small></div>
+        <div class="stat"><b id="menu-progress">1</b><small>niveau</small></div>
+      </div>
+      <button class="btn btn-daily" id="btn-daily" hidden>
+        <span class="daily-flame">🔥</span>
+        <span class="daily-text">
+          <b id="daily-title">Cadeau du jour</b>
+          <small id="daily-sub">Série de 1 jour</small>
+        </span>
+        <span class="daily-amount" id="daily-amount">+50</span>
+      </button>
+      <button class="btn btn-primary btn-lg" id="btn-play">Jouer</button>
+      <button class="btn btn-ghost btn-sm" id="btn-reset">Réinitialiser la progression</button>
+    </section>
+
+    <!-- ============ CARTE DES NIVEAUX ============ -->
+    <section class="screen" id="screen-map">
+      <header class="topbar">
+        <button class="icon-btn" data-nav="menu" aria-label="Retour au menu">‹</button>
+        <span class="topbar-title">Carte</span>
+        <span class="pill" id="map-stars">★ 0</span>
+      </header>
+      <div class="map-scroll" id="map-scroll"></div>
+    </section>
+
+    <!-- ============ PRE-NIVEAU ============ -->
+    <section class="screen" id="screen-brief">
+      <header class="topbar">
+        <button class="icon-btn" data-nav="map" aria-label="Retour à la carte">‹</button>
+        <span class="topbar-title" id="brief-realm">—</span>
+        <span></span>
+      </header>
+      <div class="brief-card">
+        <div class="brief-badge" id="brief-number">1</div>
+        <div class="stars stars-lg" id="brief-stars"></div>
+        <p class="brief-objective" id="brief-objective">—</p>
+        <dl class="brief-meta">
+          <div><dt>Coups</dt><dd id="brief-moves">—</dd></div>
+          <div><dt>Difficulté</dt><dd id="brief-difficulty">—</dd></div>
+          <div><dt>Record</dt><dd id="brief-best">—</dd></div>
+        </dl>
+        <button class="btn btn-primary btn-lg" id="btn-start">Jouer</button>
+      </div>
+    </section>
+
+    <!-- ============ JEU ============ -->
+    <section class="screen" id="screen-game">
+      <header class="topbar">
+        <button class="icon-btn" data-nav="map" aria-label="Quitter le niveau">‹</button>
+        <span class="topbar-title">Niveau <b id="hud-level">1</b></span>
+        <span class="pill" id="hud-moves">0</span>
+      </header>
+
+      <div class="hud">
+        <div class="hud-row">
+          <div class="hud-stat">
+            <span class="hud-label">Temps</span>
+            <b id="hud-time">0:00</b>
+          </div>
+          <div class="hud-stat">
+            <span class="hud-label">Blocs</span>
+            <b id="hud-blocks">0</b>
+          </div>
+          <div class="hud-stat hud-stat-stars">
+            <span class="hud-label">Étoiles</span>
+            <div class="stars" id="hud-stars"></div>
+          </div>
+        </div>
+        <div class="time-track"><i id="hud-time-fill"></i></div>
+      </div>
+
+      <div class="board-wrap">
+        <div class="board" id="board">
+          <div class="grid-layer"></div>
+          <div class="gate-layer"></div>
+          <div class="block-layer"></div>
+          <div class="fx-layer"></div>
+        </div>
+      </div>
+
+      <div class="game-actions">
+        <button class="action" id="btn-hint" title="Désigne le prochain bloc à jouer">
+          <span class="action-icon">💡</span>
+          <span class="action-cost" id="hint-cost">50</span>
+        </button>
+        <button class="action" id="btn-hammer" title="Retire un bloc de votre choix">
+          <span class="action-icon">🔨</span>
+          <span class="action-cost ad">Pub</span>
+        </button>
+        <button class="action" id="btn-time" title="Ajoute 30 secondes">
+          <span class="action-icon">⏱</span>
+          <span class="action-cost ad">Pub</span>
+        </button>
+        <button class="action" id="btn-undo" title="Annule le dernier geste">
+          <span class="action-icon">↶</span>
+          <span class="action-cost ad">Pub</span>
+        </button>
+        <button class="action action-plain" id="btn-restart" title="Recommencer le niveau">
+          <span class="action-icon">↺</span>
+        </button>
+      </div>
+      <div class="toast" id="toast" hidden></div>
+    </section>
+
+    <!-- ============ RESULTAT ============ -->
+    <div class="overlay" id="overlay-result" hidden>
+      <div class="result-card">
+        <h2 id="result-title">Niveau terminé</h2>
+        <div class="stars stars-lg" id="result-stars"></div>
+        <p class="result-score"><span id="result-score">0</span><small>points</small></p>
+        <p class="result-near" id="result-near" hidden></p>
+        <p class="result-reward" id="result-reward"></p>
+        <button class="btn btn-reward" id="btn-double" hidden>
+          <span>▶</span> Doubler les pièces
+        </button>
+        <div class="result-actions">
+          <button class="btn btn-ghost" id="btn-result-map">Carte</button>
+          <button class="btn btn-ghost" id="btn-result-retry">Rejouer</button>
+          <button class="btn btn-primary" id="btn-result-next">Suivant</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ EDITEUR DE NIVEAUX ============ -->
+    <section class="screen" id="screen-editor">
+      <header class="topbar">
+        <button class="icon-btn" data-nav="menu" aria-label="Retour au menu">‹</button>
+        <span class="topbar-title">Éditeur</span>
+        <span></span>
+      </header>
+
+      <div class="ed-scroll">
+        <div class="ed-grid-wrap"><div class="ed-grid" id="ed-grid"></div></div>
+        <p class="ed-status" id="ed-status"></p>
+
+        <div class="ed-section">
+          <span class="ed-legend">Forme</span>
+          <div class="ed-row" id="ed-shapes"></div>
+        </div>
+        <div class="ed-section">
+          <span class="ed-legend">Couleur</span>
+          <div class="ed-row" id="ed-colors"></div>
+        </div>
+        <div class="ed-section">
+          <span class="ed-legend">Nature</span>
+          <div class="ed-row ed-wrap" id="ed-kinds"></div>
+        </div>
+        <div class="ed-section">
+          <span class="ed-legend">Grille</span>
+          <div class="ed-row">
+            <label class="ed-num">Largeur <input type="number" id="ed-w" min="4" max="8" value="6"></label>
+            <label class="ed-num">Hauteur <input type="number" id="ed-h" min="4" max="9" value="7"></label>
+          </div>
+        </div>
+
+        <div class="ed-actions">
+          <button class="btn btn-ghost btn-sm" id="ed-check">Vérifier</button>
+          <button class="btn btn-primary btn-sm" id="ed-test">Tester</button>
+          <button class="btn btn-ghost btn-sm" id="ed-export">Exporter</button>
+          <button class="btn btn-ghost btn-sm" id="ed-import">Importer</button>
+          <button class="btn btn-ghost btn-sm" id="ed-clear">Vider</button>
+        </div>
+        <textarea class="ed-json" id="ed-json" hidden placeholder="JSON du niveau"></textarea>
+      </div>
+    </section>
+
+    <!-- ============ OFFRE DE CONTINUATION ============ -->
+    <div class="overlay" id="overlay-offer" hidden>
+      <div class="offer-card">
+        <h2 id="offer-reason">Le temps est écoulé</h2>
+        <p class="offer-lead">Il ne reste que <b id="offer-remaining">0</b> blocs à sortir.</p>
+        <p class="offer-bonus">Continuez avec <b id="offer-bonus">+30 s et +3 coups</b></p>
+        <div class="offer-actions">
+          <button class="btn btn-reward btn-lg" id="btn-offer-ad"><span>▶</span> Regarder une pub</button>
+          <button class="btn btn-ghost btn-lg" id="btn-offer-coins">
+            Payer <b id="offer-coins-cost">120</b> pièces
+          </button>
+          <button class="btn btn-ghost" id="btn-offer-give-up">Abandonner</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PUBLICITE SIMULEE ============ -->
+    <div class="overlay ad-overlay" id="overlay-ad" hidden>
+      <div class="ad-card">
+        <span class="ad-tag">Emplacement publicitaire</span>
+        <h2 class="ad-title">Publicité</h2>
+        <div class="ad-visual"><span class="ad-count">5</span></div>
+        <p class="ad-note"></p>
+        <button class="btn btn-primary ad-close" hidden>Fermer</button>
+      </div>
+    </div>
+
+    <!-- ============ BANNIERE ============ -->
+    <div class="banner" id="banner" hidden>
+      <span class="banner-tag">Pub</span>
+      <span class="banner-text">Emplacement bannière 320×50</span>
+    </div>
+
+    <!-- ============ DEBUG ============ -->
+    <button class="debug-toggle" id="debug-toggle" title="Panneau de debug">⚙</button>
+    <div class="debug-panel" id="debug-panel" hidden>
+      <label>Aller au niveau
+        <input type="number" id="debug-level" min="1" max="20" value="1">
+      </label>
+      <div class="debug-actions">
+        <button class="btn btn-ghost btn-sm" id="debug-go">Charger</button>
+        <button class="btn btn-ghost btn-sm" id="debug-win">Gagner</button>
+        <button class="btn btn-ghost btn-sm" id="debug-lose">Perdre</button>
+        <button class="btn btn-ghost btn-sm" id="debug-solve">Résoudre</button>
+        <button class="btn btn-ghost btn-sm" id="debug-unlock">Tout débloquer</button>
+        <button class="btn btn-ghost btn-sm" id="debug-speed">Animations ×5</button>
+        <button class="btn btn-ghost btn-sm" id="debug-noads">Activer sans-pub</button>
+        <button class="btn btn-ghost btn-sm" id="debug-coins">+500 pièces</button>
+        <button class="btn btn-ghost btn-sm" id="debug-events">Journal analytics</button>
+        <button class="btn btn-ghost btn-sm" id="debug-editor">Éditeur de niveaux</button>
+      </div>
+      <p class="debug-info" id="debug-info"></p>
+      <ol class="debug-events" id="debug-events-list" hidden></ol>
+    </div>
+
+  </main>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
