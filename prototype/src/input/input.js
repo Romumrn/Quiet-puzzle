@@ -47,7 +47,7 @@ export class InputHandler {
     if (!this.hooks.canGrab(id)) { this.hooks.onRefus(id); return; }
 
     const bloc = this.view.board.blocks.get(id);
-    const saisie = this.view.cellFromPoint(ev.clientX, ev.clientY);
+    const saisie = this.view.cellFromPointFloat(ev.clientX, ev.clientY);
     ev.preventDefault();
     this.drag = {
       id,
@@ -60,13 +60,25 @@ export class InputHandler {
 
   _onMove(ev) {
     if (this.locked || !this.drag) return;
-    const p = this.view.cellFromPoint(ev.clientX, ev.clientY);
-    const cibleX = this.drag.origineX + (p.x - this.drag.saisieX);
-    const cibleY = this.drag.origineY + (p.y - this.drag.saisieY);
+
+    // Position visée en valeur continue, puis arrondie : le bloc bascule de
+    // case à mi-parcours, comme le doigt s'y attend.
+    const p = this.view.cellFromPointFloat(ev.clientX, ev.clientY);
+    const flotX = this.drag.origineX + (p.x - this.drag.saisieX);
+    const flotY = this.drag.origineY + (p.y - this.drag.saisieY);
+
     const bloc = this.view.board.blocks.get(this.drag.id);
     if (!bloc) return;
-    if (bloc.x === cibleX && bloc.y === cibleY) return;
-    if (this.hooks.onDrag(this.drag.id, cibleX, cibleY)) this.drag.bouge = true;
+
+    const cibleX = Math.round(flotX);
+    const cibleY = Math.round(flotY);
+    if (bloc.x !== cibleX || bloc.y !== cibleY) {
+      if (this.hooks.onDrag(this.drag.id, cibleX, cibleY)) this.drag.bouge = true;
+    }
+
+    // Puis le bloc penche vers le doigt, y compris quand il ne peut plus avancer.
+    const apres = this.view.board.blocks.get(this.drag.id);
+    if (apres) this.view.setLean(this.drag.id, flotX - apres.x, flotY - apres.y);
   }
 
   _onUp() {

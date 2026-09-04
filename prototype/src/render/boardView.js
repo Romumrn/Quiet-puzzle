@@ -226,7 +226,11 @@ export class BoardView {
     this.nodes.delete(e.id);
     const base = node.style.transform;
 
+    // Le bloc sort en pleine saisie : on lui rend ses transitions, que la
+    // classe « grabbed » avait coupées pour coller au doigt.
+    node.classList.remove('grabbed');
     node.classList.add('exiting');
+    node.style.transition = 'transform 0ms ease-out, opacity 0ms linear';
     node.style.transitionDuration = `${TIMING.POP}ms`;
     node.style.transform = `${base} scale(1.09)`;
     await wait(TIMING.POP);
@@ -378,10 +382,40 @@ export class BoardView {
   }
 
   setGrabbed(id, on) {
-    this.nodes.get(id)?.classList.toggle('grabbed', on);
+    const node = this.nodes.get(id);
+    if (!node) return;
+    node.classList.toggle('grabbed', on);
+    if (!on) {
+      // Fin du geste : on efface le débord et on rend sa transition au bloc.
+      const b = this.board.blocks.get(id);
+      if (b) this._place(node, b.x, b.y);
+    }
+  }
+
+  /**
+   * Débord du bloc vers le doigt, en fraction de case.
+   *
+   * Le bloc se déplace de case en case, mais le doigt, lui, est continu. Sans
+   * ce décalage le mouvement paraît saccadé ; avec lui, le bloc suit le doigt
+   * et vient buter visiblement contre ce qui le bloque.
+   */
+  setLean(id, lx, ly) {
+    const node = this.nodes.get(id);
+    const b = this.board.blocks.get(id);
+    if (!node || !b) return;
+    const max = 0.3;
+    const cx = Math.max(-max, Math.min(max, lx)) * this.cell;
+    const cy = Math.max(-max, Math.min(max, ly)) * this.cell;
+    node.style.transform = `translate3d(${b.x * this.cell + cx}px, ${b.y * this.cell + cy}px, 0)`;
   }
 
   // --- Repérage ------------------------------------------------------------
+
+  /** Position en cases, en valeur continue — sert au suivi du doigt. */
+  cellFromPointFloat(clientX, clientY) {
+    const r = this.root.getBoundingClientRect();
+    return { x: (clientX - r.left) / this.cell, y: (clientY - r.top) / this.cell };
+  }
 
   /** Case de la grille sous un point écran (peut sortir des bornes). */
   cellFromPoint(clientX, clientY) {

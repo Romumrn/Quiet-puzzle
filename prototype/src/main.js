@@ -514,6 +514,7 @@ el('debug-unlock').onclick = () => {
 window.__game = {
   get board() { return board; },
   get view() { return view; },
+  get input() { return input; },
   get level() { return level; },
   get busy() { return busy; },
 };

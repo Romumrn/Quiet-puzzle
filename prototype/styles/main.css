@@ -399,7 +399,7 @@ body { display: grid; place-items: center; }
 .block {
   position: absolute; top: 0; left: 0;
   --bevel: calc(var(--cell) * 0.3);
-  transition: transform 95ms ease-out;
+  transition: transform 80ms cubic-bezier(0.25, 0.8, 0.3, 1);
   cursor: grab;
   touch-action: none;
   will-change: transform;
@@ -448,8 +448,14 @@ body { display: grid; place-items: center; }
 }
 .block.lock-open .locked-mark span { opacity: 0.35; }
 
-.block.grabbed { z-index: 5; transition-duration: 60ms; }
-.block.grabbed .block-cell { filter: brightness(1.05); }
+/* Pendant la saisie, aucune transition : le bloc doit coller au doigt.
+   La transition de 95 ms le faisait traîner derrière et donnait une impression
+   de lourdeur. */
+.block.grabbed { z-index: 5; transition: none; }
+.block.grabbed .block-cell { filter: brightness(1.06); }
+.block.grabbed { filter:
+  drop-shadow(0 calc(var(--cell) * 0.07) 0 rgba(90, 70, 95, 0.18))
+  drop-shadow(0 calc(var(--cell) * 0.16) calc(var(--cell) * 0.2) rgba(90, 70, 95, 0.2)); }
 .block.exiting { pointer-events: none; transition-property: transform, opacity; }
 .block.bumping { animation: bump 0.13s ease-in-out 2 alternate; }
 @keyframes bump { to { filter: brightness(1.12) saturate(1.3); } }

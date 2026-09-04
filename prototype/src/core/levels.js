@@ -17,7 +17,7 @@
  */
 
 import { SHAPES, KIND } from './block.js';
-import { Board, SIDES as VECTEURS } from './board.js';
+import { Board, SIDES as VECTEURS_SORTIE } from './board.js';
 
 export const TOTAL_LEVELS = 20;
 export const LEVELS_PER_REALM = 5;
@@ -30,6 +30,24 @@ export const REALMS = [
 ];
 
 const SIDES = ['top', 'right', 'bottom', 'left'];
+
+/**
+ * Un bloc posé dans l'ouverture d'une porte peut-il vraiment en sortir ?
+ *
+ * Une forme non rectangulaire (T, L) déborde de part et d'autre de la porte :
+ * ses épaules doivent aussi pouvoir avancer. Sans cette vérification, la
+ * génération produisait des niveaux dont la solution ne tenait que parce que
+ * le moteur laissait alors un bloc traverser ses voisins.
+ */
+function peutSortirDeSaPorte(grille, gate, shape, x, y, id) {
+  const [dx, dy] = VECTEURS_SORTIE[gate.side];
+  return shape.cells.every(([cx, cy]) => {
+    const nx = x + cx + dx, ny = y + cy + dy;
+    if (!grille.inside(nx, ny)) return true;
+    const occ = grille.occ.get(grille.key(nx, ny));
+    return occ === undefined || occ === id;
+  });
+}
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -196,7 +214,7 @@ function mesureGestes(base) {
 
     // La sortie prolonge le dernier glissé : le doigt ne se relève pas.
     if (b.blocks.has(etape.id)) {
-      const [dx, dy] = VECTEURS[etape.gate];
+      const [dx, dy] = VECTEURS_SORTIE[etape.gate];
       if (b.step(etape.id, dx, dy).ok && pos === 0) gestes++;
     }
     b.endGesture(true);
@@ -253,6 +271,11 @@ function build(n) {
             const at = poseAuPorte(candidate, shape, W, H, rng);
             if (!at) continue;
             if (!grille.libre(absolute(shape, at.x, at.y))) continue;
+            // Poser à la porte ne suffit pas : il faut pouvoir en ressortir.
+            grille.poser(-1, absolute(shape, at.x, at.y));
+            const sortable = peutSortirDeSaPorte(grille, candidate, shape, at.x, at.y, -1);
+            grille.retirer(absolute(shape, at.x, at.y));
+            if (!sortable) continue;
             pose = { shape, x: at.x, y: at.y };
             gate = candidate;
             break;

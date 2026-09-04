@@ -123,21 +123,49 @@ export class Board {
     const cible = block.absolute().map(([x, y]) => [x + dx, y + dy]);
     const sort = cible.some(([x, y]) => !this.inside(x, y));
 
+    // Les cases visées qui restent DANS la grille doivent être libres, que le
+    // bloc sorte ou non. Sans ce contrôle sur le chemin de sortie, un bloc dont
+    // une seule extrémité atteignait sa porte franchissait celle-ci en
+    // traversant les blocs qui le gênaient encore.
+    if (!this.cheminLibre(block, dx, dy)) return { ok: false, reason: 'occupé' };
+
     if (sort) {
       const porte = this._gateFor(block, dx, dy);
       if (!porte) return { ok: false, reason: 'mur' };
       return { ok: true, event: this._exit(block, porte, dx, dy) };
     }
 
-    for (const [x, y] of cible) {
-      const occupant = this._occupancy.get(this._key(x, y));
-      if (occupant !== undefined && occupant !== id) return { ok: false, reason: 'occupé' };
-    }
-
     block.x += dx;
     block.y += dy;
     this._reindex();
     return { ok: true, event: { type: 'move', id, x: block.x, y: block.y } };
+  }
+
+  /**
+   * Les cases visées encore dans la grille sont-elles libres ? Un bloc ne
+   * traverse pas ce qui le gêne, même quand une partie de lui franchit déjà
+   * la porte.
+   */
+  cheminLibre(block, dx, dy) {
+    for (const [x, y] of block.absolute()) {
+      const nx = x + dx, ny = y + dy;
+      if (!this.inside(nx, ny)) continue;
+      const occupant = this._occupancy.get(this._key(nx, ny));
+      if (occupant !== undefined && occupant !== block.id) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Ce bloc peut-il réellement sortir dans cette direction ? Combine la porte
+   * ET le chemin. C'est cette méthode que doivent utiliser le solveur et le
+   * générateur, pour qu'ils voient exactement ce que voit le moteur.
+   */
+  sortiePossible(block, dx, dy) {
+    if (!this.accepteDirection(block, dx, dy)) return null;
+    if (!block.absolute().some(([x, y]) => !this.inside(x + dx, y + dy))) return null;
+    if (!this.cheminLibre(block, dx, dy)) return null;
+    return this._gateFor(block, dx, dy);
   }
 
   /**

@@ -45,7 +45,7 @@ function sortiesPossibles(board, id) {
     for (const [dx, dy] of DIRS) {
       if (!board.accepteDirection(bloc, dx, dy)) continue;
 
-      const porte = board._gateFor(bloc, dx, dy);
+      const porte = board.sortiePossible(bloc, dx, dy);
       if (porte) {
         if (!parPorte.has(porte)) parPorte.set(porte, { x, y, dx, dy, gate: porte });
         continue;

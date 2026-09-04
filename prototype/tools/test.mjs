@@ -73,6 +73,37 @@ console.log('\n== Règles de sortie ==');
   check('une forme de 3 cases ne passe pas par une porte de 2', passe === null);
 }
 
+console.log('\n== Un bloc ne traverse pas ce qui le gêne ==');
+{
+  const { Block } = await import('../src/core/block.js');
+  // Grille 4x4, porte de 3 cases en bas. Un bloc en T plaqué dessus, dont une
+  // épaule est bloquée par un carré : il ne doit PAS sortir.
+  const base = {
+    levelId: 'test', number: 0, realm: 'test', difficulty: 'test',
+    width: 4, height: 4, colorCount: 2, moveLimit: 99, timeLimit: 99, minDrags: 1,
+    objective: { type: 'clear_all', target: 2 }, starDrags: [1, 2], estimatedTime: 99,
+    gates: [{ side: 'bottom', start: 0, length: 3, color: 0 }],
+    blocks: [
+      // T : trois cases en ligne + une dessous, plaqué au bas de la grille
+      { id: 1, color: 0, cells: [[0, 0], [1, 0], [2, 0], [1, 1]], x: 0, y: 2, kind: KIND.NORMAL },
+      // le gêneur, juste sous l'épaule gauche du T
+      { id: 2, color: 1, cells: [[0, 0]], x: 0, y: 3, kind: KIND.NORMAL },
+    ],
+    solution: [],
+  };
+  const b = new Board(base);
+  const bloqué = b.step(1, 0, 1);
+  check('un bloc gêné ne franchit pas sa porte', bloqué.ok === false, 'raison : ' + bloqué.reason);
+
+  // Une fois le gêneur retiré, la sortie doit fonctionner.
+  b.blocks.delete(2);
+  b._reindex();
+  const libre = b.step(1, 0, 1);
+  check('le même bloc sort une fois la voie libre',
+    libre.ok === true && libre.event.type === 'exit',
+    libre.ok ? libre.event.type : libre.reason);
+}
+
 console.log('\n== Murs et verrous ==');
 {
   let mursImmobiles = true, verrousRespectes = true, verrousDebloquables = true;
