@@ -204,6 +204,8 @@ body { display: grid; place-items: center; }
 .stat small { color: var(--ink-faint); font-size: 11px; letter-spacing: 0.04em; }
 
 #screen-menu .btn-lg, #screen-menu .btn-daily { max-width: 268px; }
+.menu-liens { display: flex; gap: 8px; }
+#btn-sound.muet { opacity: 0.5; }
 
 /* ---------- Étoiles ---------- */
 

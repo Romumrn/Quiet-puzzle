@@ -11,7 +11,7 @@
  * l'autre (`show`, `el`, `update`…) ne se marchent pas dessus.
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,6 +27,8 @@ const MODULES = [
   'src/core/solver.js',
   'src/data/save.js',
   'src/data/events.js',
+  'src/audio/manifest.js',
+  'src/audio/audioManager.js',
   'src/monetization/currency.js',
   'src/monetization/adPolicy.js',
   'src/monetization/adManager.js',
@@ -76,7 +78,23 @@ function transform(file) {
   return `const ${ns(file)} = (() => {\n${code}\nreturn { ${returned} };\n})();`;
 }
 
-const bundle = MODULES.map(transform).join('\n\n');
+let bundle = MODULES.map(transform).join('\n\n');
+
+// Le son est embarqué en URI `data:` : la politique de sécurité d'un Artifact
+// interdit de charger un média depuis un autre hôte, et un fichier unique doit
+// pouvoir s'ouvrir par double-clic sans dossier à côté.
+const audios = [...bundle.matchAll(/'(audio\/[\w.-]+\.mp3)'/g)].map((m) => m[1]);
+let poidsAudio = 0;
+for (const chemin of [...new Set(audios)]) {
+  const abs = join(root, chemin);
+  if (!existsSync(abs)) {
+    console.warn(`  audio manquant, laissé en lien : ${chemin}`);
+    continue;
+  }
+  const b64 = readFileSync(abs).toString('base64');
+  poidsAudio += b64.length;
+  bundle = bundle.split(`'${chemin}'`).join(`'data:audio/mpeg;base64,${b64}'`);
+}
 
 // Markup : on reprend le contenu du <body> d'index.html, sans la balise script.
 const html = read('index.html');
@@ -102,4 +120,5 @@ ${bundle}
 
 mkdirSync(join(root, 'dist'), { recursive: true });
 writeFileSync(join(root, 'dist/puzzle-quest.html'), out);
-console.log(`dist/puzzle-quest.html — ${(out.length / 1024).toFixed(0)} Ko, ${MODULES.length} modules`);
+console.log(`dist/puzzle-quest.html — ${(out.length / 1024).toFixed(0)} Ko `
+  + `(dont ${(poidsAudio / 1024).toFixed(0)} Ko de son), ${MODULES.length} modules`);

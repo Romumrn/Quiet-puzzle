@@ -1,0 +1,174 @@
+/**
+ * AudioManager — équivalent de Scripts/Audio/AudioManager.cs, MusicPlayer.cs et
+ * SoundEffects.cs (doc §4).
+ *
+ * Web Audio plutôt que des balises <audio> : celles-ci ont une latence de
+ * plusieurs dizaines de millisecondes et se superposent mal, ce qui est
+ * rédhibitoire pour un son déclenché par un geste et qui peut partir plusieurs
+ * fois par seconde.
+ *
+ * Deux contraintes de navigateur sont traitées ici :
+ *  - le son est interdit tant que l'utilisateur n'a pas touché la page ; le
+ *    contexte est donc créé endormi et réveillé au premier geste ;
+ *  - une page en arrière-plan doit se taire, sinon la musique continue dans le
+ *    dos du joueur.
+ */
+
+import { MUSIQUE, SORTIES } from './manifest.js';
+
+const VOLUME_MUSIQUE = 0.34;
+const VOLUME_EFFETS = 0.62;
+const FONDU = 1.6;          // secondes, entrée et sortie de la musique
+
+/** Au-delà de ce délai, la série de sorties repart du grave. */
+const REPRISE_SERIE_MS = 2600;
+
+export class AudioManager {
+  constructor() {
+    this.ctx = null;
+    this.pret = false;
+    this.actif = true;
+    this.tampons = new Map();
+    this.musique = null;
+    this.degre = -1;
+    this.derniereSortie = 0;
+
+    // Le premier geste de l'utilisateur, quel qu'il soit, débloque le son.
+    this._reveil = () => this.reveiller();
+    for (const ev of ['pointerdown', 'keydown']) {
+      window.addEventListener(ev, this._reveil, { once: false, passive: true });
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (!this.ctx) return;
+      if (document.hidden) this.ctx.suspend();
+      else if (this.actif) this.ctx.resume();
+    });
+  }
+
+  // --- Cycle de vie --------------------------------------------------------
+
+  async reveiller() {
+    if (!this.ctx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      this.ctx = new Ctx();
+      this.gainMusique = this.ctx.createGain();
+      this.gainEffets = this.ctx.createGain();
+      this.gainMusique.gain.value = 0;
+      this.gainEffets.gain.value = this.actif ? VOLUME_EFFETS : 0;
+      this.gainMusique.connect(this.ctx.destination);
+      this.gainEffets.connect(this.ctx.destination);
+      this._chargement = this._charger();
+    }
+    if (this.ctx.state === 'suspended') await this.ctx.resume();
+    await this._chargement;
+    this.pret = true;
+    if (this._musiqueDemandee) this.lancerMusique();
+  }
+
+  async _charger() {
+    const lire = async (url) => {
+      const rep = await fetch(url);
+      const brut = await rep.arrayBuffer();
+      return await this.ctx.decodeAudioData(brut);
+    };
+    const [musique, ...sorties] = await Promise.all([lire(MUSIQUE), ...SORTIES.map(lire)]);
+    this.tampons.set('musique', musique);
+    sorties.forEach((b, i) => this.tampons.set(`sortie${i}`, b));
+  }
+
+  // --- Musique -------------------------------------------------------------
+
+  lancerMusique() {
+    this._musiqueDemandee = true;
+    if (!this.pret || !this.actif || this.musique) return;
+    const tampon = this.tampons.get('musique');
+    if (!tampon) return;
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = tampon;
+    source.loop = true;             // le morceau est bouclé sans couture
+    source.connect(this.gainMusique);
+    source.start();
+    this.musique = source;
+
+    const t = this.ctx.currentTime;
+    this.gainMusique.gain.cancelScheduledValues(t);
+    this.gainMusique.gain.setValueAtTime(this.gainMusique.gain.value, t);
+    this.gainMusique.gain.linearRampToValueAtTime(VOLUME_MUSIQUE, t + FONDU);
+  }
+
+  arreterMusique() {
+    this._musiqueDemandee = false;
+    if (!this.musique) return;
+    const source = this.musique;
+    this.musique = null;
+    const t = this.ctx.currentTime;
+    this.gainMusique.gain.cancelScheduledValues(t);
+    this.gainMusique.gain.setValueAtTime(this.gainMusique.gain.value, t);
+    this.gainMusique.gain.linearRampToValueAtTime(0, t + FONDU * 0.5);
+    setTimeout(() => { try { source.stop(); } catch { /* déjà arrêtée */ } }, FONDU * 600);
+  }
+
+  // --- Effets --------------------------------------------------------------
+
+  _jouer(cle, gain = 1, retard = 0) {
+    if (!this.pret || !this.actif) return;
+    const tampon = this.tampons.get(cle);
+    if (!tampon) return;
+    const source = this.ctx.createBufferSource();
+    source.buffer = tampon;
+    const g = this.ctx.createGain();
+    g.gain.value = gain;
+    source.connect(g).connect(this.gainEffets);
+    source.start(this.ctx.currentTime + retard);
+  }
+
+  /**
+   * Bloc sorti. Le carillon monte d'un degré à chaque sortie enchaînée et
+   * revient au grave après une pause : un enchaînement s'entend alors comme une
+   * progression, et pas comme le même son répété.
+   */
+  sortie() {
+    const maintenant = performance.now();
+    this.degre = (maintenant - this.derniereSortie > REPRISE_SERIE_MS)
+      ? 0
+      : Math.min(this.degre + 1, SORTIES.length - 1);
+    this.derniereSortie = maintenant;
+    this._jouer(`sortie${this.degre}`);
+  }
+
+  /** Nouveau niveau : la série repart de zéro. */
+  reinitialiserSerie() {
+    this.degre = -1;
+    this.derniereSortie = 0;
+  }
+
+  /** Grille vidée : petit arpège ascendant, construit avec les mêmes carillons. */
+  victoire() {
+    [2, 3, 5].forEach((d, i) => this._jouer(`sortie${d}`, 0.9 - 0.1 * i, i * 0.13));
+  }
+
+  // --- Réglage -------------------------------------------------------------
+
+  get sonActif() { return this.actif; }
+
+  definirActif(actif) {
+    this.actif = actif;
+    if (!this.ctx) return;
+    this.gainEffets.gain.value = actif ? VOLUME_EFFETS : 0;
+    if (actif) {
+      this.ctx.resume();
+      if (this._musiqueDemandee) this.lancerMusique();
+    } else {
+      const t = this.ctx.currentTime;
+      this.gainMusique.gain.cancelScheduledValues(t);
+      this.gainMusique.gain.linearRampToValueAtTime(0, t + 0.3);
+      if (this.musique) {
+        const s = this.musique;
+        this.musique = null;
+        setTimeout(() => { try { s.stop(); } catch { /* déjà arrêtée */ } }, 400);
+      }
+    }
+  }
+}

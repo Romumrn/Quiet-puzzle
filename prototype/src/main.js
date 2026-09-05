@@ -27,6 +27,7 @@ import * as currency from './monetization/currency.js';
 import * as failOffer from './monetization/failOffer.js';
 import * as daily from './meta/daily.js';
 import { track, recent, subscribe } from './data/events.js';
+import { AudioManager } from './audio/audioManager.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -41,6 +42,8 @@ let echecsDuNiveau = 0;      // sert à ne pas couper la toute première défait
 let debutNiveau = 0;
 let gesteMemorise = false;   // un seul instantané par geste, pour l'annulation
 let modeMarteau = false;
+
+const audio = new AudioManager();
 
 const ads = new AdManager({
   overlay: el('overlay-ad'),
@@ -60,6 +63,7 @@ async function showMenu() {
   majCadeauDuJour();
   theme.appliquer(p.currentLevel); // le menu prend la couleur d'où en est le joueur
   screens.show('menu');
+  audio.lancerMusique();
   majBanniere('menu');
 }
 
@@ -110,6 +114,7 @@ async function showBrief(n) {
 function startLevel() {
   result.hide();
   theme.appliquer(level.number);
+  audio.reinitialiserSerie();
   offreUtilisee = false;
   debutNiveau = Date.now();
   track('level_started', { level: level.number, essai: echecsDuNiveau + 1 });
@@ -176,6 +181,7 @@ function onDrag(id, x, y) {
   const avant = gesteMemorise ? null : board.snapshot();
   const { events } = board.dragTowards(id, x, y);
   if (!events.length) return false;
+  for (const e of events) if (e.type === 'exit') audio.sortie();
   if (!gesteMemorise) { board.memoriser(avant); gesteMemorise = true; }
   view.apply(events);
   hud.update(board);
@@ -220,6 +226,7 @@ async function finishLevel() {
   input.locked = true;
 
   const won = board.gameState === GameState.WON;
+  if (won) audio.victoire();
   const duree = Math.round((Date.now() - debutNiveau) / 1000);
 
   // Défaite : on propose de continuer AVANT d'acter l'échec.
@@ -289,7 +296,11 @@ el('btn-daily').onclick = () => {
   const montant = daily.reclamer();
   if (!montant) return;
   screens.toast(`+${montant} pièces — série de ${daily.serie()} jours`);
-  // Série quotidienne, puis menu.
+  // Son : on restaure la préférence avant tout affichage.
+audio.definirActif(store.load().son !== false);
+majBoutonSon();
+
+// Série quotidienne, puis menu.
 daily.ouvrirSession();
 window.addEventListener('pagehide', () => track('session_ended', {}));
 showMenu();
@@ -314,6 +325,7 @@ el('btn-hammer').onclick = async () => {
     ev.stopPropagation();
     fin();
     const res = board.briser(id);
+    audio.sortie();
     track('powerup_used', { type: 'hammer', level: level.number, blocId: id });
     await view.removeBlock(id);
     await view.apply(res.evts);
@@ -376,10 +388,31 @@ el('btn-hint').onclick = async () => {
   majBonus();
 };
 el('btn-start').onclick = startLevel;
+el('btn-sound').onclick = () => {
+  const actif = !audio.sonActif;
+  audio.definirActif(actif);
+  const d = store.load();
+  d.son = actif;
+  store.save(d);
+  majBoutonSon();
+  if (actif) audio.lancerMusique();
+  track('sound_toggled', { actif });
+};
+
+function majBoutonSon() {
+  const b = el('btn-sound');
+  b.textContent = audio.sonActif ? '🔊 Son' : '🔇 Son';
+  b.classList.toggle('muet', !audio.sonActif);
+}
+
 el('btn-reset').onclick = () => {
   if (!confirm('Effacer toute la progression ?')) return;
   store.reset();
-  // Série quotidienne, puis menu.
+  // Son : on restaure la préférence avant tout affichage.
+audio.definirActif(store.load().son !== false);
+majBoutonSon();
+
+// Série quotidienne, puis menu.
 daily.ouvrirSession();
 window.addEventListener('pagehide', () => track('session_ended', {}));
 showMenu();
@@ -515,6 +548,7 @@ window.__game = {
   get board() { return board; },
   get view() { return view; },
   get input() { return input; },
+  get audio() { return audio; },
   get level() { return level; },
   get busy() { return busy; },
 };
@@ -525,6 +559,10 @@ function refreshDebug() {
     `débloqué : ${d.unlockedLevel}/${TOTAL_LEVELS} · ★ ${store.totalStars()} · ${d.coins} pièces`
     + (board ? `\nplateau ${board.W}×${board.H} · ${board.remaining()} blocs · réf. ${level.minDrags} glissés` : '');
 }
+
+// Son : on restaure la préférence avant tout affichage.
+audio.definirActif(store.load().son !== false);
+majBoutonSon();
 
 // Série quotidienne, puis menu.
 daily.ouvrirSession();

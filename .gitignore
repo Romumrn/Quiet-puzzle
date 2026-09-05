@@ -6,3 +6,10 @@ prototype/dist/
 
 .DS_Store
 node_modules/
+
+# Audio : seuls les MP3 utilisés par le jeu sont versionnés. Les WAV sont des
+# intermédiaires, et les morceaux non retenus se régénèrent à l'identique avec
+# `python3 tools/music.py` (le tirage est seedé).
+prototype/audio/*.wav
+prototype/audio/1-aube.mp3
+prototype/audio/2-derive.mp3
