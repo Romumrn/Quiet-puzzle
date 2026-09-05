@@ -38,6 +38,9 @@ mauvais bloc gâche de la place.
 Huit mondes de vingt niveaux. Chacun change de couleurs, apporte un bloc qu'on
 n'a jamais vu, et resserre un cran.
 
+Le jeu se joue en français ou en anglais, et une option rend aux six couleurs
+leur symbole pour qui ne peut pas s'y fier.
+
 | Le plateau | La carte | Le profil |
 |---|---|---|
 | <img src="media/jeu.png" width="230"> | <img src="media/carte.png" width="230"> | <img src="media/profil.png" width="230"> |

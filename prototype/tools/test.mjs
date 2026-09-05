@@ -316,6 +316,51 @@ console.log('\n== Les blocs des mondes tardifs ==');
   }
 }
 
+console.log('\n== Traduction ==');
+{
+  const { LANGUES, t, definirLangue, langue } = await import('../src/ui/i18n.js');
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync(new URL('../src/ui/i18n.js', import.meta.url), 'utf8');
+
+  // Les dictionnaires doivent porter EXACTEMENT les mêmes clés. Une clé oubliée
+  // ne casse rien — `t` retombe sur le français — et c'est bien le problème :
+  // elle passerait inaperçue jusqu'à ce qu'un joueur voie une phrase française
+  // au milieu d'un écran anglais.
+  const tables = {};
+  for (const [, code, corps] of source.matchAll(/\n  (\w+): \{(.*?)\n  \},/gs)) {
+    tables[code] = new Set([...corps.matchAll(/'([a-z][\w.]*)':/g)].map((m) => m[1]));
+  }
+  const codes = Object.keys(tables);
+  check('chaque langue déclarée a son dictionnaire',
+    LANGUES.every((L) => codes.includes(L.code)), codes.join(', '));
+
+  const reference = tables[codes[0]];
+  const ecarts = [];
+  for (const code of codes.slice(1)) {
+    for (const cle of reference) if (!tables[code].has(cle)) ecarts.push(`${code} manque ${cle}`);
+    for (const cle of tables[code]) if (!reference.has(cle)) ecarts.push(`${code} en trop ${cle}`);
+  }
+  check('les dictionnaires portent les mêmes clés', ecarts.length === 0,
+    ecarts.slice(0, 4).join(' · ') || `${reference.size} clés`);
+
+  // Les paramètres `{nom}` doivent survivre à la traduction : un `{n}` perdu en
+  // route affiche une phrase amputée de son chiffre.
+  const trous = [];
+  for (const cle of reference) {
+    const attendus = (tables[codes[0]] && [...(source.match(new RegExp(`'${cle.replace(/\./g, '\\.')}': '([^']*)'`)) || [])]);
+    if (!attendus || !attendus[1]) continue;
+    const params = [...attendus[1].matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+    for (const code of codes.slice(1)) {
+      definirLangue(code);
+      const rendu = t(cle, Object.fromEntries(params.map((nom) => [nom, '§'])));
+      if (rendu.includes('{')) trous.push(`${code}:${cle}`);
+    }
+  }
+  definirLangue(codes[0]);
+  check('aucune traduction ne perd un paramètre', trous.length === 0, trous.slice(0, 4).join(', '));
+  check('la langue courante est restaurée', langue() === codes[0]);
+}
+
 console.log('\n== Cadencement publicitaire ==');
 {
   const { AdPolicy, REGLES } = await import('../src/monetization/adPolicy.js');

@@ -4,6 +4,7 @@
  */
 
 import { totalLevels } from '../data/levelStore.js';
+import { t } from './i18n.js';
 import { renderStars } from './screens.js';
 
 const el = (id) => document.getElementById(id);
@@ -13,20 +14,19 @@ const el = (id) => document.getElementById(id);
  *          coinsEarned:number, onRetry:Function, onMap:Function, onNext:Function}} r
  */
 export function show(r) {
-  el('result-title').textContent = r.won ? 'Grille vidée !'
-    : r.raison === 'temps' ? 'Temps écoulé' : 'Plus de coups';
+  el('result-title').textContent = t(r.won ? 'result.won'
+    : r.raison === 'temps' ? 'result.timeout.title' : 'result.nomoves.title');
   renderStars(el('result-stars'), r.won ? r.stars : 0);
   el('result-score').textContent = r.score;
   el('result-reward').textContent = r.won
-    ? `+${r.coinsEarned} pièces`
-    : r.raison === 'temps' ? 'Le chrono est tombé avant la fin' : 'Il ne restait plus de coups';
+    ? t('result.reward', { n: r.coinsEarned })
+    : t(r.raison === 'temps' ? 'result.timeout.sub' : 'result.nomoves.sub');
 
   // Défaite de peu : le dire est motivant et honnête — c'est l'écart réel.
   const proche = el('result-near');
   if (!r.won && r.restants > 0 && r.restants <= 2) {
     proche.textContent = r.restants === 1
-      ? 'Il ne restait qu’un seul bloc !'
-      : `Il ne restait que ${r.restants} blocs !`;
+      ? t('result.near.one') : t('result.near', { n: r.restants });
     proche.hidden = false;
   } else {
     proche.hidden = true;
@@ -40,7 +40,7 @@ export function show(r) {
     doubler.disabled = true;
     const ok = await r.onDouble?.();
     if (ok) {
-      el('result-reward').textContent = `+${r.coinsEarned * 2} pièces`;
+      el('result-reward').textContent = t('result.reward', { n: r.coinsEarned * 2 });
       doubler.hidden = true;
     } else {
       doubler.disabled = false;

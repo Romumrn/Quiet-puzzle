@@ -213,7 +213,11 @@ body { display: grid; place-items: center; }
 .stat b {
   display: block; font: 400 24px var(--font-ui); color: var(--ink);
   font-variant-numeric: tabular-nums;
+  /* « 121/160 » est deux fois plus long qu'un nombre seul : la tuile rétrécit
+     le texte plutôt que de déborder ou de couper. */
+  white-space: nowrap;
 }
+.stat b:has(+ small) { font-size: clamp(17px, 5.4vw, 24px); }
 .stat small { color: var(--ink-faint); font-size: 11px; letter-spacing: 0.04em; }
 
 #screen-menu .btn-lg, #screen-menu .btn-daily { max-width: 268px; }
@@ -386,12 +390,14 @@ body { display: grid; place-items: center; }
   font-size: calc(var(--wall) * 0.72);
   line-height: 1;
 }
-/* Une flèche, au centre de l'ouverture, qui dit le SENS de sortie. */
+/* Une flèche, au centre de l'ouverture, qui dit le SENS de sortie. Avec
+   l'option « symboles », le glyphe de la famille la précède. */
 .gate-fleche {
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center; gap: 0.25em;
   width: 100%; height: 100%;
   font-size: 9px; line-height: 1;
 }
+.gate-left .gate-fleche, .gate-right .gate-fleche { flex-direction: column; }
 .gate-top    { top: calc(var(--wall) * -1); height: var(--wall); border-radius: 7px 7px 0 0; }
 .gate-bottom { bottom: calc(var(--wall) * -1); height: var(--wall); border-radius: 0 0 7px 7px; }
 .gate-left   { left: calc(var(--wall) * -1); width: var(--wall); border-radius: 7px 0 0 7px; }
@@ -610,6 +616,20 @@ body { display: grid; place-items: center; }
   background: var(--accent-wash); border-radius: 14px;
   color: var(--accent-deep); font: 400 13px/1.35 var(--font-ui);
 }
+
+/* Choix de la langue, dans le menu utilisateur. */
+.user-langue { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.user-langue > span { color: var(--ink-soft); font-size: 14px; }
+.langue-choix { display: flex; gap: 5px; }
+.langue-btn {
+  padding: 5px 11px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 999px;
+  color: var(--ink-soft); font: 400 13px var(--font-ui);
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+.langue-btn:hover { border-color: var(--accent); }
+.langue-btn.actif { background: var(--accent-wash); border-color: var(--accent); color: var(--accent-deep); }
 
 /* Échec de démarrage : la base de niveaux n'a pas pu être lue. */
 .boot-error {
@@ -881,7 +901,17 @@ body { display: grid; place-items: center; }
 .user-btn:hover { border-color: var(--accent); }
 .user-btn:active { transform: scale(0.94); }
 .user-btn.ouvert { border-color: var(--accent-deep); }
-.user-level { font: 400 14px var(--font-ui); font-variant-numeric: tabular-nums; }
+/* Trois barres : le bouton doit dire « menu ». Le niveau du joueur y figurait,
+   mais un chiffre se lit comme une information, pas comme une commande — et
+   personne ne pensait à cliquer dessus pour régler le son. Le niveau reste
+   affiché dans le panneau, où il a sa place. */
+.user-burger { display: grid; gap: 3px; width: 15px; }
+.user-burger i {
+  display: block; height: 2px; border-radius: 2px;
+  background: var(--ink-soft);
+  transition: background 0.16s ease;
+}
+.user-btn:hover .user-burger i, .user-btn.ouvert .user-burger i { background: var(--accent-deep); }
 /* Pastille discrète quand le son est coupé : l'état doit se voir sans ouvrir. */
 .user-btn.muet::after {
   content: '🔇'; position: absolute; right: -3px; bottom: -3px;

@@ -104,6 +104,15 @@ Les leviers réellement efficaces, dans l'ordre :
 mesure de « combien de retours en arrière » un joueur devra faire, et donc le
 meilleur indicateur de difficulté disponible.
 
+## Économie
+
+Les gains ont été divisés par quatre après playtest : un premier 3★ rapporte 23
+pièces, un 1★ onze, un niveau rejoué trois. Les **tarifs n'ont pas bougé**
+(indice 50, continuer 120) — c'est le rapport entre les deux qui fait
+l'économie. À l'ancien barème, un joueur ordinaire payait un indice tous les
+deux niveaux sans y penser, et un bonus qu'on peut toujours s'offrir ne se
+choisit plus.
+
 ## Monétisation
 
 Toute la plomberie publicitaire est en place, prête à recevoir AppLovin MAX
@@ -255,6 +264,23 @@ Deux principes rendent ce portage mécanique :
 sur `localStorage`. Les objets de niveau respectent le format de
 `GET /api/level/{levelNumber}`. Brancher le vrai serveur revient à remplacer le
 corps de ces trois fonctions par un `fetch`, sans toucher à un seul appelant.
+
+## Langue et accessibilité
+
+L'interface existe en **français et en anglais** ; la langue se choisit dans le
+menu (☰), et suit celle du navigateur tant que le joueur n'a rien choisi —
+enregistrer un défaut aurait figé la langue du premier chargement.
+`src/ui/i18n.js` porte un dictionnaire plat, le markup des attributs `data-i18n`,
+et `tools/test.mjs` vérifie que les deux tables ont exactement les mêmes clés :
+une clé oubliée ne casse rien (on retombe sur le français), et c'est précisément
+ce qui la rendrait invisible.
+
+Les mondes voyagent traduits dans le catalogue (`name`/`nameEn`), de sorte que
+l'interface n'a rien à savoir du générateur pour se traduire.
+
+Les six familles de blocs se distinguent normalement à la couleur seule. L'option
+**« Symboles sur les blocs »** leur rend leur glyphe (●◆▲★■⬢), sur les blocs
+comme sur les portes, pour qui ne peut pas s'appuyer sur la teinte.
 
 ## Menu utilisateur
 

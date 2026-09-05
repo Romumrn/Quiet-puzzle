@@ -74,7 +74,13 @@ export async function completeLevel(n, { score, stars, failed }) {
 
   // Les pièces ne sont versées que sur les étoiles NOUVELLES : rejouer un
   // niveau déjà 3★ ne doit pas être une machine à monnaie.
-  const coinsEarned = isNewStars ? (stars - prev.stars) * 25 + 20 : 10;
+  //
+  // Les montants ont été divisés par quatre : à 25 pièces l'étoile, un joueur
+  // ordinaire amassait de quoi payer un indice tous les deux niveaux, et les
+  // bonus perdaient tout poids — on ne choisit pas ce qu'on peut s'offrir en
+  // permanence. Les TARIFS n'ont pas bougé (currency.PRIX) : c'est le rapport
+  // entre les deux qui fait l'économie.
+  const coinsEarned = isNewStars ? (stars - prev.stars) * 6 + 5 : 3;
   const xpEarned = stars * 10;
   d.coins += coinsEarned;
   d.xp += xpEarned;

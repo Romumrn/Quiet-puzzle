@@ -18,28 +18,28 @@
     <section class="screen active" id="screen-menu">
       <div class="menu-art" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
       <h1 class="logo">Quiet<em>Puzzle</em></h1>
-      <p class="tagline">Videz la grille par les portes de couleur</p>
+      <p class="tagline" data-i18n="menu.baseline">Videz la grille par les portes de couleur</p>
       <div class="menu-stats">
-        <div class="stat"><b id="menu-stars">0</b><small>étoiles</small></div>
-        <div class="stat"><b id="menu-coins">0</b><small>pièces</small></div>
-        <div class="stat"><b id="menu-progress">1</b><small>niveau</small></div>
+        <div class="stat"><b id="menu-stars">0</b><small data-i18n="menu.stars">étoiles</small></div>
+        <div class="stat"><b id="menu-coins">0</b><small data-i18n="menu.coins">pièces</small></div>
+        <div class="stat"><b id="menu-progress">1</b><small data-i18n="menu.level">niveaux</small></div>
       </div>
       <button class="btn btn-daily" id="btn-daily" hidden>
         <span class="daily-flame">🔥</span>
         <span class="daily-text">
-          <b id="daily-title">Cadeau du jour</b>
+          <b id="daily-title" data-i18n="menu.daily">Cadeau du jour</b>
           <small id="daily-sub">Série de 1 jour</small>
         </span>
         <span class="daily-amount" id="daily-amount">+50</span>
       </button>
-      <button class="btn btn-primary btn-lg" id="btn-play">Jouer</button>
+      <button class="btn btn-primary btn-lg" id="btn-play" data-i18n="menu.play">Jouer</button>
     </section>
 
     <!-- ============ CARTE DES NIVEAUX ============ -->
     <section class="screen" id="screen-map">
       <header class="topbar">
         <button class="icon-btn" data-nav="menu" aria-label="Retour au menu">‹</button>
-        <span class="topbar-title">Carte</span>
+        <span class="topbar-title" data-i18n="map.title">Carte</span>
         <span class="pill" id="map-stars">★ 0</span>
       </header>
       <div class="map-scroll" id="map-scroll"></div>
@@ -58,11 +58,11 @@
         <p class="brief-objective" id="brief-objective">—</p>
         <p class="brief-nouveaute" id="brief-nouveaute" hidden></p>
         <dl class="brief-meta">
-          <div><dt>Coups</dt><dd id="brief-moves">—</dd></div>
-          <div><dt>Difficulté</dt><dd id="brief-difficulty">—</dd></div>
-          <div><dt>Record</dt><dd id="brief-best">—</dd></div>
+          <div><dt data-i18n="brief.moves">Coups</dt><dd id="brief-moves">—</dd></div>
+          <div><dt data-i18n="brief.difficulty">Difficulté</dt><dd id="brief-difficulty">—</dd></div>
+          <div><dt data-i18n="brief.record">Record</dt><dd id="brief-best">—</dd></div>
         </dl>
-        <button class="btn btn-primary btn-lg" id="btn-start">Jouer</button>
+        <button class="btn btn-primary btn-lg" id="btn-start" data-i18n="brief.start">Jouer</button>
       </div>
     </section>
 
@@ -70,22 +70,22 @@
     <section class="screen" id="screen-game">
       <header class="topbar">
         <button class="icon-btn" data-nav="map" aria-label="Quitter le niveau">‹</button>
-        <span class="topbar-title">Niveau <b id="hud-level">1</b></span>
+        <span class="topbar-title"><span data-i18n="user.level">Niveau</span> <b id="hud-level">1</b></span>
         <span class="pill" id="hud-moves">0</span>
       </header>
 
       <div class="hud">
         <div class="hud-row">
           <div class="hud-stat">
-            <span class="hud-label">Temps</span>
+            <span class="hud-label" data-i18n="hud.time">Temps</span>
             <b id="hud-time">0:00</b>
           </div>
           <div class="hud-stat">
-            <span class="hud-label">Blocs</span>
+            <span class="hud-label" data-i18n="hud.blocks">Blocs</span>
             <b id="hud-blocks">0</b>
           </div>
           <div class="hud-stat hud-stat-stars">
-            <span class="hud-label">Étoiles</span>
+            <span class="hud-label" data-i18n="hud.stars">Étoiles</span>
             <div class="stars" id="hud-stars"></div>
           </div>
         </div>
@@ -127,59 +127,77 @@
 
     <!-- ============ MENU UTILISATEUR ============ -->
     <button class="user-btn" id="user-btn" aria-expanded="false" aria-controls="user-panel"
-            title="Profil et réglages">
-      <span class="user-level" id="user-badge">1</span>
+            data-i18n-title="user.title" data-i18n-aria="user.title" title="Profil et réglages">
+      <!-- Trois barres : le bouton dit « menu », alors qu'un chiffre de niveau
+           se lisait comme une information et n'invitait pas à cliquer. -->
+      <span class="user-burger" aria-hidden="true"><i></i><i></i><i></i></span>
     </button>
 
     <div class="user-panel" id="user-panel" hidden>
       <header class="user-head">
         <div class="user-avatar" id="user-avatar">1</div>
         <div class="user-ident">
-          <b>Niveau <span id="user-level">1</span></b>
+          <b><span data-i18n="user.level">Niveau</span> <span id="user-level">1</span></b>
           <small id="user-next">0 / 100 XP</small>
         </div>
-        <button class="icon-btn user-close" id="user-close" aria-label="Fermer">×</button>
+        <button class="icon-btn user-close" id="user-close"
+                data-i18n-aria="user.close" aria-label="Fermer">×</button>
       </header>
 
       <div class="user-xp"><i id="user-xp-fill"></i></div>
 
       <dl class="user-stats">
-        <div><dt>Étoiles</dt><dd id="user-stars">0</dd></div>
-        <div><dt>Niveaux</dt><dd id="user-levels">0</dd></div>
-        <div><dt>Pièces</dt><dd id="user-coins">0</dd></div>
+        <div><dt data-i18n="user.stars">Étoiles</dt><dd id="user-stars">0</dd></div>
+        <div><dt data-i18n="user.levels">Niveaux</dt><dd id="user-levels">0</dd></div>
+        <div><dt data-i18n="user.coins">Pièces</dt><dd id="user-coins">0</dd></div>
       </dl>
 
       <div class="user-section">
-        <span class="user-legend">Son</span>
+        <span class="user-legend" data-i18n="user.sound">Son</span>
         <label class="switch">
-          <span>Musique</span>
+          <span data-i18n="user.music">Musique</span>
           <input type="checkbox" id="opt-music" checked>
           <i></i>
         </label>
         <label class="switch">
-          <span>Effets sonores</span>
+          <span data-i18n="user.sfx">Effets sonores</span>
           <input type="checkbox" id="opt-sfx" checked>
           <i></i>
         </label>
       </div>
 
       <div class="user-section">
-        <span class="user-legend">Publicité</span>
+        <span class="user-legend" data-i18n="user.display">Affichage</span>
         <label class="switch">
-          <span>Supprimer les pubs</span>
+          <span data-i18n="user.glyphs">Symboles sur les blocs</span>
+          <input type="checkbox" id="opt-glyphs">
+          <i></i>
+        </label>
+        <p class="user-note" data-i18n="user.glyphs.note">Ajoute un symbole à chaque couleur, pour ne pas avoir à s’y fier.</p>
+        <div class="user-langue">
+          <span data-i18n="user.language">Langue</span>
+          <div class="langue-choix" id="opt-langue"></div>
+        </div>
+      </div>
+
+      <div class="user-section">
+        <span class="user-legend" data-i18n="user.ads">Publicité</span>
+        <label class="switch">
+          <span data-i18n="user.noads">Supprimer les pubs</span>
           <input type="checkbox" id="opt-noads">
           <i></i>
         </label>
-        <p class="user-note">Achat simulé — aucune régie n’est branchée.</p>
+        <p class="user-note" data-i18n="user.ads.note">Achat simulé — aucune régie n’est branchée.</p>
       </div>
 
-      <button class="btn btn-ghost btn-sm user-danger" id="btn-reset">Réinitialiser la progression</button>
+      <button class="btn btn-ghost btn-sm user-danger" id="btn-reset"
+              data-i18n="user.reset">Réinitialiser la progression</button>
     </div>
 
     <!-- ============ RESULTAT ============ -->
     <div class="overlay" id="overlay-result" hidden>
       <div class="result-card">
-        <h2 id="result-title">Niveau terminé</h2>
+        <h2 id="result-title" data-i18n="result.done">Niveau terminé</h2>
         <div class="stars stars-lg" id="result-stars"></div>
         <p class="result-score"><span id="result-score">0</span><small>glissés</small></p>
         <p class="result-near" id="result-near" hidden></p>
@@ -188,9 +206,9 @@
           <span>▶</span> Doubler les pièces
         </button>
         <div class="result-actions">
-          <button class="btn btn-ghost" id="btn-result-map">Carte</button>
-          <button class="btn btn-ghost" id="btn-result-retry">Rejouer</button>
-          <button class="btn btn-primary" id="btn-result-next">Suivant</button>
+          <button class="btn btn-ghost" id="btn-result-map" data-i18n="result.map">Carte</button>
+          <button class="btn btn-ghost" id="btn-result-retry" data-i18n="result.retry">Rejouer</button>
+          <button class="btn btn-primary" id="btn-result-next" data-i18n="result.next">Suivant</button>
         </div>
       </div>
     </div>
@@ -242,14 +260,16 @@
     <div class="overlay" id="overlay-offer" hidden>
       <div class="offer-card">
         <h2 id="offer-reason">Le temps est écoulé</h2>
-        <p class="offer-lead">Il ne reste que <b id="offer-remaining">0</b> blocs à sortir.</p>
-        <p class="offer-bonus">Continuez avec <b id="offer-bonus">+30 s et +3 coups</b></p>
+        <p class="offer-lead"><span data-i18n="offer.lead">Il ne reste que</span>
+          <b id="offer-remaining">0</b> <span data-i18n="offer.lead.end">blocs à sortir.</span></p>
+        <p class="offer-bonus"><span data-i18n="offer.continue">Continuez avec</span>
+          <b id="offer-bonus">+30 s et +3 coups</b></p>
         <div class="offer-actions">
           <button class="btn btn-reward btn-lg" id="btn-offer-ad"><span>▶</span> Regarder une pub</button>
           <button class="btn btn-ghost btn-lg" id="btn-offer-coins">
             Payer <b id="offer-coins-cost">120</b> pièces
           </button>
-          <button class="btn btn-ghost" id="btn-offer-give-up">Abandonner</button>
+          <button class="btn btn-ghost" id="btn-offer-give-up" data-i18n="action.giveup">Abandonner</button>
         </div>
       </div>
     </div>

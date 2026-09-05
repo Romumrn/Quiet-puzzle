@@ -10,6 +10,17 @@
  */
 
 import { COLORS, KIND } from '../core/block.js';
+import { t, nomCouleur } from '../ui/i18n.js';
+
+/**
+ * Option d'accessibilité : le joueur a demandé les symboles de famille.
+ *
+ * Les six couleurs se distinguent normalement à la teinte seule ; ce drapeau
+ * leur rend leur glyphe, sur les blocs comme sur les portes. On le lit sur le
+ * DOM plutôt que de le passer en paramètre à chaque appel : le plateau se
+ * redessine entièrement quand l'option change, et un seul endroit décide.
+ */
+const avecGlyphes = () => document.getElementById('app')?.classList.contains('avec-glyphes');
 
 const BASE_TIMING = { MOVE: 95, POP: 130, EXIT: 300, UNLOCK: 420, BUMP: 130 };
 export const TIMING = { ...BASE_TIMING };
@@ -121,9 +132,11 @@ export class BoardView {
       // repérage est déplacée sur l'étiquette de la porte (voir `title`).
       const fleche = document.createElement('span');
       fleche.className = 'gate-fleche';
-      fleche.textContent = FLECHES[g.side];
+      // Le glyphe précède la flèche, et non l'inverse : c'est lui qui identifie
+      // la porte, la flèche ne fait que rappeler le sens de sortie.
+      fleche.textContent = (avecGlyphes() ? (COLORS[g.color]?.glyph ?? '') : '') + FLECHES[g.side];
       el.appendChild(fleche);
-      el.title = `Sortie ${COLORS[g.color]?.name ?? ''}`.trim();
+      el.title = t('gate.exit', { couleur: nomCouleur(g.color) });
 
       // Une porte à capacité limitée DOIT afficher ce qu'il lui reste :
       // une contrainte invisible se lit comme un bug, pas comme une règle.
@@ -170,7 +183,8 @@ export class BoardView {
     // comportement : cadenas, poids, joker. La couleur seule identifie sa porte
     // — les glyphes de famille (●◆▲★■⬢) l'encombraient sans rien apprendre à
     // qui joue déjà à la couleur.
-    if (b.kind === KIND.LOCKED || b.kind === KIND.ENCOMBRANT || b.kind === KIND.JOKER) {
+    const glyphe = avecGlyphes() && b.color >= 0 && b.kind !== KIND.WALL && b.kind !== KIND.JOKER;
+    if (glyphe || b.kind === KIND.LOCKED || b.kind === KIND.ENCOMBRANT || b.kind === KIND.JOKER) {
       const marque = document.createElement('span');
       marque.className = 'block-mark';
       const [gx, gy] = this._centreCell(b);
@@ -186,9 +200,11 @@ export class BoardView {
         // encombrant se confond avec un bloc ordinaire et le joueur ne peut pas
         // anticiper la porte qu'il va saturer.
         marque.classList.add('poids-mark');
-        marque.innerHTML = '<b>×2</b>';
-      } else {
+        marque.innerHTML = (glyphe ? `<span>${COLORS[b.color].glyph}</span>` : '') + '<b>×2</b>';
+      } else if (b.kind === KIND.JOKER) {
         marque.textContent = '✳';
+      } else {
+        marque.textContent = COLORS[b.color].glyph;
       }
       node.appendChild(marque);
     }
@@ -340,6 +356,20 @@ export class BoardView {
     node.querySelector('.block-mark')?.remove();
     node.querySelector('.block-cond')?.remove();
     setTimeout(() => node.classList.remove('unlocking'), TIMING.UNLOCK);
+  }
+
+  /**
+   * L'option « symboles » vient de changer : on remonte les blocs et les portes.
+   * Les ajouter à chaud reviendrait à dupliquer, dans une seconde branche, la
+   * logique qui décide de leur marque — la reconstruction coûte quelques
+   * millisecondes et ne peut pas diverger.
+   */
+  rafraichirGlyphes() {
+    if (!this.board) return;
+    this.blockLayer.replaceChildren();
+    this.nodes.clear();
+    for (const b of this.board.blocks.values()) this._createBlock(b);
+    this._drawGates();
   }
 
   /** Refus de déplacement : petite secousse, pour que l'échec soit lisible. */

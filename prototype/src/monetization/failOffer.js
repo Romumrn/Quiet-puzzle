@@ -17,6 +17,7 @@
 import * as currency from './currency.js';
 import { PLACEMENT } from './adManager.js';
 import { track } from '../data/events.js';
+import { t } from '../ui/i18n.js';
 
 /** Ce que rend une continuation acceptée. */
 export const BONUS = Object.freeze({ SECONDES: 30, COUPS: 3 });
@@ -28,11 +29,11 @@ const el = (id) => document.getElementById(id);
  */
 export function proposer({ board, ads }) {
   const panneau = el('overlay-offer');
-  const raison = board.failReason === 'temps' ? 'Le temps est écoulé' : 'Plus aucun coup';
+  const raison = t(board.failReason === 'temps' ? 'offer.timeout' : 'offer.nomoves');
   el('offer-reason').textContent = raison;
   el('offer-remaining').textContent = board.remaining();
   el('offer-coins-cost').textContent = currency.PRIX.CONTINUER;
-  el('offer-bonus').textContent = `+${BONUS.SECONDES} s et +${BONUS.COUPS} coups`;
+  el('offer-bonus').textContent = t('offer.bonus', { s: BONUS.SECONDES, c: BONUS.COUPS });
 
   const boutonPieces = el('btn-offer-coins');
   boutonPieces.disabled = !currency.peutPayer(currency.PRIX.CONTINUER);

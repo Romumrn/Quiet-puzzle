@@ -10,6 +10,8 @@
 import { Board } from './core/board.js';
 import { GameState } from './core/gameState.js';
 import * as levels from './data/levelStore.js';
+import * as i18n from './ui/i18n.js';
+const { t } = i18n;
 import { KIND } from './core/block.js';
 import { BoardView, setSpeed, conditionLabel } from './render/boardView.js';
 import { InputHandler } from './input/input.js';
@@ -74,9 +76,10 @@ async function showMenu() {
   const p = await api.getProfile();
   el('menu-stars').textContent = p.totalStars;
   el('menu-coins').textContent = p.coins;
-  el('menu-progress').textContent = p.currentLevel;
+  // « 121 / 160 » plutôt que « 121 » : seul, le chiffre ne dit pas où l'on en
+  // est — il se lisait comme un score, alors qu'il mesure un avancement.
+  el('menu-progress').textContent = `${p.currentLevel}/${levels.totalLevels()}`;
   majCadeauDuJour();
-  el('user-badge').textContent = p.playerLevel;
   majPastilleSon();
   theme.appliquer(p.currentLevel); // le menu prend la couleur d'où en est le joueur
   screens.show('menu');
@@ -89,8 +92,8 @@ function majCadeauDuJour() {
   const dispo = daily.peutReclamer();
   el('btn-daily').hidden = !dispo;
   if (!dispo) return;
-  el('daily-title').textContent = 'Cadeau du jour';
-  el('daily-sub').textContent = `Série de ${daily.serie()} jour${daily.serie() > 1 ? 's' : ''}`;
+  el('daily-title').textContent = t('menu.daily');
+  el('daily-sub').textContent = t(daily.serie() > 1 ? 'menu.streak.plural' : 'menu.streak', { n: daily.serie() });
   el('daily-amount').textContent = `+${daily.recompenseDuJour()}`;
 }
 
@@ -112,19 +115,21 @@ async function showBrief(n) {
   stopChrono();
   level = await api.getLevel(n);
   const rec = store.levelRecord(n);
-  el('brief-realm').textContent = level.realm;
+  // Le nom du monde vient du CATALOGUE, pas du niveau : la base le stocke
+  // dans les deux langues, alors que `level.realm` est figé à la génération.
+  el('brief-realm').textContent = i18n.texteMonde(levels.realmDe(n), 'name');
   el('brief-number').textContent = n;
   screens.renderStars(el('brief-stars'), rec.stars);
   el('brief-objective').textContent = hud.labelFor(level);
   el('brief-moves').textContent = level.moveLimit;
-  el('brief-difficulty').textContent = level.difficulty;
+  el('brief-difficulty').textContent = i18n.texteMonde(levels.realmDe(n), 'difficulty');
   // Nouveauté du monde, annoncée à son premier niveau seulement. Un type de
   // bloc jamais vu doit être nommé une fois ; le répéter aux dix-neuf niveaux
   // suivants transformerait l'encart en décor que plus personne ne lit.
   const nouveaute = el('brief-nouveaute');
   const entreeDeMonde = (n - 1) % levels.levelsPerRealm() === 0 && levels.realmDe(n).apporte;
   nouveaute.hidden = !entreeDeMonde;
-  if (entreeDeMonde) nouveaute.textContent = `Nouveau : ${levels.realmDe(n).apporte}`;
+  if (entreeDeMonde) nouveaute.textContent = t('brief.new', { quoi: i18n.texteMonde(levels.realmDe(n), 'apporte') });
   el('brief-best').textContent = rec.bestScore ? `${rec.bestScore} coups` : '—';
   theme.appliquer(n);
   screens.show('brief');
@@ -196,8 +201,8 @@ function onRefus(id) {
   const b = board.blocks.get(id);
   if (!b) return;
   view.bump(id);
-  if (b.kind === KIND.WALL) screens.toast('Ce bloc est scellé');
-  else if (b.kind === KIND.LOCKED) screens.toast(`Verrouillé : ${conditionLabel(b.condition)}`);
+  if (b.kind === KIND.WALL) screens.toast(t('toast.sealed'));
+  else if (b.kind === KIND.LOCKED) screens.toast(t('toast.locked', { quoi: conditionLabel(b.condition, board) }));
 }
 
 /** Un mouvement de doigt : renvoie vrai si le bloc a effectivement avancé. */
@@ -326,44 +331,7 @@ el('btn-play').onclick = showMap;
 el('btn-daily').onclick = () => {
   const montant = daily.reclamer();
   if (!montant) return;
-  screens.toast(`+${montant} pièces — série de ${daily.serie()} jours`);
-  // Son : on restaure les préférences avant tout affichage.
-{
-  const d = store.load();
-  audio.definirMusique(d.musique !== false);
-  audio.definirEffets(d.effets !== false);
-}
-
-/**
- * Démarrage : la BASE DE NIVEAUX D'ABORD.
- *
- * Rien ne peut s'afficher avant elle — le menu compte les niveaux, la carte
- * dessine les mondes, le thème lit leur palette. Tout cela se lit ensuite de
- * façon synchrone ; cet `await` est le seul endroit du jeu qui attend la base.
- */
-(async () => {
-  try {
-    await levels.ouvrir();
-    // Le champ « aller au niveau » suit le total de la base. Codé en dur dans
-    // le markup, il plafonnait la saisie et rendait les niveaux ajoutés
-    // inatteignables depuis le panneau — et il ne peut être réglé qu'ICI, la
-    // base seule sachant combien de niveaux elle contient.
-    el('debug-level').max = levels.totalLevels();
-  } catch (e) {
-    // Sans base, il n'y a pas de jeu : mieux vaut le dire que d'afficher un
-    // menu vide dont aucun bouton ne répondrait.
-    document.getElementById('app').innerHTML =
-      '<div class="boot-error"><h1>Base de niveaux introuvable</h1>'
-      + '<p>Lancer <code>node tools/build-levels.mjs</code>, puis recharger.</p></div>';
-    console.error(e);
-    return;
-  }
-
-  // Série quotidienne, puis menu.
-  daily.ouvrirSession();
-  window.addEventListener('pagehide', () => track('session_ended', {}));
-  showMenu();
-})();
+  screens.toast(t('toast.daily', { n: montant, jours: daily.serie() }));
 };
 
 el('btn-restart').onclick = () => { if (!busy) startLevel(); };
@@ -375,12 +343,12 @@ el('btn-hammer').onclick = async () => {
   modeMarteau = true;
   input.locked = true;
   el('app').classList.add('hammer');
-  screens.toast('Touchez le bloc à retirer');
+  screens.toast(t('toast.hammer.pick'));
 
   const viser = async (ev) => {
     const id = view.blockIdFromPoint(ev.clientX, ev.clientY);
     const cible = id !== null ? board.blocks.get(id) : null;
-    if (!cible || cible.kind === 'wall') { screens.toast('Choisissez un bloc déplaçable'); return; }
+    if (!cible || cible.kind === 'wall') { screens.toast(t('toast.hammer.bad')); return; }
     ev.preventDefault();
     ev.stopPropagation();
     fin();
@@ -410,7 +378,7 @@ el('btn-time').onclick = async () => {
   board.ajouterTemps(30);
   track('powerup_used', { type: 'time', level: level.number });
   hud.update(board);
-  screens.toast('+30 secondes');
+  screens.toast(t('toast.time'));
 };
 
 el('btn-undo').onclick = async () => {
@@ -422,7 +390,7 @@ el('btn-undo').onclick = async () => {
   view.refreshGates();
   hud.update(board);
   majBonus();
-  screens.toast('Geste annulé');
+  screens.toast(t('toast.undo'));
 };
 
 /**
@@ -432,7 +400,7 @@ el('btn-undo').onclick = async () => {
 el('btn-hint').onclick = async () => {
   if (!board || busy || board.gameState !== GameState.PLAYING) return;
   const conseil = board.hint();
-  if (!conseil) { screens.toast('Aucun coup gagnant trouvé'); return; }
+  if (!conseil) { screens.toast(t('toast.nohint')); return; }
 
   if (currency.peutPayer(currency.PRIX.INDICE)) {
     if (!currency.debiter(currency.PRIX.INDICE, 'hint')) return;
@@ -476,7 +444,6 @@ document.addEventListener('keydown', (ev) => {
 
 async function majPanneau() {
   const p = await api.getProfile();
-  el('user-badge').textContent = p.playerLevel;
   el('user-avatar').textContent = p.playerLevel;
   el('user-level').textContent = p.playerLevel;
   el('user-next').textContent = `${p.xpDansNiveau} / ${p.xpRequis} XP`;
@@ -488,7 +455,9 @@ async function majPanneau() {
   const d = store.load();
   el('opt-music').checked = d.musique !== false;
   el('opt-sfx').checked = d.effets !== false;
+  el('opt-glyphs').checked = d.glyphes === true;
   el('opt-noads').checked = currency.aSupprimeLesPubs();
+  construireChoixLangue();
   majPastilleSon();
 }
 
@@ -517,52 +486,66 @@ el('opt-sfx').onchange = (ev) => {
   track('sound_toggled', { canal: 'effets', actif });
 };
 
+/**
+ * Symboles de famille sur les blocs et les portes.
+ *
+ * Les six couleurs se distinguent normalement à la teinte seule. Cette option
+ * leur rend leur glyphe (●◆▲★■⬢) : sans lui, un joueur daltonien n'a aucun
+ * moyen de savoir par quelle porte sort quel bloc. La classe posée sur `#app`
+ * suffit — le rendu du plateau la lit, et le CSS fait le reste.
+ */
+function appliquerGlyphes(actif) {
+  document.getElementById('app').classList.toggle('avec-glyphes', actif);
+  view?.rafraichirGlyphes?.();
+}
+
+el('opt-glyphs').onchange = (ev) => {
+  const actif = ev.target.checked;
+  const d = store.load(); d.glyphes = actif; store.save(d);
+  appliquerGlyphes(actif);
+  track('glyphs_toggled', { actif });
+};
+
+/** Choix de la langue : un bouton par langue, celui de la langue courante actif. */
+function construireChoixLangue() {
+  const hote = el('opt-langue');
+  hote.replaceChildren(...i18n.LANGUES.map((L) => {
+    const b = document.createElement('button');
+    b.className = 'langue-btn' + (L.code === i18n.langue() ? ' actif' : '');
+    b.textContent = L.nom;
+    b.onclick = () => {
+      i18n.definirLangue(L.code);
+      construireChoixLangue();
+      // Les écrans déjà construits portent du texte fabriqué en JS : on les
+      // redessine, sans quoi la carte et le pré-niveau resteraient dans
+      // l'ancienne langue jusqu'à la prochaine navigation.
+      majPanneau();
+      if (screens.current() === 'menu') showMenu();
+      else if (screens.current() === 'map') mapScreen.render(showBrief);
+      track('language_changed', { langue: L.code });
+    };
+    return b;
+  }));
+}
+
 el('opt-noads').onchange = (ev) => {
   currency.definirSuppressionPubs(ev.target.checked);
   majBanniere(screens.current());
-  screens.toast(ev.target.checked ? 'Pubs supprimées (achat simulé)' : 'Pubs réactivées');
+  screens.toast(t(ev.target.checked ? 'toast.ads.off' : 'toast.ads.on'));
 };
 
 el('btn-reset').onclick = () => {
-  if (!confirm('Effacer toute la progression ?')) return;
+  if (!confirm(t('user.reset.confirm'))) return;
   store.reset();
-  // Son : on restaure les préférences avant tout affichage.
-{
-  const d = store.load();
-  audio.definirMusique(d.musique !== false);
-  audio.definirEffets(d.effets !== false);
-}
-
-/**
- * Démarrage : la BASE DE NIVEAUX D'ABORD.
- *
- * Rien ne peut s'afficher avant elle — le menu compte les niveaux, la carte
- * dessine les mondes, le thème lit leur palette. Tout cela se lit ensuite de
- * façon synchrone ; cet `await` est le seul endroit du jeu qui attend la base.
- */
-(async () => {
-  try {
-    await levels.ouvrir();
-    // Le champ « aller au niveau » suit le total de la base. Codé en dur dans
-    // le markup, il plafonnait la saisie et rendait les niveaux ajoutés
-    // inatteignables depuis le panneau — et il ne peut être réglé qu'ICI, la
-    // base seule sachant combien de niveaux elle contient.
-    el('debug-level').max = levels.totalLevels();
-  } catch (e) {
-    // Sans base, il n'y a pas de jeu : mieux vaut le dire que d'afficher un
-    // menu vide dont aucun bouton ne répondrait.
-    document.getElementById('app').innerHTML =
-      '<div class="boot-error"><h1>Base de niveaux introuvable</h1>'
-      + '<p>Lancer <code>node tools/build-levels.mjs</code>, puis recharger.</p></div>';
-    console.error(e);
-    return;
-  }
-
-  // Série quotidienne, puis menu.
+  // Réappliquer les préférences remises à zéro, puis revenir au menu. On ne
+  // relance PAS la séquence de démarrage : elle réenregistrait un écouteur
+  // `pagehide` de plus à chaque effacement, et chacun émettait ensuite son
+  // propre évènement de fin de session.
+  const remis = store.load();
+  audio.definirMusique(remis.musique !== false);
+  audio.definirEffets(remis.effets !== false);
   daily.ouvrirSession();
-  window.addEventListener('pagehide', () => track('session_ended', {}));
   showMenu();
-})();
 };
 document.querySelectorAll('[data-nav]').forEach((b) => {
   b.onclick = () => (b.dataset.nav === 'menu' ? showMenu() : showMap());
@@ -643,14 +626,14 @@ el('debug-noads').onclick = () => {
   const actif = !currency.aSupprimeLesPubs();
   currency.definirSuppressionPubs(actif);
   el('debug-noads').textContent = actif ? 'Désactiver sans-pub' : 'Activer sans-pub';
-  screens.toast(actif ? 'Pubs supprimées (achat simulé)' : 'Pubs réactivées');
+  screens.toast(t(actif ? 'toast.ads.off' : 'toast.ads.on'));
   majBanniere(screens.current());
   if (!el('user-panel').hidden) majPanneau();
 };
 
 el('debug-coins').onclick = () => {
   currency.crediter(500, 'debug');
-  screens.toast(`${currency.solde()} pièces`);
+  screens.toast(t('toast.coins', { n: currency.solde() }));
   majBonus();
   refreshDebug();
 };
@@ -687,7 +670,7 @@ el('debug-unlock').onclick = () => {
   const d = store.load();
   d.unlockedLevel = levels.totalLevels();
   store.save(d);
-  screens.toast('Tous les niveaux débloqués');
+  screens.toast(t('toast.unlocked'));
   refreshDebug();
 };
 
@@ -724,6 +707,9 @@ function refreshDebug() {
  * façon synchrone ; cet `await` est le seul endroit du jeu qui attend la base.
  */
 (async () => {
+  // La langue d'abord : tout ce qui suit écrit du texte à l'écran.
+  i18n.initialiser();
+  appliquerGlyphes(store.load().glyphes === true);
   try {
     await levels.ouvrir();
     // Le champ « aller au niveau » suit le total de la base. Codé en dur dans
@@ -735,8 +721,8 @@ function refreshDebug() {
     // Sans base, il n'y a pas de jeu : mieux vaut le dire que d'afficher un
     // menu vide dont aucun bouton ne répondrait.
     document.getElementById('app').innerHTML =
-      '<div class="boot-error"><h1>Base de niveaux introuvable</h1>'
-      + '<p>Lancer <code>node tools/build-levels.mjs</code>, puis recharger.</p></div>';
+      `<div class="boot-error"><h1>${t('boot.missing')}</h1>`
+      + `<p>${t('boot.hint', { cmd: '<code>node tools/build-levels.mjs</code>' })}</p></div>`;
     console.error(e);
     return;
   }

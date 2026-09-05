@@ -18,6 +18,18 @@ const EMPTY = () => ({
   noAds: false,      // achat "supprimer les pubs" (doc §5.3, PRODUCT_NO_ADS)
   musique: true,
   effets: true,
+  /**
+   * Langue de l'interface, ou null tant que le joueur n'a pas choisi — auquel
+   * cas on suit celle du navigateur. Enregistrer un choix par défaut aurait figé
+   * la langue du premier chargement.
+   */
+  langue: null,
+  /**
+   * Glyphes de famille sur les blocs et les portes. Les six familles se
+   * distinguent par leur couleur ; cette option leur rend leur symbole (●◆▲★■⬢),
+   * pour qui ne peut pas s'appuyer sur la teinte.
+   */
+  glyphes: false,
   streak: 0,         // jours consécutifs joués
   lastPlayDay: null, // 'YYYY-MM-DD'
   dailyClaimedOn: null,

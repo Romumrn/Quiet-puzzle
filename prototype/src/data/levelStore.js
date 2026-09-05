@@ -26,6 +26,8 @@
  * le fichier unique : celui-ci n'a pas de serveur d'où charger quoi que ce
  * soit, et un `fetch` sur `file://` échouerait. Vide, on passe par le réseau.
  */
+import { t } from '../ui/i18n.js';
+
 export const EMBARQUE = { index: null, mondes: {} };
 
 const RACINE = 'levels';
@@ -108,6 +110,5 @@ export const prechargerMonde = (id) => chargerMonde(id).then(() => undefined, ()
  * raison de charger le générateur pour une phrase.
  */
 export function objectiveLabel(level) {
-  const n = level.objective.target;
-  return `Faire sortir les ${n} blocs`;
+  return t('brief.objective', { n: level.objective.target });
 }

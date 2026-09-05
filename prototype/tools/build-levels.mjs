@@ -64,8 +64,14 @@ const index = {
   totalLevels: TOTAL_LEVELS,
   realms: REALMS.map((R) => ({
     id: R.id,
+    // Les deux langues voyagent dans le catalogue. L'interface n'a alors rien à
+    // savoir du générateur pour se traduire, et un monde ajouté sans version
+    // anglaise retombe proprement sur le français.
     name: R.name,
+    nameEn: R.nameEn,
     difficulty: R.difficulty,
+    difficultyEn: R.difficultyEn,
+    apporteEn: R.apporteEn,
     teinte: R.teinte,
     palette: R.palette,
     apporte: R.apporte,

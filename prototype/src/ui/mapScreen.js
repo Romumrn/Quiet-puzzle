@@ -7,6 +7,7 @@ import { totalLevels, levelsPerRealm, realms } from '../data/levelStore.js';
 import * as store from '../data/save.js';
 import { renderStars } from './screens.js';
 import * as theme from './theme.js';
+import { texteMonde } from './i18n.js';
 
 /** Décalage horizontal du serpentin, en fraction de la largeur disponible. */
 const OFFSETS = [0, 0.62, 0.9, 0.62, 0, -0.62, -0.9, -0.62];
@@ -27,7 +28,7 @@ export function render(onSelect) {
 
     const label = document.createElement('div');
     label.className = 'realm-label';
-    label.textContent = monde.name;
+    label.textContent = texteMonde(monde, 'name');
     section.appendChild(label);
 
     const path = document.createElement('div');

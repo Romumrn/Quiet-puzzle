@@ -12,7 +12,11 @@ import { track } from '../data/events.js';
 import * as currency from '../monetization/currency.js';
 
 /** Paliers de récompense selon l'ancienneté de la série. */
-const PALIERS = [50, 75, 100, 150, 200, 300, 500];
+// Paliers de la série quotidienne, alignés sur les gains de fin de niveau
+// (divisés par quatre en même temps qu'eux). Un cadeau plus généreux que
+// plusieurs niveaux réunis aurait fait de la connexion, et non du jeu, la
+// meilleure façon de gagner des pièces.
+const PALIERS = [12, 18, 25, 38, 50, 75, 125];
 
 const jour = (decalage = 0) => {
   const d = new Date();

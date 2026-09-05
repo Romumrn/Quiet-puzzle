@@ -4,6 +4,7 @@
  */
 
 import { objectiveLabel } from '../data/levelStore.js';
+import { t } from './i18n.js';
 import { renderStars } from './screens.js';
 
 const el = (id) => document.getElementById(id);
@@ -22,7 +23,7 @@ let dernierRestant = null;
 
 export function update(board) {
   const level = board.level;
-  el('hud-moves').textContent = `${board.movesRemaining} coups`;
+  el('hud-moves').textContent = t('hud.moves', { n: board.movesRemaining });
 
   // Le compteur tressaute quand il descend : la sortie d'un bloc doit se voir
   // aussi dans le HUD, pas seulement sur le plateau.
