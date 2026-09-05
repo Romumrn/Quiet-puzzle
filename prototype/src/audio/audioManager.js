@@ -27,7 +27,10 @@ export class AudioManager {
   constructor() {
     this.ctx = null;
     this.pret = false;
-    this.actif = true;
+    // Musique et effets se coupent séparément : beaucoup de joueurs veulent
+    // garder le retour sonore de leurs actions tout en jouant sans musique.
+    this.musiqueActive = true;
+    this.effetsActifs = true;
     this.tampons = new Map();
     this.musique = null;
     this.degre = -1;
@@ -41,7 +44,7 @@ export class AudioManager {
     document.addEventListener('visibilitychange', () => {
       if (!this.ctx) return;
       if (document.hidden) this.ctx.suspend();
-      else if (this.actif) this.ctx.resume();
+      else this.ctx.resume();
     });
   }
 
@@ -55,7 +58,7 @@ export class AudioManager {
       this.gainMusique = this.ctx.createGain();
       this.gainEffets = this.ctx.createGain();
       this.gainMusique.gain.value = 0;
-      this.gainEffets.gain.value = this.actif ? VOLUME_EFFETS : 0;
+      this.gainEffets.gain.value = this.effetsActifs ? VOLUME_EFFETS : 0;
       this.gainMusique.connect(this.ctx.destination);
       this.gainEffets.connect(this.ctx.destination);
       this._chargement = this._charger();
@@ -81,7 +84,7 @@ export class AudioManager {
 
   lancerMusique() {
     this._musiqueDemandee = true;
-    if (!this.pret || !this.actif || this.musique) return;
+    if (!this.pret || !this.musiqueActive || this.musique) return;
     const tampon = this.tampons.get('musique');
     if (!tampon) return;
 
@@ -113,7 +116,7 @@ export class AudioManager {
   // --- Effets --------------------------------------------------------------
 
   _jouer(cle, gain = 1, retard = 0) {
-    if (!this.pret || !this.actif) return;
+    if (!this.pret || !this.effetsActifs) return;
     const tampon = this.tampons.get(cle);
     if (!tampon) return;
     const source = this.ctx.createBufferSource();
@@ -149,26 +152,35 @@ export class AudioManager {
     [2, 3, 5].forEach((d, i) => this._jouer(`sortie${d}`, 0.9 - 0.1 * i, i * 0.13));
   }
 
-  // --- Réglage -------------------------------------------------------------
+  // --- Réglages ------------------------------------------------------------
 
-  get sonActif() { return this.actif; }
-
-  definirActif(actif) {
-    this.actif = actif;
+  definirMusique(actif) {
+    this.musiqueActive = actif;
     if (!this.ctx) return;
-    this.gainEffets.gain.value = actif ? VOLUME_EFFETS : 0;
     if (actif) {
       this.ctx.resume();
       if (this._musiqueDemandee) this.lancerMusique();
-    } else {
-      const t = this.ctx.currentTime;
-      this.gainMusique.gain.cancelScheduledValues(t);
-      this.gainMusique.gain.linearRampToValueAtTime(0, t + 0.3);
-      if (this.musique) {
-        const s = this.musique;
-        this.musique = null;
-        setTimeout(() => { try { s.stop(); } catch { /* déjà arrêtée */ } }, 400);
-      }
+      return;
     }
+    const t = this.ctx.currentTime;
+    this.gainMusique.gain.cancelScheduledValues(t);
+    this.gainMusique.gain.setValueAtTime(this.gainMusique.gain.value, t);
+    this.gainMusique.gain.linearRampToValueAtTime(0, t + 0.3);
+    if (this.musique) {
+      const source = this.musique;
+      this.musique = null;
+      setTimeout(() => { try { source.stop(); } catch { /* déjà arrêtée */ } }, 400);
+    }
+  }
+
+  definirEffets(actif) {
+    this.effetsActifs = actif;
+    if (this.ctx) this.gainEffets.gain.value = actif ? VOLUME_EFFETS : 0;
+  }
+
+  /** Coupe tout d'un geste, sans perdre le détail des deux réglages. */
+  toutCouper() {
+    this.definirMusique(false);
+    this.definirEffets(false);
   }
 }

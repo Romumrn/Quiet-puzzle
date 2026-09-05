@@ -1,4 +1,4 @@
-# Puzzle Quest — prototype jouable
+# Quiet Puzzle — prototype jouable
 
 Prototype web du jeu décrit dans `../Document_Technique_Developpeurs.md`.
 Genre : **puzzle de blocs à faire sortir par des portes de couleur**, dans la
@@ -221,6 +221,19 @@ Deux principes rendent ce portage mécanique :
 sur `localStorage`. Les objets de niveau respectent le format de
 `GET /api/level/{levelNumber}`. Brancher le vrai serveur revient à remplacer le
 corps de ces trois fonctions par un `fetch`, sans toucher à un seul appelant.
+
+## Menu utilisateur
+
+Le bouton rond en haut à droite est présent sur **tous** les écrans, y compris
+en pleine partie : couper le son ne doit pas obliger à abandonner un niveau. Il
+affiche le niveau global du joueur, et porte une pastille quand le son est
+coupé — l'état doit se lire sans avoir à ouvrir le panneau.
+
+Le panneau donne le niveau global et sa progression en XP, les étoiles, les
+niveaux terminés et les pièces ; puis les réglages : musique et effets sonores
+**séparément** (un réglage unique est trop grossier — beaucoup de joueurs
+veulent garder le retour sonore de leurs actions sans la musique), la
+suppression des pubs, et la réinitialisation de la progression.
 
 ## Panneau QA
 

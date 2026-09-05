@@ -16,7 +16,8 @@ const EMPTY = () => ({
   xp: 0,
   levels: {},        // numéro -> { stars, bestScore }
   noAds: false,      // achat "supprimer les pubs" (doc §5.3, PRODUCT_NO_ADS)
-  son: true,         // musique et effets
+  musique: true,
+  effets: true,
   streak: 0,         // jours consécutifs joués
   lastPlayDay: null, // 'YYYY-MM-DD'
   dailyClaimedOn: null,

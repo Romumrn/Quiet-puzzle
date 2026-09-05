@@ -1,10 +1,16 @@
-<title>Puzzle Quest</title>
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fbf4f6">
+<title>Quiet Puzzle</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
 <style>
 /* ==========================================================================
-   Puzzle Quest — prototype
+   Quiet Puzzle — prototype
    Identité : rose pastel, sobre, épuré. Toute la chromie de l'habillage dérive
    d'une seule teinte `--h`, qui glisse du rose au vert d'eau à mesure que le
    joueur descend dans les niveaux (voir src/ui/theme.js).
@@ -796,6 +802,96 @@ body { display: grid; place-items: center; }
   font-family: ui-monospace, Menlo, monospace; font-size: 10px; resize: vertical;
 }
 
+/* ---------- Menu utilisateur ---------- */
+
+/* Flottant plutôt qu'intégré aux barres de titre : il doit être au même
+   endroit sur tous les écrans, y compris le menu qui n'a pas de barre. */
+.user-btn {
+  position: absolute; top: max(18px, env(safe-area-inset-top)); right: 18px; z-index: 18;
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink); cursor: pointer;
+  display: grid; place-items: center;
+  transition: border-color 0.16s ease, transform 0.14s ease;
+}
+.user-btn:hover { border-color: var(--accent); }
+.user-btn:active { transform: scale(0.94); }
+.user-btn.ouvert { border-color: var(--accent-deep); }
+.user-level { font: 400 14px var(--font-ui); font-variant-numeric: tabular-nums; }
+/* Pastille discrète quand le son est coupé : l'état doit se voir sans ouvrir. */
+.user-btn.muet::after {
+  content: '🔇'; position: absolute; right: -3px; bottom: -3px;
+  font-size: 11px; line-height: 1;
+  background: var(--surface); border-radius: 50%; padding: 1px;
+}
+
+/* Les barres de titre laissent la place au bouton flottant. */
+.topbar { padding-right: 46px; }
+
+.user-panel {
+  position: absolute; top: calc(max(18px, env(safe-area-inset-top)) + 46px); right: 14px;
+  z-index: 19; width: min(280px, calc(100% - 28px));
+  padding: 16px; border-radius: 20px;
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 18px 44px hsl(var(--h) 30% 50% / 0.18);
+  animation: panneau-in 0.22s cubic-bezier(0.2, 1.1, 0.4, 1) both;
+}
+@keyframes panneau-in { from { opacity: 0; transform: translateY(-8px) scale(0.97); } }
+
+.user-head { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+.user-avatar {
+  width: 40px; height: 40px; border-radius: 13px;
+  display: grid; place-items: center;
+  background: var(--accent); color: #fff;
+  font: 400 17px var(--font-ui); font-variant-numeric: tabular-nums;
+}
+.user-ident { flex: 1; display: flex; flex-direction: column; }
+.user-ident b { font-weight: 500; font-size: 14px; }
+.user-ident small { color: var(--ink-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.user-close { width: 30px; height: 30px; font-size: 17px; }
+
+.user-xp { height: 4px; border-radius: 999px; background: var(--line-soft); overflow: hidden; margin-bottom: 14px; }
+.user-xp i { display: block; height: 100%; background: var(--accent); transition: width 0.4s ease; }
+
+.user-stats { display: flex; gap: 8px; margin-bottom: 15px; }
+.user-stats > div {
+  flex: 1; padding: 9px 6px; text-align: center;
+  background: var(--ground); border-radius: 12px;
+}
+.user-stats dt { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+.user-stats dd { margin-top: 3px; font: 400 16px var(--font-ui); font-variant-numeric: tabular-nums; }
+
+.user-section { margin-bottom: 14px; }
+.user-legend {
+  display: block; margin-bottom: 7px;
+  font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint);
+}
+.user-note { margin-top: 6px; font-size: 10px; color: var(--ink-faint); line-height: 1.4; }
+
+/* Interrupteur */
+.switch {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 0; cursor: pointer; font-size: 13px;
+}
+.switch span { flex: 1; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch i {
+  flex: 0 0 auto; width: 38px; height: 22px; border-radius: 999px;
+  background: var(--line); position: relative; transition: background 0.18s ease;
+}
+.switch i::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--surface); transition: transform 0.18s cubic-bezier(0.3, 1.3, 0.5, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+.switch input:checked + i { background: var(--accent); }
+.switch input:checked + i::after { transform: translateX(16px); }
+.switch input:focus-visible + i { outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+
+.user-danger { width: 100%; color: var(--alert); }
+.user-danger:hover { border-color: var(--alert); color: var(--alert); }
+
 /* ---------- Debug ---------- */
 
 .debug-toggle {
@@ -837,7 +933,7 @@ body { display: grid; place-items: center; }
     <!-- ============ MENU ============ -->
     <section class="screen active" id="screen-menu">
       <div class="menu-art" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-      <h1 class="logo">Puzzle<em>Quest</em></h1>
+      <h1 class="logo">Quiet<em>Puzzle</em></h1>
       <p class="tagline">Videz la grille par les portes de couleur</p>
       <div class="menu-stats">
         <div class="stat"><b id="menu-stars">0</b><small>étoiles</small></div>
@@ -853,10 +949,6 @@ body { display: grid; place-items: center; }
         <span class="daily-amount" id="daily-amount">+50</span>
       </button>
       <button class="btn btn-primary btn-lg" id="btn-play">Jouer</button>
-      <div class="menu-liens">
-        <button class="btn btn-ghost btn-sm" id="btn-sound">🔊 Son</button>
-        <button class="btn btn-ghost btn-sm" id="btn-reset">Réinitialiser</button>
-      </div>
     </section>
 
     <!-- ============ CARTE DES NIVEAUX ============ -->
@@ -947,6 +1039,57 @@ body { display: grid; place-items: center; }
       </div>
       <div class="toast" id="toast" hidden></div>
     </section>
+
+    <!-- ============ MENU UTILISATEUR ============ -->
+    <button class="user-btn" id="user-btn" aria-expanded="false" aria-controls="user-panel"
+            title="Profil et réglages">
+      <span class="user-level" id="user-badge">1</span>
+    </button>
+
+    <div class="user-panel" id="user-panel" hidden>
+      <header class="user-head">
+        <div class="user-avatar" id="user-avatar">1</div>
+        <div class="user-ident">
+          <b>Niveau <span id="user-level">1</span></b>
+          <small id="user-next">0 / 100 XP</small>
+        </div>
+        <button class="icon-btn user-close" id="user-close" aria-label="Fermer">×</button>
+      </header>
+
+      <div class="user-xp"><i id="user-xp-fill"></i></div>
+
+      <dl class="user-stats">
+        <div><dt>Étoiles</dt><dd id="user-stars">0</dd></div>
+        <div><dt>Niveaux</dt><dd id="user-levels">0</dd></div>
+        <div><dt>Pièces</dt><dd id="user-coins">0</dd></div>
+      </dl>
+
+      <div class="user-section">
+        <span class="user-legend">Son</span>
+        <label class="switch">
+          <span>Musique</span>
+          <input type="checkbox" id="opt-music" checked>
+          <i></i>
+        </label>
+        <label class="switch">
+          <span>Effets sonores</span>
+          <input type="checkbox" id="opt-sfx" checked>
+          <i></i>
+        </label>
+      </div>
+
+      <div class="user-section">
+        <span class="user-legend">Publicité</span>
+        <label class="switch">
+          <span>Supprimer les pubs</span>
+          <input type="checkbox" id="opt-noads">
+          <i></i>
+        </label>
+        <p class="user-note">Achat simulé — aucune régie n’est branchée.</p>
+      </div>
+
+      <button class="btn btn-ghost btn-sm user-danger" id="btn-reset">Réinitialiser la progression</button>
+    </div>
 
     <!-- ============ RESULTAT ============ -->
     <div class="overlay" id="overlay-result" hidden>
@@ -2256,7 +2399,8 @@ const EMPTY = () => ({
   xp: 0,
   levels: {},        // numéro -> { stars, bestScore }
   noAds: false,      // achat "supprimer les pubs" (doc §5.3, PRODUCT_NO_ADS)
-  son: true,         // musique et effets
+  musique: true,
+  effets: true,
   streak: 0,         // jours consécutifs joués
   lastPlayDay: null, // 'YYYY-MM-DD'
   dailyClaimedOn: null,
@@ -2418,7 +2562,10 @@ class AudioManager {
   constructor() {
     this.ctx = null;
     this.pret = false;
-    this.actif = true;
+    // Musique et effets se coupent séparément : beaucoup de joueurs veulent
+    // garder le retour sonore de leurs actions tout en jouant sans musique.
+    this.musiqueActive = true;
+    this.effetsActifs = true;
     this.tampons = new Map();
     this.musique = null;
     this.degre = -1;
@@ -2432,7 +2579,7 @@ class AudioManager {
     document.addEventListener('visibilitychange', () => {
       if (!this.ctx) return;
       if (document.hidden) this.ctx.suspend();
-      else if (this.actif) this.ctx.resume();
+      else this.ctx.resume();
     });
   }
 
@@ -2446,7 +2593,7 @@ class AudioManager {
       this.gainMusique = this.ctx.createGain();
       this.gainEffets = this.ctx.createGain();
       this.gainMusique.gain.value = 0;
-      this.gainEffets.gain.value = this.actif ? VOLUME_EFFETS : 0;
+      this.gainEffets.gain.value = this.effetsActifs ? VOLUME_EFFETS : 0;
       this.gainMusique.connect(this.ctx.destination);
       this.gainEffets.connect(this.ctx.destination);
       this._chargement = this._charger();
@@ -2472,7 +2619,7 @@ class AudioManager {
 
   lancerMusique() {
     this._musiqueDemandee = true;
-    if (!this.pret || !this.actif || this.musique) return;
+    if (!this.pret || !this.musiqueActive || this.musique) return;
     const tampon = this.tampons.get('musique');
     if (!tampon) return;
 
@@ -2504,7 +2651,7 @@ class AudioManager {
   // --- Effets --------------------------------------------------------------
 
   _jouer(cle, gain = 1, retard = 0) {
-    if (!this.pret || !this.actif) return;
+    if (!this.pret || !this.effetsActifs) return;
     const tampon = this.tampons.get(cle);
     if (!tampon) return;
     const source = this.ctx.createBufferSource();
@@ -2540,27 +2687,36 @@ class AudioManager {
     [2, 3, 5].forEach((d, i) => this._jouer(`sortie${d}`, 0.9 - 0.1 * i, i * 0.13));
   }
 
-  // --- Réglage -------------------------------------------------------------
+  // --- Réglages ------------------------------------------------------------
 
-  get sonActif() { return this.actif; }
-
-  definirActif(actif) {
-    this.actif = actif;
+  definirMusique(actif) {
+    this.musiqueActive = actif;
     if (!this.ctx) return;
-    this.gainEffets.gain.value = actif ? VOLUME_EFFETS : 0;
     if (actif) {
       this.ctx.resume();
       if (this._musiqueDemandee) this.lancerMusique();
-    } else {
-      const t = this.ctx.currentTime;
-      this.gainMusique.gain.cancelScheduledValues(t);
-      this.gainMusique.gain.linearRampToValueAtTime(0, t + 0.3);
-      if (this.musique) {
-        const s = this.musique;
-        this.musique = null;
-        setTimeout(() => { try { s.stop(); } catch { /* déjà arrêtée */ } }, 400);
-      }
+      return;
     }
+    const t = this.ctx.currentTime;
+    this.gainMusique.gain.cancelScheduledValues(t);
+    this.gainMusique.gain.setValueAtTime(this.gainMusique.gain.value, t);
+    this.gainMusique.gain.linearRampToValueAtTime(0, t + 0.3);
+    if (this.musique) {
+      const source = this.musique;
+      this.musique = null;
+      setTimeout(() => { try { source.stop(); } catch { /* déjà arrêtée */ } }, 400);
+    }
+  }
+
+  definirEffets(actif) {
+    this.effetsActifs = actif;
+    if (this.ctx) this.gainEffets.gain.value = actif ? VOLUME_EFFETS : 0;
+  }
+
+  /** Coupe tout d'un geste, sans perdre le détail des deux réglages. */
+  toutCouper() {
+    this.definirMusique(false);
+    this.definirEffets(false);
   }
 }
 
@@ -2948,12 +3104,29 @@ const __m_api = (() => {
 const store = __m_save;
 const { getLevel: buildLevel, TOTAL_LEVELS } = __m_levels;
 
+/**
+ * Niveau global du joueur, dérivé de l'XP. Palier fixe de 100 XP : simple à
+ * lire pour le joueur, et l'XP est déjà versée par completeLevel (doc §6.1).
+ */
+const XP_PAR_NIVEAU = 100;
+
+function niveauJoueur(xp) {
+  const niveau = 1 + Math.floor(xp / XP_PAR_NIVEAU);
+  const dans = xp % XP_PAR_NIVEAU;
+  return { niveau, dans, requis: XP_PAR_NIVEAU };
+}
+
 /** GET /api/user/profile */
 async function getProfile() {
   const d = store.load();
+  const progression = niveauJoueur(d.xp);
   return {
     coins: d.coins,
     xpTotal: d.xp,
+    playerLevel: progression.niveau,
+    xpDansNiveau: progression.dans,
+    xpRequis: progression.requis,
+    levelsCompleted: Object.values(d.levels).filter((l) => l.stars > 0).length,
     currentLevel: d.unlockedLevel,
     highestLevel: d.unlockedLevel,
     totalStars: store.totalStars(),
@@ -3002,7 +3175,7 @@ async function completeLevel(n, { score, stars, failed }) {
   return { stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems: [] };
 }
 
-return { getProfile, getLevel, completeLevel };
+return { niveauJoueur, getProfile, getLevel, completeLevel, XP_PAR_NIVEAU };
 })();
 
 const __m_boardView = (() => {
@@ -4295,6 +4468,8 @@ async function showMenu() {
   el('menu-coins').textContent = p.coins;
   el('menu-progress').textContent = p.currentLevel;
   majCadeauDuJour();
+  el('user-badge').textContent = p.playerLevel;
+  majPastilleSon();
   theme.appliquer(p.currentLevel); // le menu prend la couleur d'où en est le joueur
   screens.show('menu');
   audio.lancerMusique();
@@ -4346,6 +4521,7 @@ async function showBrief(n) {
 // ---------------------------------------------------------------------------
 
 function startLevel() {
+  ouvrirPanneau(false);
   result.hide();
   theme.appliquer(level.number);
   audio.reinitialiserSerie();
@@ -4530,9 +4706,12 @@ el('btn-daily').onclick = () => {
   const montant = daily.reclamer();
   if (!montant) return;
   screens.toast(`+${montant} pièces — série de ${daily.serie()} jours`);
-  // Son : on restaure la préférence avant tout affichage.
-audio.definirActif(store.load().son !== false);
-majBoutonSon();
+  // Son : on restaure les préférences avant tout affichage.
+{
+  const d = store.load();
+  audio.definirMusique(d.musique !== false);
+  audio.definirEffets(d.effets !== false);
+}
 
 // Série quotidienne, puis menu.
 daily.ouvrirSession();
@@ -4622,29 +4801,90 @@ el('btn-hint').onclick = async () => {
   majBonus();
 };
 el('btn-start').onclick = startLevel;
-el('btn-sound').onclick = () => {
-  const actif = !audio.sonActif;
-  audio.definirActif(actif);
+// ---------------------------------------------------------------------------
+// Menu utilisateur — profil et réglages, accessibles depuis TOUS les écrans, y
+// compris en pleine partie : couper le son ne doit pas obliger à abandonner.
+// ---------------------------------------------------------------------------
+
+function ouvrirPanneau(ouvert) {
+  el('user-panel').hidden = !ouvert;
+  el('user-btn').classList.toggle('ouvert', ouvert);
+  el('user-btn').setAttribute('aria-expanded', String(ouvert));
+  if (ouvert) majPanneau();
+}
+
+el('user-btn').onclick = () => ouvrirPanneau(el('user-panel').hidden);
+el('user-close').onclick = () => ouvrirPanneau(false);
+
+// Un clic hors du panneau le referme, comme tout menu de ce genre.
+document.addEventListener('pointerdown', (ev) => {
+  if (el('user-panel').hidden) return;
+  if (el('user-panel').contains(ev.target) || el('user-btn').contains(ev.target)) return;
+  ouvrirPanneau(false);
+}, true);
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && !el('user-panel').hidden) ouvrirPanneau(false);
+});
+
+async function majPanneau() {
+  const p = await api.getProfile();
+  el('user-badge').textContent = p.playerLevel;
+  el('user-avatar').textContent = p.playerLevel;
+  el('user-level').textContent = p.playerLevel;
+  el('user-next').textContent = `${p.xpDansNiveau} / ${p.xpRequis} XP`;
+  el('user-xp-fill').style.width = `${(p.xpDansNiveau / p.xpRequis) * 100}%`;
+  el('user-stars').textContent = `${p.totalStars}/${p.maxStars}`;
+  el('user-levels').textContent = p.levelsCompleted;
+  el('user-coins').textContent = p.coins;
+
   const d = store.load();
-  d.son = actif;
-  store.save(d);
-  majBoutonSon();
+  el('opt-music').checked = d.musique !== false;
+  el('opt-sfx').checked = d.effets !== false;
+  el('opt-noads').checked = currency.aSupprimeLesPubs();
+  majPastilleSon();
+}
+
+/** L'état « son coupé » se lit sur le bouton fermé, sinon il est invisible. */
+function majPastilleSon() {
+  const d = store.load();
+  const muet = d.musique === false && d.effets === false;
+  el('user-btn').classList.toggle('muet', muet);
+}
+
+el('opt-music').onchange = (ev) => {
+  const actif = ev.target.checked;
+  audio.definirMusique(actif);
+  const d = store.load(); d.musique = actif; store.save(d);
   if (actif) audio.lancerMusique();
-  track('sound_toggled', { actif });
+  majPastilleSon();
+  track('sound_toggled', { canal: 'musique', actif });
 };
 
-function majBoutonSon() {
-  const b = el('btn-sound');
-  b.textContent = audio.sonActif ? '🔊 Son' : '🔇 Son';
-  b.classList.toggle('muet', !audio.sonActif);
-}
+el('opt-sfx').onchange = (ev) => {
+  const actif = ev.target.checked;
+  audio.definirEffets(actif);
+  const d = store.load(); d.effets = actif; store.save(d);
+  if (actif) audio.sortie();          // retour immédiat : on entend ce qu'on active
+  majPastilleSon();
+  track('sound_toggled', { canal: 'effets', actif });
+};
+
+el('opt-noads').onchange = (ev) => {
+  currency.definirSuppressionPubs(ev.target.checked);
+  majBanniere(screens.current());
+  screens.toast(ev.target.checked ? 'Pubs supprimées (achat simulé)' : 'Pubs réactivées');
+};
 
 el('btn-reset').onclick = () => {
   if (!confirm('Effacer toute la progression ?')) return;
   store.reset();
-  // Son : on restaure la préférence avant tout affichage.
-audio.definirActif(store.load().son !== false);
-majBoutonSon();
+  // Son : on restaure les préférences avant tout affichage.
+{
+  const d = store.load();
+  audio.definirMusique(d.musique !== false);
+  audio.definirEffets(d.effets !== false);
+}
 
 // Série quotidienne, puis menu.
 daily.ouvrirSession();
@@ -4732,6 +4972,7 @@ el('debug-noads').onclick = () => {
   el('debug-noads').textContent = actif ? 'Désactiver sans-pub' : 'Activer sans-pub';
   screens.toast(actif ? 'Pubs supprimées (achat simulé)' : 'Pubs réactivées');
   majBanniere(screens.current());
+  if (!el('user-panel').hidden) majPanneau();
 };
 
 el('debug-coins').onclick = () => {
@@ -4794,9 +5035,12 @@ function refreshDebug() {
     + (board ? `\nplateau ${board.W}×${board.H} · ${board.remaining()} blocs · réf. ${level.minDrags} glissés` : '');
 }
 
-// Son : on restaure la préférence avant tout affichage.
-audio.definirActif(store.load().son !== false);
-majBoutonSon();
+// Son : on restaure les préférences avant tout affichage.
+{
+  const d = store.load();
+  audio.definirMusique(d.musique !== false);
+  audio.definirEffets(d.effets !== false);
+}
 
 // Série quotidienne, puis menu.
 daily.ouvrirSession();
@@ -4806,3 +5050,5 @@ showMenu();
 return {  };
 })();
 </script>
+
+</html>

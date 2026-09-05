@@ -4,7 +4,7 @@
  * Regroupe les modules ES, le CSS et le markup en UN fichier HTML autonome,
  * pour publication (Artifact, partage par mail, ouverture en double-clic).
  * Le projet source reste modulaire : ce script ne modifie rien, il produit
- * dist/puzzle-quest.html.
+ * dist/quiet-puzzle.html.
  *
  * Chaque module devient une IIFE qui renvoie ses exports, de sorte que les
  * espaces de noms (`import * as screens`) et les noms identiques d'un module à
@@ -103,7 +103,7 @@ const body = html
   .replace(/<script[\s\S]*?<\/script>/g, '')
   .trim();
 
-const out = `<title>Puzzle Quest</title>
+const out = `<title>Quiet Puzzle</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
@@ -119,6 +119,25 @@ ${bundle}
 `;
 
 mkdirSync(join(root, 'dist'), { recursive: true });
-writeFileSync(join(root, 'dist/puzzle-quest.html'), out);
-console.log(`dist/puzzle-quest.html — ${(out.length / 1024).toFixed(0)} Ko `
-  + `(dont ${(poidsAudio / 1024).toFixed(0)} Ko de son), ${MODULES.length} modules`);
+writeFileSync(join(root, 'dist/quiet-puzzle.html'), out);
+
+// Deux sorties, parce que les deux destinations n'ont pas les mêmes règles :
+//
+//  - quiet-puzzle.html est un FRAGMENT : un Artifact interdit d'écrire soi-même
+//    <!doctype>, <html>, <head> ou <body>, et fournit lui-même l'encodage.
+//  - standalone.html est un document COMPLET, avec sa déclaration d'encodage.
+//    Sans elle, un serveur statique qui n'annonce pas utf-8 dans ses en-têtes
+//    fait lire le fichier en latin-1 et tous les accents deviennent illisibles.
+const standalone = `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fbf4f6">
+${out}
+</html>
+`;
+writeFileSync(join(root, 'dist/standalone.html'), standalone);
+console.log(`dist/quiet-puzzle.html (fragment Artifact) — ${(out.length / 1024).toFixed(0)} Ko `
+  + `dont ${(poidsAudio / 1024).toFixed(0)} Ko de son, ${MODULES.length} modules`);
+console.log(`dist/standalone.html (document complet, utf-8) — ${(standalone.length / 1024).toFixed(0)} Ko`);

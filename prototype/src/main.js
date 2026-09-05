@@ -61,6 +61,8 @@ async function showMenu() {
   el('menu-coins').textContent = p.coins;
   el('menu-progress').textContent = p.currentLevel;
   majCadeauDuJour();
+  el('user-badge').textContent = p.playerLevel;
+  majPastilleSon();
   theme.appliquer(p.currentLevel); // le menu prend la couleur d'où en est le joueur
   screens.show('menu');
   audio.lancerMusique();
@@ -112,6 +114,7 @@ async function showBrief(n) {
 // ---------------------------------------------------------------------------
 
 function startLevel() {
+  ouvrirPanneau(false);
   result.hide();
   theme.appliquer(level.number);
   audio.reinitialiserSerie();
@@ -296,9 +299,12 @@ el('btn-daily').onclick = () => {
   const montant = daily.reclamer();
   if (!montant) return;
   screens.toast(`+${montant} pièces — série de ${daily.serie()} jours`);
-  // Son : on restaure la préférence avant tout affichage.
-audio.definirActif(store.load().son !== false);
-majBoutonSon();
+  // Son : on restaure les préférences avant tout affichage.
+{
+  const d = store.load();
+  audio.definirMusique(d.musique !== false);
+  audio.definirEffets(d.effets !== false);
+}
 
 // Série quotidienne, puis menu.
 daily.ouvrirSession();
@@ -388,29 +394,90 @@ el('btn-hint').onclick = async () => {
   majBonus();
 };
 el('btn-start').onclick = startLevel;
-el('btn-sound').onclick = () => {
-  const actif = !audio.sonActif;
-  audio.definirActif(actif);
+// ---------------------------------------------------------------------------
+// Menu utilisateur — profil et réglages, accessibles depuis TOUS les écrans, y
+// compris en pleine partie : couper le son ne doit pas obliger à abandonner.
+// ---------------------------------------------------------------------------
+
+function ouvrirPanneau(ouvert) {
+  el('user-panel').hidden = !ouvert;
+  el('user-btn').classList.toggle('ouvert', ouvert);
+  el('user-btn').setAttribute('aria-expanded', String(ouvert));
+  if (ouvert) majPanneau();
+}
+
+el('user-btn').onclick = () => ouvrirPanneau(el('user-panel').hidden);
+el('user-close').onclick = () => ouvrirPanneau(false);
+
+// Un clic hors du panneau le referme, comme tout menu de ce genre.
+document.addEventListener('pointerdown', (ev) => {
+  if (el('user-panel').hidden) return;
+  if (el('user-panel').contains(ev.target) || el('user-btn').contains(ev.target)) return;
+  ouvrirPanneau(false);
+}, true);
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && !el('user-panel').hidden) ouvrirPanneau(false);
+});
+
+async function majPanneau() {
+  const p = await api.getProfile();
+  el('user-badge').textContent = p.playerLevel;
+  el('user-avatar').textContent = p.playerLevel;
+  el('user-level').textContent = p.playerLevel;
+  el('user-next').textContent = `${p.xpDansNiveau} / ${p.xpRequis} XP`;
+  el('user-xp-fill').style.width = `${(p.xpDansNiveau / p.xpRequis) * 100}%`;
+  el('user-stars').textContent = `${p.totalStars}/${p.maxStars}`;
+  el('user-levels').textContent = p.levelsCompleted;
+  el('user-coins').textContent = p.coins;
+
   const d = store.load();
-  d.son = actif;
-  store.save(d);
-  majBoutonSon();
+  el('opt-music').checked = d.musique !== false;
+  el('opt-sfx').checked = d.effets !== false;
+  el('opt-noads').checked = currency.aSupprimeLesPubs();
+  majPastilleSon();
+}
+
+/** L'état « son coupé » se lit sur le bouton fermé, sinon il est invisible. */
+function majPastilleSon() {
+  const d = store.load();
+  const muet = d.musique === false && d.effets === false;
+  el('user-btn').classList.toggle('muet', muet);
+}
+
+el('opt-music').onchange = (ev) => {
+  const actif = ev.target.checked;
+  audio.definirMusique(actif);
+  const d = store.load(); d.musique = actif; store.save(d);
   if (actif) audio.lancerMusique();
-  track('sound_toggled', { actif });
+  majPastilleSon();
+  track('sound_toggled', { canal: 'musique', actif });
 };
 
-function majBoutonSon() {
-  const b = el('btn-sound');
-  b.textContent = audio.sonActif ? '🔊 Son' : '🔇 Son';
-  b.classList.toggle('muet', !audio.sonActif);
-}
+el('opt-sfx').onchange = (ev) => {
+  const actif = ev.target.checked;
+  audio.definirEffets(actif);
+  const d = store.load(); d.effets = actif; store.save(d);
+  if (actif) audio.sortie();          // retour immédiat : on entend ce qu'on active
+  majPastilleSon();
+  track('sound_toggled', { canal: 'effets', actif });
+};
+
+el('opt-noads').onchange = (ev) => {
+  currency.definirSuppressionPubs(ev.target.checked);
+  majBanniere(screens.current());
+  screens.toast(ev.target.checked ? 'Pubs supprimées (achat simulé)' : 'Pubs réactivées');
+};
 
 el('btn-reset').onclick = () => {
   if (!confirm('Effacer toute la progression ?')) return;
   store.reset();
-  // Son : on restaure la préférence avant tout affichage.
-audio.definirActif(store.load().son !== false);
-majBoutonSon();
+  // Son : on restaure les préférences avant tout affichage.
+{
+  const d = store.load();
+  audio.definirMusique(d.musique !== false);
+  audio.definirEffets(d.effets !== false);
+}
 
 // Série quotidienne, puis menu.
 daily.ouvrirSession();
@@ -498,6 +565,7 @@ el('debug-noads').onclick = () => {
   el('debug-noads').textContent = actif ? 'Désactiver sans-pub' : 'Activer sans-pub';
   screens.toast(actif ? 'Pubs supprimées (achat simulé)' : 'Pubs réactivées');
   majBanniere(screens.current());
+  if (!el('user-panel').hidden) majPanneau();
 };
 
 el('debug-coins').onclick = () => {
@@ -560,9 +628,12 @@ function refreshDebug() {
     + (board ? `\nplateau ${board.W}×${board.H} · ${board.remaining()} blocs · réf. ${level.minDrags} glissés` : '');
 }
 
-// Son : on restaure la préférence avant tout affichage.
-audio.definirActif(store.load().son !== false);
-majBoutonSon();
+// Son : on restaure les préférences avant tout affichage.
+{
+  const d = store.load();
+  audio.definirMusique(d.musique !== false);
+  audio.definirEffets(d.effets !== false);
+}
 
 // Série quotidienne, puis menu.
 daily.ouvrirSession();

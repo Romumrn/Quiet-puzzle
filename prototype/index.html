@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#141033">
-  <title>Puzzle Quest — Prototype</title>
+  <title>Quiet Puzzle — Prototype</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Outfit:wght@300;400;500&display=swap">
@@ -17,7 +17,7 @@
     <!-- ============ MENU ============ -->
     <section class="screen active" id="screen-menu">
       <div class="menu-art" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-      <h1 class="logo">Puzzle<em>Quest</em></h1>
+      <h1 class="logo">Quiet<em>Puzzle</em></h1>
       <p class="tagline">Videz la grille par les portes de couleur</p>
       <div class="menu-stats">
         <div class="stat"><b id="menu-stars">0</b><small>étoiles</small></div>
@@ -33,10 +33,6 @@
         <span class="daily-amount" id="daily-amount">+50</span>
       </button>
       <button class="btn btn-primary btn-lg" id="btn-play">Jouer</button>
-      <div class="menu-liens">
-        <button class="btn btn-ghost btn-sm" id="btn-sound">🔊 Son</button>
-        <button class="btn btn-ghost btn-sm" id="btn-reset">Réinitialiser</button>
-      </div>
     </section>
 
     <!-- ============ CARTE DES NIVEAUX ============ -->
@@ -127,6 +123,57 @@
       </div>
       <div class="toast" id="toast" hidden></div>
     </section>
+
+    <!-- ============ MENU UTILISATEUR ============ -->
+    <button class="user-btn" id="user-btn" aria-expanded="false" aria-controls="user-panel"
+            title="Profil et réglages">
+      <span class="user-level" id="user-badge">1</span>
+    </button>
+
+    <div class="user-panel" id="user-panel" hidden>
+      <header class="user-head">
+        <div class="user-avatar" id="user-avatar">1</div>
+        <div class="user-ident">
+          <b>Niveau <span id="user-level">1</span></b>
+          <small id="user-next">0 / 100 XP</small>
+        </div>
+        <button class="icon-btn user-close" id="user-close" aria-label="Fermer">×</button>
+      </header>
+
+      <div class="user-xp"><i id="user-xp-fill"></i></div>
+
+      <dl class="user-stats">
+        <div><dt>Étoiles</dt><dd id="user-stars">0</dd></div>
+        <div><dt>Niveaux</dt><dd id="user-levels">0</dd></div>
+        <div><dt>Pièces</dt><dd id="user-coins">0</dd></div>
+      </dl>
+
+      <div class="user-section">
+        <span class="user-legend">Son</span>
+        <label class="switch">
+          <span>Musique</span>
+          <input type="checkbox" id="opt-music" checked>
+          <i></i>
+        </label>
+        <label class="switch">
+          <span>Effets sonores</span>
+          <input type="checkbox" id="opt-sfx" checked>
+          <i></i>
+        </label>
+      </div>
+
+      <div class="user-section">
+        <span class="user-legend">Publicité</span>
+        <label class="switch">
+          <span>Supprimer les pubs</span>
+          <input type="checkbox" id="opt-noads">
+          <i></i>
+        </label>
+        <p class="user-note">Achat simulé — aucune régie n’est branchée.</p>
+      </div>
+
+      <button class="btn btn-ghost btn-sm user-danger" id="btn-reset">Réinitialiser la progression</button>
+    </div>
 
     <!-- ============ RESULTAT ============ -->
     <div class="overlay" id="overlay-result" hidden>

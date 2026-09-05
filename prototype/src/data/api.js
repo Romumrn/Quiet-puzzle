@@ -11,12 +11,29 @@
 import * as store from './save.js';
 import { getLevel as buildLevel, TOTAL_LEVELS } from '../core/levels.js';
 
+/**
+ * Niveau global du joueur, dérivé de l'XP. Palier fixe de 100 XP : simple à
+ * lire pour le joueur, et l'XP est déjà versée par completeLevel (doc §6.1).
+ */
+export const XP_PAR_NIVEAU = 100;
+
+export function niveauJoueur(xp) {
+  const niveau = 1 + Math.floor(xp / XP_PAR_NIVEAU);
+  const dans = xp % XP_PAR_NIVEAU;
+  return { niveau, dans, requis: XP_PAR_NIVEAU };
+}
+
 /** GET /api/user/profile */
 export async function getProfile() {
   const d = store.load();
+  const progression = niveauJoueur(d.xp);
   return {
     coins: d.coins,
     xpTotal: d.xp,
+    playerLevel: progression.niveau,
+    xpDansNiveau: progression.dans,
+    xpRequis: progression.requis,
+    levelsCompleted: Object.values(d.levels).filter((l) => l.stars > 0).length,
     currentLevel: d.unlockedLevel,
     highestLevel: d.unlockedLevel,
     totalStars: store.totalStars(),
