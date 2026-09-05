@@ -188,7 +188,7 @@ monde), et l'application ne fait que la lire. Un niveau peut donc être retouch�
 à la main sans qu'une exécution l'écrase, et les niveaux livrés sont exactement
 ceux qui ont été testés.
 
-La progression tient en **huit mondes de vingt niveaux**, et un monde entier
+La progression tient en **dix-huit mondes de vingt niveaux**, et un monde entier
 tient dans une ligne de la table `REALMS` : sa palette, sa teinte, le type de
 bloc qu'il introduit, et les quantités notées `[début, fin]` qu'on interpole sur
 ses vingt niveaux. La difficulté monte donc DANS le monde et fait un palier
@@ -211,7 +211,7 @@ Deux constats mesurés, qui ont chacun corrigé une erreur de conception :
    que les blocs se gênent et imposent un ordre de sortie. Les grilles visent donc
    45 à 65 % de cases occupées.
 
-Chiffres actuels : 7 à 25 blocs par niveau, 65 à 135 secondes, et bien jouer
+Chiffres actuels : 7 à 30 blocs par niveau, 65 à 155 secondes, et bien jouer
 rapporte 3★ à tous les niveaux.
 
 Une troisième erreur, corrigée en portant la progression à 40 niveaux : **la
@@ -251,7 +251,7 @@ Deux principes rendent ce portage mécanique :
 - **`core/` ne touche jamais au DOM.** Chaque geste produit des évènements
   (`move`, `exit`, `unlock`) que `render/` rejoue en animation. La logique tourne
   telle quelle sous Node — c'est ce qui permet à `tools/test.mjs` de **prouver que
-  les 160 niveaux sont résolubles** en rejouant leur solution sur le vrai moteur,
+  les 360 niveaux sont résolubles** en rejouant leur solution sur le vrai moteur,
   et ce qui donnera la couverture unitaire visée au §10.1.
 - **`Board.snapshot()` / `restore()`** permettent d'explorer des coups sans les
   jouer : c'est ce qui mesure l'équilibrage aujourd'hui, et ce qui portera
@@ -267,11 +267,11 @@ corps de ces trois fonctions par un `fetch`, sans toucher à un seul appelant.
 
 ## Langue et accessibilité
 
-L'interface existe en **français et en anglais** ; la langue se choisit dans le
-menu (☰), et suit celle du navigateur tant que le joueur n'a rien choisi —
+L'interface existe en **français, anglais, espagnol, italien et chinois** ; la
+langue se choisit dans le menu (☰), et suit celle du navigateur tant que le joueur n'a rien choisi —
 enregistrer un défaut aurait figé la langue du premier chargement.
 `src/ui/i18n.js` porte un dictionnaire plat, le markup des attributs `data-i18n`,
-et `tools/test.mjs` vérifie que les deux tables ont exactement les mêmes clés :
+et `tools/test.mjs` vérifie que toutes les tables ont exactement les mêmes clés :
 une clé oubliée ne casse rien (on retombe sur le français), et c'est précisément
 ce qui la rendrait invisible.
 

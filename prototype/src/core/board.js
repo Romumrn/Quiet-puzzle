@@ -12,7 +12,7 @@
  * en C# mécanique.
  */
 
-import { Block, KIND, DEPLACABLES, coutCapacite } from './block.js';
+import { Block, KIND, DEPLACABLES, coutCapacite, couleursDe } from './block.js';
 import { GameState } from './gameState.js';
 
 /** Les quatre côtés, avec leur vecteur de sortie. */
@@ -72,6 +72,8 @@ export class Board {
       for (const b of this.blocks.values()) if (b.color === c.color) return false;
       return true;
     }
+    // Une clé : un bloc précis dont la sortie ouvre ce verrou.
+    if (c.type === 'block') return this.exited.includes(c.id);
     return true;
   }
 
@@ -175,6 +177,19 @@ export class Board {
   }
 
   /**
+   * Cette porte accepte-t-elle ce bloc, question de couleur seule ?
+   *
+   * Un joker passe partout ; sinon il suffit qu'une couleur du bloc — un DOUBLE
+   * en porte deux — rencontre une couleur de la porte — une porte partagée en
+   * sert deux. Une seule règle, que le solveur et le générateur empruntent.
+   */
+  accepteCouleur(gate, block) {
+    if (block.kind === KIND.JOKER) return true;
+    const dePorte = couleursDe(gate);
+    return couleursDe(block).some((c) => dePorte.includes(c));
+  }
+
+  /**
    * La porte qui laisserait sortir ce bloc dans cette direction, ou null.
    * Le bloc doit être plaqué contre le mur ET tenir entièrement dans la porte :
    * une forme de 2 cases de large ne passe pas par une porte de 1.
@@ -192,9 +207,7 @@ export class Board {
 
     const travers = side === 'left' || side === 'right' ? block.rows() : block.cols();
     for (const gate of this.gates) {
-      // Un JOKER sort par n'importe quelle porte : c'est tout son intérêt.
-      const couleurOk = block.kind === KIND.JOKER || gate.color === block.color;
-      if (gate.side !== side || !couleurOk) continue;
+      if (gate.side !== side || !this.accepteCouleur(gate, block)) continue;
       // Porte saturée : elle n'accepte plus ce bloc. Un encombrant coûte le
       // double, et se voit donc refuser une porte qui accepterait son jumeau
       // ordinaire — c'est ce qui en fait un problème de routage.

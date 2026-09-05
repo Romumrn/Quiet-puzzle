@@ -9,7 +9,7 @@
  * chapelet de carrés.
  */
 
-import { COLORS, KIND } from '../core/block.js';
+import { COLORS, KIND, couleursDe } from '../core/block.js';
 import { t, nomCouleur } from '../ui/i18n.js';
 
 /**
@@ -120,7 +120,11 @@ export class BoardView {
     this.gateLayer.replaceChildren();
     for (const g of this.board.gates) {
       const el = document.createElement('div');
-      el.className = `gate gate-${g.side} c${g.color}`;
+      const partagee = couleursDe(g).length > 1;
+      el.className = `gate gate-${g.side} c${g.color}` + (partagee ? ' gate-partagee' : '');
+      // Porte partagée : la seconde couleur passe en variable, et le dégradé du
+      // CSS montre les deux familles qu'elle accepte.
+      if (partagee) el.style.setProperty('--c-bis', `var(--c${couleursDe(g)[1]})`);
       const long = `${g.length * this.cell}px`;
       const debut = `${g.start * this.cell}px`;
       if (g.side === 'top' || g.side === 'bottom') { el.style.left = debut; el.style.width = long; }
@@ -134,9 +138,11 @@ export class BoardView {
       fleche.className = 'gate-fleche';
       // Le glyphe précède la flèche, et non l'inverse : c'est lui qui identifie
       // la porte, la flèche ne fait que rappeler le sens de sortie.
-      fleche.textContent = (avecGlyphes() ? (COLORS[g.color]?.glyph ?? '') : '') + FLECHES[g.side];
+      fleche.textContent = (avecGlyphes()
+        ? couleursDe(g).map((c) => COLORS[c]?.glyph ?? '').join('')
+        : '') + FLECHES[g.side];
       el.appendChild(fleche);
-      el.title = t('gate.exit', { couleur: nomCouleur(g.color) });
+      el.title = t('gate.exit', { couleur: couleursDe(g).map(nomCouleur).join(' / ') });
 
       // Une porte à capacité limitée DOIT afficher ce qu'il lui reste :
       // une contrainte invisible se lit comme un bug, pas comme une règle.
@@ -153,10 +159,13 @@ export class BoardView {
   _createBlock(b) {
     const node = document.createElement('div');
     node.className = `block k-${b.kind}`
+      + (b.estCle ? ' est-cle' : '')
       + (b.color >= 0 && b.kind !== KIND.JOKER ? ` c${b.color}` : '')
       + (b.kind === KIND.RAIL ? ` axis-${b.axis}` : '')
       + (b.kind === KIND.ANCRE ? ` dir-${b.dir}` : '');
     node.dataset.id = b.id;
+    // Bloc double : sa seconde couleur nourrit le dégradé qui le distingue.
+    if (b.kind === KIND.DOUBLE) node.style.setProperty('--c-bis', `var(--c${couleursDe(b)[1]})`);
     node.style.width = `${b.width * this.cell}px`;
     node.style.height = `${b.height * this.cell}px`;
 
@@ -184,7 +193,8 @@ export class BoardView {
     // — les glyphes de famille (●◆▲★■⬢) l'encombraient sans rien apprendre à
     // qui joue déjà à la couleur.
     const glyphe = avecGlyphes() && b.color >= 0 && b.kind !== KIND.WALL && b.kind !== KIND.JOKER;
-    if (glyphe || b.kind === KIND.LOCKED || b.kind === KIND.ENCOMBRANT || b.kind === KIND.JOKER) {
+    if (glyphe || b.estCle
+        || b.kind === KIND.LOCKED || b.kind === KIND.ENCOMBRANT || b.kind === KIND.JOKER) {
       const marque = document.createElement('span');
       marque.className = 'block-mark';
       const [gx, gy] = this._centreCell(b);
@@ -203,8 +213,12 @@ export class BoardView {
         marque.innerHTML = (glyphe ? `<span>${COLORS[b.color].glyph}</span>` : '') + '<b>×2</b>';
       } else if (b.kind === KIND.JOKER) {
         marque.textContent = '✳';
+      } else if (b.estCle) {
+        // La clé porte son symbole même sans l'option « symboles » : c'est une
+        // règle du niveau, pas une aide de lecture des couleurs.
+        marque.textContent = '🔑';
       } else {
-        marque.textContent = COLORS[b.color].glyph;
+        marque.textContent = couleursDe(b).map((c) => COLORS[c].glyph).join('');
       }
       node.appendChild(marque);
     }
@@ -396,6 +410,14 @@ export class BoardView {
     if (!compteur) return;
     // Un scellé de couleur n'a pas de décompte à afficher : il porte le glyphe
     // de la couleur qu'il attend, et le joueur compte à l'écran ce qui reste.
+    // Verrou à clé : il montre la clé qu'il attend, et non un décompte.
+    if (b.condition?.type === 'block') {
+      const ouvert = this.board.conditionMet(b);
+      compteur.textContent = ouvert ? '' : '🔑';
+      compteur.classList.remove('lock-couleur');
+      node.classList.toggle('lock-open', ouvert);
+      return;
+    }
     if (b.condition?.type === 'color') {
       // Une pastille de la couleur attendue, et non son glyphe : les familles
       // ne se lisent plus qu'à la couleur, la condition doit se lire pareil.
@@ -517,6 +539,7 @@ export function conditionLabel(condition, board = null) {
     const reste = Math.max(0, condition.count - board.exited.length);
     return reste === 0 ? 'Ouvert' : `Encore ${reste}`;
   }
+  if (condition.type === 'block') return '🔑';
   const nom = COLORS[condition.color]?.name ?? '';
   if (!board) return `${nom} fini`;
   const reste = [...board.blocks.values()].filter((b) => b.color === condition.color).length;

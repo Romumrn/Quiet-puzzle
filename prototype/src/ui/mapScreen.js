@@ -28,7 +28,7 @@ export function render(onSelect) {
 
     const label = document.createElement('div');
     label.className = 'realm-label';
-    label.textContent = texteMonde(monde, 'name');
+    label.textContent = texteMonde(monde, 'nom');
     section.appendChild(label);
 
     const path = document.createElement('div');

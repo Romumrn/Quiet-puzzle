@@ -94,7 +94,7 @@ les dix-neuf niveaux qui suivent l'entrée dans un monde seraient identiques.
 
 ### La table
 
-| # | Monde | Nouveauté | Grille | Coul. | Portes | Marge |
+| # | Monde | Ce qu'il apporte | Grille | Coul. | Portes | Marge |
 |---|---|---|---|---|---|---|
 | 1 | Atelier de Verre | *(les bases)* | 5×6 | 3 | 3 | — |
 | 2 | Fonderie | glissières | 6×6 | 4 | 4 | 3 |
@@ -103,11 +103,29 @@ les dix-neuf niveaux qui suivent l'entrée dans un monde seraient identiques.
 | 5 | Salle des Machines | joker | 7×8 | 5 | 5 | 2 |
 | 6 | Serre Suspendue | ancres | 7×9 | 6 | 6 | 1 |
 | 7 | Observatoire | encombrants | 8×9 | 6 | 6 | 1 |
-| 8 | Dernière Verrière | scellés de couleur | 8×10 | 6 | 7 | 0 |
+| 8 | Dernière Verrière | scellés de couleur | 8×10 | 6 | 7 | 1 |
+| 9 | Verrerie Basse | blocs bicolores | 8×10 | 6 | 7 | 1 |
+| 10 | Passage Étroit | portes de deux cases | 8×10 | 6 | 7 | 1 |
+| 11 | Grande Halle | plus de pièce d'une case | 8×10 | 6 | 7 | 1 |
+| 12 | Quai de Tri | portes partagées | 8×10 | 6 | 7 | 1 |
+| 13 | Salle des Clés | la clé | 8×10 | 6 | 7 | 1 |
+| 14 | Atelier Comble | densité poussée | 9×10 | 6 | 8 | 1 |
+| 15 | Chaufferie | tous les blocs à la fois | 9×10 | 6 | 8 | 1 |
+| 16 | Chambre Sourde | plus de joker | 9×10 | 6 | 8 | 1 |
+| 17 | Voûte Haute | les plus grandes grilles | 9×11 | 6 | 8 | 1 |
+| 18 | Dernier Souffle | capacité exacte | 9×11 | 6 | 8 | 0 |
 
 Le premier monde n'a pas de capacité du tout : sans elle aucun ordre de sortie
 ne peut être mauvais, et ces vingt niveaux servent à apprendre le geste. La
 capacité arrive au monde 2 avec trois cases de rab, et le rab fond jusqu'à zéro.
+
+**Tous les mondes n'introduisent pas un type de bloc, et c'est voulu.** Huit
+mécaniques suffisent à ce jeu : au-delà, chaque règle de plus se paie en
+explications et se combine moins bien. Les mondes tardifs apportent donc autre
+chose de nommable — des portes plus étroites, des pièces plus grosses, une
+densité poussée, le retrait du joker. Ce qui compte est que le monde ANNONCE
+quelque chose de vrai que le joueur peut vérifier à l'écran ; un monde dont
+`apporte` dirait « c'est plus dur » n'apporterait rien.
 
 ---
 
@@ -143,11 +161,21 @@ continue de servir les anciens niveaux sans rien signaler. `tools/test.mjs`
 compare les deux et le dit — il ne bloque pas, une divergence pouvant tout
 autant venir d'une retouche volontaire.
 
-Trois choses à respecter en écrivant la ligne :
+Quatre choses à respecter en écrivant la ligne :
 
-- **La surface doit croître.** `W × H` strictement supérieur à celui du monde
-  précédent, sinon le nombre de blocs — qui s'en déduit — redescend au premier
-  niveau du nouveau monde et la progression se sent reculer.
+- **La surface doit croître — tant qu'elle le peut.** `W × H` supérieur à celui
+  du monde précédent, sinon le nombre de blocs — qui s'en déduit — redescend au
+  premier niveau du nouveau monde. Passé 9×11, la grille ne grandit plus : sur
+  un téléphone, la case tombe sous les trente pixels et l'on ne vise plus rien.
+  Les mondes suivants gardent donc la même taille et durcissent autrement
+  (`densite`, `formesMin`, `porteLarge`, quantités d'effets).
+- **Rien de ce qui décide d'une grille ne doit dépendre de `TOTAL_LEVELS`.**
+  C'est la règle qui coûte le plus cher à découvrir : `recul` s'indexait sur
+  l'avancement dans le jeu entier, si bien qu'ajouter des mondes changeait la
+  grille de tous les niveaux déjà publiés — et les records des joueurs avec.
+  Une quantité qui forme la grille s'indexe sur son monde, jamais sur la
+  longueur du jeu. Seules les limites (`moveLimit`, `timeLimit`) peuvent rester
+  relatives : elles se recalculent sans toucher au dessin.
 - **Les intervalles doivent enjamber la frontière.** Le `[début]` d'un monde se
   place au niveau de la `[fin]` du précédent, pas à zéro : sans quoi la
   mécanique acquise disparaît le temps d'un monde.
@@ -220,7 +248,7 @@ le verrou son décompte, le scellé le glyphe qu'il attend.
 Enfin, `src/ui/editor.js` : une entrée dans `NATURES` pour pouvoir le poser à la
 main.
 
-### Les sept types actuels
+### Les huit types actuels
 
 | Type | Règle | Ce qu'il crée |
 |---|---|---|
@@ -231,6 +259,13 @@ main.
 | `JOKER` | sort par n'importe quelle porte | soupape : détend une grille trop contrainte |
 | `ANCRE` | n'avance que vers sa porte | interdit de s'écarter : il faut faire le tour |
 | `ENCOMBRANT` | coûte le double à sa porte | sature une porte plus vite que sa taille ne le dit |
+| `DOUBLE` | sort par l'une de ses deux couleurs | donne un choix, sans dispenser de choisir comme le joker |
+
+Deux leviers ne sont pas des types de blocs mais se règlent de la même façon :
+une **porte partagée** (`portesPartagees`) sert deux couleurs à la fois, et la
+**clé** (`cle: true`) est un bloc ordinaire dont la sortie ouvre d'un coup tous
+les verrous du niveau — les verrous cessent alors de compter les sorties pour
+n'attendre que lui.
 
 ---
 
@@ -320,14 +355,27 @@ livrée, et un niveau retouché à la main doit être vérifié comme les autres
 
 ### 6.1 — `node tools/test.mjs`
 
-Prouve la **correction**, en cinq secondes pour les cent soixante niveaux. Il
-vérifie d'abord que la base est complète et bien formée, rejoue la solution de
-référence de chaque niveau sur le vrai moteur, puis un
-solveur indépendant revide chaque grille *sans lire cette solution* — la seule
-vérification qui ait valeur de preuve. Vérifie aussi les règles de chaque type
-de bloc, l'intégrité des grilles, et que **chaque monde porte réellement la
-nouveauté qu'il annonce** (au moins trois niveaux sur quatre : le générateur ne
-force jamais une pose qui rendrait la grille infaisable).
+Prouve la **correction**. Il vérifie que la base est complète et bien formée,
+rejoue la solution de référence de **chaque** niveau sur le vrai moteur — c'est
+la preuve principale, et elle couvre les trois cent soixante — puis contrôle les
+règles de chaque type de bloc, l'intégrité des grilles, la parité des
+dictionnaires de traduction, et que **chaque monde porte réellement la nouveauté
+qu'il annonce** (au moins trois niveaux sur quatre : le générateur ne force
+jamais une pose qui rendrait la grille infaisable).
+
+Un solveur indépendant revide ensuite les grilles *sans lire la solution de
+référence*. Celui-là ne passe que sur **cinq niveaux par monde**, répartis sur sa
+rampe : son coût explose sur les grandes grilles à portes partagées, et un test
+qui prend dix minutes n'est plus lancé — un garde-fou qu'on ne lance plus ne
+garde rien. `--solveur-complet` les passe tous, quand on veut prendre le temps.
+
+Deux issues à distinguer dans ses résultats, et l'outil le fait :
+
+- **« insoluble »** au terme d'une recherche complète — un vrai défaut, d'autant
+  plus qu'une solution de référence existe pourtant ;
+- **« au-delà du budget »** — le solveur a épuisé son quota d'états, pas
+  l'espace des solutions. Cela ne dit rien du niveau, et c'est signalé en note,
+  jamais en échec.
 
 Un échec ici est bloquant. Aucun réglage ne le justifie.
 
@@ -335,7 +383,11 @@ Un échec ici est bloquant. Aucun réglage ne le justifie.
 
 Mesure le **confort**. Il échantillonne trois niveaux par monde — le premier, le
 milieu, le dernier, les trois points où se juge la rampe interne — puis affiche
-les moyennes par monde et les alertes. `--tout` détaille les cent soixante.
+les moyennes par monde et les alertes. `--tout` détaille les trois cent soixante.
+
+Les moyennes de monde comptent les **cases occupées**, non les blocs : un monde
+qui interdit les petites pièces en compte forcément moins tout en encombrant
+autant la grille, et le compter en blocs le faisait passer pour un recul.
 
 | Alerte | Cause probable | Correction |
 |---|---|---|

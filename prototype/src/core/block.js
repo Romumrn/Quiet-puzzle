@@ -24,6 +24,10 @@
  *  - ENCOMBRANT : un bloc qui consomme DEUX FOIS sa taille dans la capacité de
  *             la porte. Il ne change rien au déplacement, tout au routage : la
  *             porte qui l'accueille se referme sur les autres.
+ *  - DOUBLE : un bloc bicolore, qui sort par l'une OU l'autre de ses deux
+ *             couleurs. Là où le joker ouvre toutes les portes, celui-ci n'en
+ *             ouvre qu'une de plus — assez pour donner un choix, pas assez pour
+ *             dispenser de choisir.
  *
  * Chaque monde n'en introduit qu'un (voir REALMS dans levels.js). Un type de
  * bloc jamais rencontré doit pouvoir s'apprendre sur une grille par ailleurs
@@ -37,12 +41,27 @@ export const KIND = Object.freeze({
   JOKER: 'joker',
   ANCRE: 'ancre',
   ENCOMBRANT: 'encombrant',
+  DOUBLE: 'double',
 });
 
 /** Types qu'un joueur peut saisir (les murs, non). */
 export const DEPLACABLES = new Set([
   KIND.NORMAL, KIND.LOCKED, KIND.RAIL, KIND.JOKER, KIND.ANCRE, KIND.ENCOMBRANT,
+  KIND.DOUBLE,
 ]);
+
+/**
+ * Les couleurs qu'accepte une porte, ou que porte un bloc.
+ *
+ * Une porte partagée en sert deux, un bloc double en porte deux : dans les deux
+ * cas `colors` complète `color`. Passer par cette fonction plutôt que de lire
+ * `color` en direct est ce qui permet au moteur, au solveur et au générateur de
+ * s'accorder — un seul d'entre eux qui l'oublierait produirait des niveaux
+ * infaisables, ou laisserait sortir un bloc là où il ne devrait pas.
+ */
+export function couleursDe(cible) {
+  return cible.colors?.length ? cible.colors : [cible.color];
+}
 
 /**
  * Ce que ce bloc coûte à la porte qui l'avale, en cases de capacité.
@@ -101,7 +120,7 @@ export const SHAPES = Object.freeze([
 let nextId = 1;
 
 export class Block {
-  /** @param {{id?, color, cells, x, y, kind?, axis?, dir?, condition?}} data */
+  /** @param {{id?, color, colors?, cells, x, y, kind?, axis?, dir?, estCle?, condition?}} data */
   constructor(data) {
     this.id = data.id ?? nextId++;
     this.color = data.color;
@@ -118,6 +137,18 @@ export class Block {
      * 'left'. C'est celle de sa porte, et la flèche portée sur le bloc la dit.
      */
     this.dir = data.dir || null;
+    /**
+     * Couleurs supplémentaires d'un bloc DOUBLE. `color` reste la première :
+     * c'est elle qui donne sa teinte principale au bloc et qui sert partout où
+     * une seule couleur suffit.
+     */
+    this.colors = data.colors ? [...data.colors] : null;
+    /**
+     * Ce bloc est la CLÉ du niveau : sa sortie ouvre tous les verrous qui
+     * l'attendent (`condition: { type: 'block', id }`). Le drapeau ne sert qu'à
+     * l'afficher — la règle, elle, vit dans la condition des verrous.
+     */
+    this.estCle = data.estCle === true;
     /**
      * Condition de déverrouillage d'un bloc LOCKED. Deux formes :
      *   { type: 'exits', count: n }  — n blocs doivent être sortis
@@ -146,7 +177,8 @@ export class Block {
 
   clone() {
     return new Block({ id: this.id, color: this.color, cells: this.cells, x: this.x, y: this.y,
-                       kind: this.kind, axis: this.axis, dir: this.dir, condition: this.condition });
+                       kind: this.kind, axis: this.axis, dir: this.dir,
+                       colors: this.colors, estCle: this.estCle, condition: this.condition });
   }
 }
 

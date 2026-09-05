@@ -117,12 +117,12 @@ async function showBrief(n) {
   const rec = store.levelRecord(n);
   // Le nom du monde vient du CATALOGUE, pas du niveau : la base le stocke
   // dans les deux langues, alors que `level.realm` est figé à la génération.
-  el('brief-realm').textContent = i18n.texteMonde(levels.realmDe(n), 'name');
+  el('brief-realm').textContent = i18n.texteMonde(levels.realmDe(n), 'nom');
   el('brief-number').textContent = n;
   screens.renderStars(el('brief-stars'), rec.stars);
   el('brief-objective').textContent = hud.labelFor(level);
   el('brief-moves').textContent = level.moveLimit;
-  el('brief-difficulty').textContent = i18n.texteMonde(levels.realmDe(n), 'difficulty');
+  el('brief-difficulty').textContent = i18n.texteMonde(levels.realmDe(n), 'difficulte');
   // Nouveauté du monde, annoncée à son premier niveau seulement. Un type de
   // bloc jamais vu doit être nommé une fois ; le répéter aux dix-neuf niveaux
   // suivants transformerait l'encart en décor que plus personne ne lit.
@@ -506,26 +506,43 @@ el('opt-glyphs').onchange = (ev) => {
   track('glyphs_toggled', { actif });
 };
 
-/** Choix de la langue : un bouton par langue, celui de la langue courante actif. */
+/**
+ * Choix de la langue, en liste déroulante.
+ *
+ * Un bouton par langue tenait à deux ; à cinq, la rangée débordait du panneau
+ * et rien ne dit qu'on s'arrêtera là. Le `select` natif s'ouvre aussi dans le
+ * sélecteur du téléphone, qui est fait pour ça.
+ */
 function construireChoixLangue() {
   const hote = el('opt-langue');
-  hote.replaceChildren(...i18n.LANGUES.map((L) => {
-    const b = document.createElement('button');
-    b.className = 'langue-btn' + (L.code === i18n.langue() ? ' actif' : '');
-    b.textContent = L.nom;
-    b.onclick = () => {
-      i18n.definirLangue(L.code);
-      construireChoixLangue();
-      // Les écrans déjà construits portent du texte fabriqué en JS : on les
-      // redessine, sans quoi la carte et le pré-niveau resteraient dans
-      // l'ancienne langue jusqu'à la prochaine navigation.
-      majPanneau();
-      if (screens.current() === 'menu') showMenu();
-      else if (screens.current() === 'map') mapScreen.render(showBrief);
-      track('language_changed', { langue: L.code });
-    };
-    return b;
+  if (hote.firstElementChild) {
+    hote.firstElementChild.value = i18n.langue();
+    return;
+  }
+  const select = document.createElement('select');
+  select.className = 'langue-select';
+  select.setAttribute('aria-label', i18n.t('user.language'));
+  select.append(...i18n.LANGUES.map((L) => {
+    const o = document.createElement('option');
+    o.value = L.code;
+    // Chaque langue est écrite DANS cette langue : c'est le seul libellé qu'un
+    // joueur perdu dans une langue qu'il ne lit pas saura reconnaître.
+    o.textContent = L.nom;
+    return o;
   }));
+  select.value = i18n.langue();
+  select.onchange = () => {
+    i18n.definirLangue(select.value);
+    select.setAttribute('aria-label', i18n.t('user.language'));
+    // Les écrans déjà construits portent du texte fabriqué en JS : on les
+    // redessine, sans quoi la carte et le pré-niveau resteraient dans
+    // l'ancienne langue jusqu'à la prochaine navigation.
+    majPanneau();
+    if (screens.current() === 'menu') showMenu();
+    else if (screens.current() === 'map') mapScreen.render(showBrief);
+    track('language_changed', { langue: select.value });
+  };
+  hote.replaceChildren(select);
 }
 
 el('opt-noads').onchange = (ev) => {

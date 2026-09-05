@@ -32,14 +32,15 @@ vider le plateau.
 Sur la route : des blocs montés sur glissière qui ne vont que sur un axe, des
 ancres qui n'avancent que vers leur porte, des blocs scellés qu'il faut
 contourner, des verrous qui s'ouvrent après un certain nombre de sorties, des
-encombrants qui coûtent double, et des portes à capacité limitée — y envoyer le
-mauvais bloc gâche de la place.
+encombrants qui coûtent double à leur porte, des blocs bicolores qui hésitent
+entre deux sorties, une clé qui ouvre tous les verrous d'un coup, et des portes
+à capacité limitée — y envoyer le mauvais bloc gâche de la place.
 
-Huit mondes de vingt niveaux. Chacun change de couleurs, apporte un bloc qu'on
-n'a jamais vu, et resserre un cran.
+Dix-huit mondes de vingt niveaux — trois cent soixante grilles. Chacun change de
+couleurs, apporte quelque chose qu'on n'avait pas encore vu, et resserre un cran.
 
-Le jeu se joue en français ou en anglais, et une option rend aux six couleurs
-leur symbole pour qui ne peut pas s'y fier.
+Le jeu se joue en français, anglais, espagnol, italien ou chinois, et une option
+rend aux six couleurs leur symbole pour qui ne peut pas s'y fier.
 
 | Le plateau | La carte | Le profil |
 |---|---|---|

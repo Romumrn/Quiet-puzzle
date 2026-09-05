@@ -16,6 +16,9 @@ import * as store from '../data/save.js';
 export const LANGUES = [
   { code: 'fr', nom: 'Français' },
   { code: 'en', nom: 'English' },
+  { code: 'es', nom: 'Español' },
+  { code: 'it', nom: 'Italiano' },
+  { code: 'zh', nom: '中文' },
 ];
 
 const TEXTES = {
@@ -156,6 +159,213 @@ const TEXTES = {
     'color.0': 'Ruby', 'color.1': 'Sapphire', 'color.2': 'Emerald',
     'color.3': 'Amber', 'color.4': 'Amethyst', 'color.5': 'Topaz',
   },
+
+  es: {
+    'menu.baseline': 'Vacía la cuadrícula por las puertas de color',
+    'menu.stars': 'estrellas', 'menu.coins': 'monedas', 'menu.level': 'niveles',
+    'menu.play': 'Jugar', 'menu.daily': 'Regalo del día',
+    'menu.streak': 'Racha de {n} día', 'menu.streak.plural': 'Racha de {n} días',
+
+    'map.title': 'Mapa',
+
+    'brief.objective': 'Saca los {n} bloques',
+    'brief.moves': 'Movimientos', 'brief.difficulty': 'Dificultad', 'brief.record': 'Récord',
+    'brief.new': 'Nuevo: {quoi}', 'brief.start': 'Jugar',
+
+    'hud.time': 'Tiempo', 'hud.blocks': 'Bloques', 'hud.stars': 'Estrellas',
+    'hud.moves': '{n} movimientos',
+
+    'result.won': '¡Cuadrícula vacía!', 'result.timeout.title': 'Se acabó el tiempo',
+    'result.nomoves.title': 'Sin movimientos',
+    'result.reward': '+{n} monedas',
+    'result.timeout.sub': 'El cronómetro llegó antes que tú',
+    'result.nomoves.sub': 'No quedaban movimientos',
+    'result.near.one': '¡Quedaba un solo bloque!',
+    'result.near': '¡Solo quedaban {n} bloques!',
+    'result.done': 'Nivel completado', 'result.next': 'Siguiente',
+    'result.retry': 'Repetir', 'result.map': 'Mapa',
+    'result.timeout': 'Se acabó el tiempo', 'result.nomoves': 'Solo ',
+    'result.continue': 'Sigue con ',
+
+    'user.title': 'Perfil y ajustes', 'user.close': 'Cerrar',
+    'user.level': 'Nivel', 'user.stars': 'Estrellas', 'user.levels': 'Niveles',
+    'user.coins': 'Monedas',
+    'user.sound': 'Sonido', 'user.music': 'Música', 'user.sfx': 'Efectos de sonido',
+    'user.display': 'Pantalla', 'user.glyphs': 'Símbolos en los bloques',
+    'user.glyphs.note': 'Da un símbolo propio a cada color, para no depender del tono.',
+    'user.language': 'Idioma',
+    'user.ads': 'Publicidad', 'user.noads': 'Quitar anuncios',
+    'user.ads.note': 'Compra simulada — no hay ninguna red publicitaria conectada.',
+    'user.reset': 'Reiniciar el progreso',
+    'user.reset.confirm': '¿Borrar todo el progreso?',
+
+    'action.hint': 'Pista', 'action.hammer': 'Martillo',
+    'action.time': 'Tiempo', 'action.undo': 'Deshacer', 'action.giveup': 'Abandonar',
+
+    'toast.sealed': 'Este bloque está sellado',
+    'toast.locked': 'Bloqueado: {quoi}',
+    'toast.daily': '+{n} monedas — racha de {jours} días',
+    'toast.hammer.pick': 'Toca el bloque que quieras quitar',
+    'toast.hammer.bad': 'Elige un bloque que pueda moverse',
+    'toast.time': '+30 segundos',
+    'toast.undo': 'Movimiento deshecho',
+    'toast.nohint': 'No se encontró ninguna jugada ganadora',
+    'toast.coins': '{n} monedas',
+    'toast.unlocked': 'Todos los niveles desbloqueados',
+    'toast.ads.off': 'Anuncios quitados (compra simulada)',
+    'toast.ads.on': 'Anuncios reactivados',
+
+    'offer.timeout': 'Se acabó el tiempo', 'offer.nomoves': 'Sin movimientos',
+    'offer.lead': 'Solo quedan', 'offer.lead.end': 'bloques por sacar.',
+    'offer.continue': 'Sigue con', 'offer.bonus': '+{s} s y +{c} movimientos',
+
+    'lock.open': 'Abierto', 'lock.remaining': 'Faltan {n}',
+    'gate.exit': 'Salida {couleur}',
+
+    'boot.missing': 'No se encuentra la base de niveles',
+    'boot.hint': 'Ejecuta {cmd} y vuelve a cargar.',
+
+    'color.0': 'Rubí', 'color.1': 'Zafiro', 'color.2': 'Esmeralda',
+    'color.3': 'Ámbar', 'color.4': 'Amatista', 'color.5': 'Topacio',
+  },
+
+  it: {
+    'menu.baseline': 'Svuota la griglia dalle porte colorate',
+    'menu.stars': 'stelle', 'menu.coins': 'monete', 'menu.level': 'livelli',
+    'menu.play': 'Gioca', 'menu.daily': 'Regalo del giorno',
+    'menu.streak': 'Serie di {n} giorno', 'menu.streak.plural': 'Serie di {n} giorni',
+
+    'map.title': 'Mappa',
+
+    'brief.objective': 'Fai uscire i {n} blocchi',
+    'brief.moves': 'Mosse', 'brief.difficulty': 'Difficoltà', 'brief.record': 'Record',
+    'brief.new': 'Novità: {quoi}', 'brief.start': 'Gioca',
+
+    'hud.time': 'Tempo', 'hud.blocks': 'Blocchi', 'hud.stars': 'Stelle',
+    'hud.moves': '{n} mosse',
+
+    'result.won': 'Griglia svuotata!', 'result.timeout.title': 'Tempo scaduto',
+    'result.nomoves.title': 'Mosse finite',
+    'result.reward': '+{n} monete',
+    'result.timeout.sub': 'Il cronometro è arrivato prima',
+    'result.nomoves.sub': 'Non restavano mosse',
+    'result.near.one': 'Restava un solo blocco!',
+    'result.near': 'Restavano solo {n} blocchi!',
+    'result.done': 'Livello completato', 'result.next': 'Avanti',
+    'result.retry': 'Rigioca', 'result.map': 'Mappa',
+    'result.timeout': 'Tempo scaduto', 'result.nomoves': 'Solo ',
+    'result.continue': 'Continua con ',
+
+    'user.title': 'Profilo e impostazioni', 'user.close': 'Chiudi',
+    'user.level': 'Livello', 'user.stars': 'Stelle', 'user.levels': 'Livelli',
+    'user.coins': 'Monete',
+    'user.sound': 'Audio', 'user.music': 'Musica', 'user.sfx': 'Effetti sonori',
+    'user.display': 'Schermo', 'user.glyphs': 'Simboli sui blocchi',
+    'user.glyphs.note': 'Dà a ogni colore il suo simbolo, per non doversi fidare della tinta.',
+    'user.language': 'Lingua',
+    'user.ads': 'Pubblicità', 'user.noads': 'Togli la pubblicità',
+    'user.ads.note': 'Acquisto simulato — nessun circuito pubblicitario è collegato.',
+    'user.reset': 'Azzera i progressi',
+    'user.reset.confirm': 'Cancellare tutti i progressi?',
+
+    'action.hint': 'Indizio', 'action.hammer': 'Martello',
+    'action.time': 'Tempo', 'action.undo': 'Annulla', 'action.giveup': 'Abbandona',
+
+    'toast.sealed': 'Questo blocco è sigillato',
+    'toast.locked': 'Bloccato: {quoi}',
+    'toast.daily': '+{n} monete — serie di {jours} giorni',
+    'toast.hammer.pick': 'Tocca il blocco da togliere',
+    'toast.hammer.bad': 'Scegli un blocco che possa muoversi',
+    'toast.time': '+30 secondi',
+    'toast.undo': 'Mossa annullata',
+    'toast.nohint': 'Nessuna mossa vincente trovata',
+    'toast.coins': '{n} monete',
+    'toast.unlocked': 'Tutti i livelli sbloccati',
+    'toast.ads.off': 'Pubblicità tolta (acquisto simulato)',
+    'toast.ads.on': 'Pubblicità riattivata',
+
+    'offer.timeout': 'Tempo scaduto', 'offer.nomoves': 'Mosse finite',
+    'offer.lead': 'Restano solo', 'offer.lead.end': 'blocchi da far uscire.',
+    'offer.continue': 'Continua con', 'offer.bonus': '+{s} s e +{c} mosse',
+
+    'lock.open': 'Aperto', 'lock.remaining': 'Ancora {n}',
+    'gate.exit': 'Uscita {couleur}',
+
+    'boot.missing': 'Base dei livelli non trovata',
+    'boot.hint': 'Esegui {cmd}, poi ricarica.',
+
+    'color.0': 'Rubino', 'color.1': 'Zaffiro', 'color.2': 'Smeraldo',
+    'color.3': 'Ambra', 'color.4': 'Ametista', 'color.5': 'Topazio',
+  },
+
+  zh: {
+    'menu.baseline': '让方块从同色的门离开棋盘',
+    'menu.stars': '星星', 'menu.coins': '金币', 'menu.level': '关卡',
+    'menu.play': '开始', 'menu.daily': '每日礼物',
+    'menu.streak': '连续 {n} 天', 'menu.streak.plural': '连续 {n} 天',
+
+    'map.title': '地图',
+
+    'brief.objective': '清空全部 {n} 个方块',
+    'brief.moves': '步数', 'brief.difficulty': '难度', 'brief.record': '纪录',
+    'brief.new': '新元素：{quoi}', 'brief.start': '开始',
+
+    'hud.time': '时间', 'hud.blocks': '方块', 'hud.stars': '星星',
+    'hud.moves': '{n} 步',
+
+    'result.won': '棋盘已清空！', 'result.timeout.title': '时间到',
+    'result.nomoves.title': '步数用尽',
+    'result.reward': '+{n} 金币',
+    'result.timeout.sub': '时间先一步走完了',
+    'result.nomoves.sub': '没有步数了',
+    'result.near.one': '只差一个方块！',
+    'result.near': '只差 {n} 个方块！',
+    'result.done': '通关', 'result.next': '下一关',
+    'result.retry': '重玩', 'result.map': '地图',
+    'result.timeout': '时间到', 'result.nomoves': '只剩 ',
+    'result.continue': '继续，获得 ',
+
+    'user.title': '个人资料与设置', 'user.close': '关闭',
+    'user.level': '等级', 'user.stars': '星星', 'user.levels': '关卡',
+    'user.coins': '金币',
+    'user.sound': '声音', 'user.music': '音乐', 'user.sfx': '音效',
+    'user.display': '显示', 'user.glyphs': '方块上显示符号',
+    'user.glyphs.note': '为每种颜色配一个符号，不必只靠颜色分辨。',
+    'user.language': '语言',
+    'user.ads': '广告', 'user.noads': '去除广告',
+    'user.ads.note': '模拟购买 — 未接入任何广告平台。',
+    'user.reset': '重置进度',
+    'user.reset.confirm': '要清除全部进度吗？',
+
+    'action.hint': '提示', 'action.hammer': '锤子',
+    'action.time': '时间', 'action.undo': '撤销', 'action.giveup': '放弃',
+
+    'toast.sealed': '这个方块被封住了',
+    'toast.locked': '已锁定：{quoi}',
+    'toast.daily': '+{n} 金币 — 连续 {jours} 天',
+    'toast.hammer.pick': '点击要移除的方块',
+    'toast.hammer.bad': '请选择可以移动的方块',
+    'toast.time': '+30 秒',
+    'toast.undo': '已撤销一步',
+    'toast.nohint': '没有找到可行的一步',
+    'toast.coins': '{n} 金币',
+    'toast.unlocked': '已解锁全部关卡',
+    'toast.ads.off': '已去除广告（模拟购买）',
+    'toast.ads.on': '已恢复广告',
+
+    'offer.timeout': '时间到', 'offer.nomoves': '步数用尽',
+    'offer.lead': '只剩', 'offer.lead.end': '个方块待清空。',
+    'offer.continue': '继续，获得', 'offer.bonus': '+{s} 秒，+{c} 步',
+
+    'lock.open': '已开启', 'lock.remaining': '还差 {n}',
+    'gate.exit': '{couleur}出口',
+
+    'boot.missing': '找不到关卡数据',
+    'boot.hint': '请运行 {cmd}，然后重新加载。',
+
+    'color.0': '红宝石', 'color.1': '蓝宝石', 'color.2': '祖母绿',
+    'color.3': '琥珀', 'color.4': '紫水晶', 'color.5': '黄玉',
+  },
 };
 
 const DEFAUT = 'fr';
@@ -189,14 +399,16 @@ export function t(cle, params = {}) {
 export const nomCouleur = (id) => t(`color.${id}`);
 
 /**
- * Texte d'un monde dans la langue courante. Le catalogue transporte les deux
- * versions ; l'anglais retombe sur le français si un monde n'a pas été traduit,
- * plutôt que d'afficher une case vide.
+ * Texte d'un monde dans la langue courante.
+ *
+ * Le catalogue transporte chaque libellé sous forme de table `{ fr, en, … }`,
+ * et l'on retombe sur le français quand une langue manque : un monde ajouté
+ * sans traduction s'affiche alors dans une langue, plutôt que dans le vide.
  */
 export function texteMonde(monde, champ) {
-  if (!monde) return '';
-  if (courante === 'en') return monde[`${champ}En`] || monde[champ] || '';
-  return monde[champ] || '';
+  const table = monde?.[champ];
+  if (!table) return '';
+  return typeof table === 'string' ? table : (table[courante] || table[DEFAUT] || '');
 }
 
 /**

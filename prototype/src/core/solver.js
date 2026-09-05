@@ -105,10 +105,28 @@ export function resoudre(board, maxEtats = 40000) {
     if (vus.has(k)) return null;
     vus.add(k);
 
+    /**
+     * Les blocs LES PLUS CONTRAINTS d'abord.
+     *
+     * L'ordre d'insertion faisait explorer en premier des blocs qui ont cinq
+     * portes possibles, alors qu'un bloc qui n'en a qu'une ne laisse aucun
+     * choix : le sortir tôt ferme l'arbre au lieu de le démultiplier. Sur les
+     * grilles à portes partagées, où chaque bloc vise plusieurs sorties, cette
+     * seule heuristique fait la différence entre une seconde et un abandon.
+     *
+     * Un bloc SANS aucune sortie possible arrive en tête et coupe la branche
+     * immédiatement — il ne sortira pas tant que la grille n'aura pas changé,
+     * et rien ne changera si l'on ne sort personne.
+     */
+    const candidats = [];
     for (const bloc of [...board.blocks.values()]) {
       if (bloc.kind === KIND.WALL) continue;
+      candidats.push({ bloc, sorties: sortiesPossibles(board, bloc.id) });
+    }
+    candidats.sort((a, b) => a.sorties.length - b.sorties.length);
 
-      for (const sortie of sortiesPossibles(board, bloc.id)) {
+    for (const { bloc, sorties } of candidats) {
+      for (const sortie of sorties) {
         const snap = board.snapshot();
         bloc.x = sortie.x; bloc.y = sortie.y;
         board._reindex();

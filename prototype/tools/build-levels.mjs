@@ -46,7 +46,7 @@ for (const R of REALMS) {
   const levels = [];
   for (let n = premier; n <= dernier; n++) levels.push(getLevel(n));
 
-  const r = ecrire(fichierDeMonde(R.id), { realm: R.id, name: R.name, levels });
+  const r = ecrire(fichierDeMonde(R.id), { realm: R.id, name: R.nom.fr, levels });
   total += r.taille;
   lignes.push({ R, premier, dernier, ...r, blocs: levels.reduce((s, L) => s + L.blocks.length, 0) });
 }
@@ -64,17 +64,17 @@ const index = {
   totalLevels: TOTAL_LEVELS,
   realms: REALMS.map((R) => ({
     id: R.id,
-    // Les deux langues voyagent dans le catalogue. L'interface n'a alors rien à
-    // savoir du générateur pour se traduire, et un monde ajouté sans version
-    // anglaise retombe proprement sur le français.
-    name: R.name,
-    nameEn: R.nameEn,
-    difficulty: R.difficulty,
-    difficultyEn: R.difficultyEn,
-    apporteEn: R.apporteEn,
+    // Toutes les langues voyagent dans le catalogue. L'interface n'a alors rien
+    // à savoir du générateur pour se traduire, et un monde ajouté sans une
+    // traduction retombe proprement sur le français.
+    nom: R.nom,
+    difficulte: R.difficulte,
+    apporte: R.apporte,
+    // Libellé français à plat : les outils en ligne de commande impriment des
+    // tableaux, pas des tables de langues.
+    name: R.nom.fr,
     teinte: R.teinte,
     palette: R.palette,
-    apporte: R.apporte,
     fichier: fichierDeMonde(R.id),
     premier: R.id * LEVELS_PER_REALM + 1,
     dernier: Math.min(TOTAL_LEVELS, (R.id + 1) * LEVELS_PER_REALM),
@@ -87,7 +87,7 @@ const ko = (n) => `${(n / 1024).toFixed(0)} Ko`;
 console.log('\nmonde                     niveaux  blocs   poids');
 for (const l of lignes) {
   console.log(
-    l.R.name.padEnd(24),
+    l.R.nom.fr.padEnd(24),
     `${l.premier}–${l.dernier}`.padStart(8),
     String(l.blocs).padStart(6),
     ko(l.taille).padStart(8),

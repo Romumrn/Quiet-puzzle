@@ -40,100 +40,244 @@ export const LEVELS_PER_REALM = 20;
 
 export const REALMS = [
   {
-    id: 0, name: 'Atelier de Verre', difficulty: 'apprentissage',
-    nameEn: 'Glassworks', difficultyEn: 'learning the ropes',
+    id: 0,
+    nom: { fr: 'Atelier de Verre', en: 'Glassworks', es: 'Taller de Vidrio', it: 'Vetreria', zh: '玻璃工坊' },
+    difficulte: { fr: 'apprentissage', en: 'learning the ropes', es: 'aprendizaje', it: 'apprendistato', zh: '入门' },
     teinte: 345,
     palette: ['#eb9aad', '#93bde4', '#97cfb6', '#e9cd8c', '#bdaadd', '#f0b18b'],
     nouveaute: null,
-    apporte: 'Les blocs et leurs portes',
-    apporteEn: 'Blocks and their gates',
+    apporte: { fr: 'Les blocs et leurs portes', en: 'Blocks and their gates', es: 'Los bloques y sus puertas', it: 'I blocchi e le loro porte', zh: '方块与它们的门' },
     W: 5, H: 6, colorCount: 3, gateCount: 3,
     murs: [0, 0], verrous: [0, 0], rails: [0, 0], ancres: [0, 0], encombrants: [0, 0],
     jokers: 0, marge: null, scelleCouleur: false,
   },
   {
-    id: 1, name: 'Fonderie', difficulty: 'facile',
-    nameEn: 'The Foundry', difficultyEn: 'easy',
+    id: 1,
+    nom: { fr: 'Fonderie', en: 'The Foundry', es: 'La Fundición', it: 'La Fonderia', zh: '铸造厂' },
+    difficulte: { fr: 'facile', en: 'easy', es: 'fácil', it: 'facile', zh: '简单' },
     teinte: 22,
     palette: ['#e8907b', '#7fb0c9', '#a9c48b', '#edc073', '#c39fc0', '#d9a06b'],
     nouveaute: KIND.RAIL,
-    apporte: 'Blocs sur glissière, portes à capacité',
-    apporteEn: 'Blocks on rails, gates with a capacity',
+    apporte: { fr: 'Blocs sur glissière, portes à capacité', en: 'Blocks on rails, gates with a capacity', es: 'Bloques sobre raíles, puertas con capacidad', it: 'Blocchi su binario, porte con capienza', zh: '滑轨方块，限量的门' },
     W: 6, H: 6, colorCount: 4, gateCount: 4,
     murs: [0, 1], verrous: [0, 0], rails: [1, 5], ancres: [0, 0], encombrants: [0, 0],
     jokers: 0, marge: 3, scelleCouleur: false,
   },
   {
-    id: 2, name: 'Chambre Froide', difficulty: 'moyen',
-    nameEn: 'Cold Store', difficultyEn: 'medium',
+    id: 2,
+    nom: { fr: 'Chambre Froide', en: 'Cold Store', es: 'Cámara Fría', it: 'Cella Frigorifera', zh: '冷藏室' },
+    difficulte: { fr: 'moyen', en: 'medium', es: 'medio', it: 'medio', zh: '中等' },
     teinte: 196,
     palette: ['#d99aa8', '#8cc6e0', '#8fd3c4', '#d7d295', '#aeb3e0', '#e2b3a6'],
     nouveaute: KIND.WALL,
-    apporte: 'Blocs scellés, immobiles',
-    apporteEn: 'Sealed blocks that never move',
+    apporte: { fr: 'Blocs scellés, immobiles', en: 'Sealed blocks that never move', es: 'Bloques sellados, inmóviles', it: 'Blocchi sigillati, immobili', zh: '封死不动的方块' },
     W: 6, H: 7, colorCount: 4, gateCount: 4,
     murs: [1, 4], verrous: [0, 0], rails: [2, 6], ancres: [0, 0], encombrants: [0, 0],
     jokers: 0, marge: 3, scelleCouleur: false,
   },
   {
-    id: 3, name: 'Tour de Contrôle', difficulty: 'soutenu',
-    nameEn: 'Control Tower', difficultyEn: 'steady',
+    id: 3,
+    nom: { fr: 'Tour de Contrôle', en: 'Control Tower', es: 'Torre de Control', it: 'Torre di Controllo', zh: '控制塔' },
+    difficulte: { fr: 'soutenu', en: 'steady', es: 'sostenido', it: 'sostenuto', zh: '进阶' },
     teinte: 262,
     palette: ['#e493b4', '#8fa8e2', '#86cbb0', '#e3c886', '#b49ae0', '#7fc4d4'],
     nouveaute: KIND.LOCKED,
-    apporte: 'Verrous à décompte',
-    apporteEn: 'Locks with a countdown',
+    apporte: { fr: 'Verrous à décompte', en: 'Locks with a countdown', es: 'Cerrojos con cuenta atrás', it: 'Serrature con conto alla rovescia', zh: '带计数的锁' },
     W: 6, H: 8, colorCount: 5, gateCount: 5,
     murs: [1, 4], verrous: [1, 3], rails: [3, 7], ancres: [0, 0], encombrants: [0, 0],
     jokers: 0, marge: 2, scelleCouleur: false,
   },
   {
-    id: 4, name: 'Salle des Machines', difficulty: 'exigeant',
-    nameEn: 'Engine Room', difficultyEn: 'demanding',
+    id: 4,
+    nom: { fr: 'Salle des Machines', en: 'Engine Room', es: 'Sala de Máquinas', it: 'Sala Macchine', zh: '机房' },
+    difficulte: { fr: 'exigeant', en: 'demanding', es: 'exigente', it: 'impegnativo', zh: '考验' },
     teinte: 30,
     palette: ['#dd9b95', '#96b6cc', '#9fc9a4', '#d9bd7f', '#b2a6c9', '#e0a97f'],
     nouveaute: KIND.JOKER,
-    apporte: 'Le joker, qui sort par où il veut',
-    apporteEn: 'The joker, which leaves by any gate',
+    apporte: { fr: 'Le joker, qui sort par où il veut', en: 'The joker, which leaves by any gate', es: 'El comodín, que sale por donde quiere', it: 'Il jolly, che esce da dove vuole', zh: '万能方块，任意门皆可' },
     W: 7, H: 8, colorCount: 5, gateCount: 5,
     murs: [2, 4], verrous: [1, 3], rails: [4, 9], ancres: [0, 0], encombrants: [0, 0],
     jokers: 1, marge: 2, scelleCouleur: false,
   },
   {
-    id: 5, name: 'Serre Suspendue', difficulty: 'redoutable',
-    nameEn: 'Hanging Glasshouse', difficultyEn: 'formidable',
+    id: 5,
+    nom: { fr: 'Serre Suspendue', en: 'Hanging Glasshouse', es: 'Invernadero Colgante', it: 'Serra Sospesa', zh: '悬空温室' },
+    difficulte: { fr: 'redoutable', en: 'formidable', es: 'temible', it: 'temibile', zh: '棘手' },
     teinte: 128,
     palette: ['#ec9cc0', '#8ec7d9', '#93cf8e', '#dfd083', '#c1a3dc', '#efb28f'],
     nouveaute: KIND.ANCRE,
-    apporte: 'Ancres, qui n\'avancent que vers leur porte',
-    apporteEn: 'Anchors, which only move towards their gate',
+    apporte: { fr: 'Ancres, qui n’avancent que vers leur porte', en: 'Anchors, which only move towards their gate', es: 'Anclas, que solo avanzan hacia su puerta', it: 'Ancore, che avanzano solo verso la loro porta', zh: '锚块，只朝自己的门前进' },
     W: 7, H: 9, colorCount: 6, gateCount: 6,
     murs: [2, 5], verrous: [1, 3], rails: [4, 9], ancres: [1, 4], encombrants: [0, 0],
     jokers: 1, marge: 1, scelleCouleur: false,
   },
   {
-    id: 6, name: 'Observatoire', difficulty: 'implacable',
-    nameEn: 'Observatory', difficultyEn: 'relentless',
+    id: 6,
+    nom: { fr: 'Observatoire', en: 'Observatory', es: 'Observatorio', it: 'Osservatorio', zh: '天文台' },
+    difficulte: { fr: 'implacable', en: 'relentless', es: 'implacable', it: 'implacabile', zh: '严苛' },
     teinte: 288,
     palette: ['#d792bb', '#8bacdf', '#8ecdc0', '#e6cd90', '#a99ae0', '#e5a3a0'],
     nouveaute: KIND.ENCOMBRANT,
-    apporte: 'Encombrants, qui coûtent double à leur porte',
-    apporteEn: 'Heavy blocks, which cost their gate double',
+    apporte: { fr: 'Encombrants, qui coûtent double à leur porte', en: 'Heavy blocks, which cost their gate double', es: 'Voluminosos, que cuestan el doble a su puerta', it: 'Ingombranti, che costano il doppio alla loro porta', zh: '笨重方块，占用双倍容量' },
     W: 8, H: 9, colorCount: 6, gateCount: 6,
     murs: [3, 5], verrous: [2, 3], rails: [5, 10], ancres: [2, 5], encombrants: [1, 4],
     jokers: 1, marge: 1, scelleCouleur: false,
   },
   {
-    id: 7, name: 'Dernière Verrière', difficulty: 'sans marge',
-    nameEn: 'The Last Skylight', difficultyEn: 'no margin',
+    id: 7,
+    nom: { fr: 'Dernière Verrière', en: 'The Last Skylight', es: 'La Última Vidriera', it: 'L’Ultima Vetrata', zh: '最后的天窗' },
+    difficulte: { fr: 'intransigeant', en: 'unyielding', es: 'intransigente', it: 'intransigente', zh: '严厉' },
     teinte: 165,
     palette: ['#ef8fa6', '#85b8e8', '#8ad4b1', '#f0cd7e', '#b99ae6', '#f4ab84'],
     nouveaute: 'scelle-couleur',
-    apporte: 'Scellés de couleur, et des portes sans un pouce de marge',
-    apporteEn: 'Colour seals, and gates without an inch to spare',
+    apporte: { fr: 'Des scellés qui attendent qu’une couleur ait disparu', en: 'Seals that wait for a whole colour to be gone', es: 'Sellos que esperan a que un color desaparezca', it: 'Sigilli che attendono la scomparsa di un colore', zh: '颜色封印：某色清空才解锁' },
     W: 8, H: 10, colorCount: 6, gateCount: 7,
     murs: [3, 6], verrous: [2, 4], rails: [6, 12], ancres: [3, 6], encombrants: [2, 5],
-    jokers: 0, marge: 0, scelleCouleur: true,
+    // Ce monde fermait autrefois le jeu, et son réglage le disait : plus de
+    // joker, plus un pouce de marge. Devenu le huitième sur dix-huit, ce pic au
+    // milieu du parcours rendait les quatre mondes suivants plus faciles que
+    // lui. La capacité exacte revient donc au tout dernier monde, à qui elle
+    // appartient.
+    jokers: 1, marge: 1, scelleCouleur: true,
+  },
+  {
+    id: 8,
+    nom: { fr: 'Verrerie Basse', en: 'Lower Glassworks', es: 'Vidriería Baja', it: 'Vetreria Bassa', zh: '下层玻璃厂' },
+    difficulte: { fr: 'retors', en: 'crafty', es: 'retorcido', it: 'insidioso', zh: '刁钻' },
+    teinte: 52,
+    palette: ['#e0a08e', '#8fb9d6', '#a3ca9a', '#e3c37f', '#b7a4d4', '#dfa77f'],
+    nouveaute: KIND.DOUBLE,
+    apporte: { fr: 'Blocs bicolores, qui hésitent entre deux portes', en: 'Two-colour blocks, torn between two gates', es: 'Bloques bicolores, que dudan entre dos puertas', it: 'Blocchi bicolori, indecisi fra due porte', zh: '双色方块，可走两种门' },
+    W: 8, H: 10, colorCount: 6, gateCount: 7,
+    murs: [3, 6], verrous: [2, 4], rails: [6, 12],
+    ancres: [3, 6], encombrants: [2, 5], doubles: [1, 4],
+    jokers: 1, marge: 1, scelleCouleur: false,
+  },
+  {
+    id: 9,
+    nom: { fr: 'Passage Étroit', en: 'The Narrows', es: 'Paso Estrecho', it: 'Passaggio Stretto', zh: '窄道' },
+    difficulte: { fr: 'serré', en: 'tight', es: 'ajustado', it: 'stretto', zh: '局促' },
+    teinte: 15,
+    palette: ['#dd8f96', '#8aa9cc', '#93c197', '#dcbd7c', '#ac9ccc', '#dc9d84'],
+    nouveaute: 'porte-etroite',
+    apporte: { fr: 'Des portes de deux cases, jamais plus', en: 'Gates two cells wide, never more', es: 'Puertas de dos casillas, nunca más', it: 'Porte di due caselle, mai di più', zh: '门宽只有两格' },
+    W: 8, H: 10, colorCount: 6, gateCount: 7,
+    murs: [4, 6], verrous: [3, 4], rails: [7, 12],
+    ancres: [4, 7], encombrants: [3, 6], doubles: [1, 3],
+    porteLarge: 0.0,
+    jokers: 1, marge: 1, scelleCouleur: false,
+  },
+  {
+    id: 10,
+    nom: { fr: 'Grande Halle', en: 'The Great Hall', es: 'Gran Nave', it: 'Grande Sala', zh: '大厅' },
+    difficulte: { fr: 'massif', en: 'massive', es: 'macizo', it: 'massiccio', zh: '厚重' },
+    teinte: 225,
+    palette: ['#d18fa8', '#7fa4d8', '#87c3ae', '#d9c084', '#a396d6', '#d59a94'],
+    nouveaute: 'grosses-formes',
+    apporte: { fr: 'Plus une seule pièce d’une case', en: 'Not a single one-cell piece left', es: 'Ni una sola pieza de una casilla', it: 'Non più un solo pezzo da una casella', zh: '不再有单格方块' },
+    W: 8, H: 10, colorCount: 6, gateCount: 7,
+    murs: [3, 6], verrous: [3, 4], rails: [7, 13],
+    ancres: [4, 7], encombrants: [3, 6], doubles: [1, 3],
+    formesMin: 2, densite: [0.26, 0.33],
+    jokers: 1, marge: 1, scelleCouleur: false,
+  },
+  {
+    id: 11,
+    nom: { fr: 'Quai de Tri', en: 'Sorting Dock', es: 'Muelle de Clasificación', it: 'Molo di Smistamento', zh: '分拣码头' },
+    difficulte: { fr: 'trompeur', en: 'deceptive', es: 'engañoso', it: 'ingannevole', zh: '迷惑' },
+    teinte: 95,
+    palette: ['#cf94a4', '#84b4cc', '#8fc98f', '#d4c286', '#a89dd0', '#d9a68a'],
+    nouveaute: 'porte-partagee',
+    apporte: { fr: 'Des portes qui servent deux couleurs à la fois', en: 'Gates serving two colours at once', es: 'Puertas que sirven a dos colores a la vez', it: 'Porte che servono due colori insieme', zh: '一门通两色' },
+    W: 8, H: 10, colorCount: 6, gateCount: 7,
+    murs: [4, 6], verrous: [3, 5], rails: [7, 13],
+    ancres: [4, 7], encombrants: [3, 6], doubles: [1, 3],
+    portesPartagees: [1, 3],
+    jokers: 1, marge: 1, scelleCouleur: false,
+  },
+  {
+    id: 12,
+    nom: { fr: 'Salle des Clés', en: 'Hall of Keys', es: 'Sala de las Llaves', it: 'Sala delle Chiavi', zh: '钥匙厅' },
+    difficulte: { fr: 'méthodique', en: 'methodical', es: 'metódico', it: 'metodico', zh: '讲究次序' },
+    teinte: 310,
+    palette: ['#d68fb0', '#8ba6d4', '#8ccbb4', '#dfc57f', '#ab97d8', '#e0a292'],
+    nouveaute: 'cle',
+    apporte: { fr: 'Une clé, dont la sortie ouvre tous les verrous', en: 'A key whose exit opens every lock', es: 'Una llave cuya salida abre todos los cerrojos', it: 'Una chiave la cui uscita apre tutte le serrature', zh: '一把钥匙，出门即开所有锁' },
+    W: 8, H: 10, colorCount: 6, gateCount: 7,
+    murs: [4, 6], verrous: [3, 5], rails: [7, 13],
+    ancres: [4, 7], encombrants: [3, 6], doubles: [1, 3],
+    portesPartagees: [2, 3], densite: [0.26, 0.34],
+    jokers: 1, marge: 1, scelleCouleur: false, cle: true,
+  },
+  {
+    id: 13,
+    nom: { fr: 'Atelier Comble', en: 'Packed Workshop', es: 'Taller Abarrotado', it: 'Officina Gremita', zh: '拥挤工坊' },
+    difficulte: { fr: 'étouffant', en: 'stifling', es: 'asfixiante', it: 'soffocante', zh: '拥塞' },
+    teinte: 178,
+    palette: ['#cd8c9e', '#7fa8c8', '#84c2a4', '#d3bd7a', '#a291cc', '#d29a88'],
+    nouveaute: null,
+    apporte: { fr: 'Des grilles remplies aux trois quarts', en: 'Grids packed three quarters full', es: 'Cuadrículas llenas en tres cuartos', it: 'Griglie piene per tre quarti', zh: '棋盘塞满四分之三' },
+    W: 9, H: 10, colorCount: 6, gateCount: 8,
+    murs: [4, 7], verrous: [3, 5], rails: [8, 14],
+    ancres: [5, 8], encombrants: [3, 7], doubles: [1, 3],
+    portesPartagees: [1, 2], densite: [0.27, 0.35],
+    jokers: 1, marge: 1, scelleCouleur: false,
+  },
+  {
+    id: 14,
+    nom: { fr: 'Chaufferie', en: 'The Boiler Room', es: 'Sala de Calderas', it: 'Locale Caldaie', zh: '锅炉房' },
+    difficulte: { fr: 'éprouvant', en: 'punishing', es: 'duro', it: 'duro', zh: '磨人' },
+    teinte: 40,
+    palette: ['#dba38c', '#8fb2c4', '#9ec69b', '#dcc07e', '#b19dc8', '#d9a17e'],
+    nouveaute: null,
+    apporte: { fr: 'Tous les blocs du jeu, dans la même grille', en: 'Every block in the game, on one grid', es: 'Todos los bloques del juego en una misma cuadrícula', it: 'Tutti i blocchi del gioco, nella stessa griglia', zh: '所有方块类型齐聚一盘' },
+    W: 9, H: 10, colorCount: 6, gateCount: 8,
+    murs: [5, 7], verrous: [4, 6], rails: [9, 15],
+    ancres: [5, 9], encombrants: [4, 8], doubles: [2, 4],
+    portesPartagees: [1, 3],
+    jokers: 1, marge: 1, scelleCouleur: true, cle: true,
+  },
+  {
+    id: 15,
+    nom: { fr: 'Chambre Sourde', en: 'The Dead Room', es: 'Cámara Sorda', it: 'Camera Sorda', zh: '静默室' },
+    difficulte: { fr: 'impitoyable', en: 'merciless', es: 'despiadado', it: 'spietato', zh: '无情' },
+    teinte: 268,
+    palette: ['#c98fae', '#8299d4', '#83c0b0', '#cfbc84', '#9f92d2', '#cf9a95'],
+    nouveaute: null,
+    apporte: { fr: 'Plus de joker : rien pour desserrer la grille', en: 'No joker left to loosen the grid', es: 'Sin comodín: nada que afloje la cuadrícula', it: 'Niente jolly: nulla che allenti la griglia', zh: '没有万能方块可依靠' },
+    W: 9, H: 10, colorCount: 6, gateCount: 8,
+    murs: [5, 7], verrous: [4, 6], rails: [9, 15],
+    ancres: [6, 9], encombrants: [4, 8], doubles: [2, 4],
+    portesPartagees: [2, 3], porteLarge: 0.2,
+    jokers: 0, marge: 1, scelleCouleur: true, cle: true,
+  },
+  {
+    id: 16,
+    nom: { fr: 'Voûte Haute', en: 'The High Vault', es: 'Bóveda Alta', it: 'Volta Alta', zh: '高穹顶' },
+    difficulte: { fr: 'vertigineux', en: 'dizzying', es: 'vertiginoso', it: 'vertiginoso', zh: '眩目' },
+    teinte: 140,
+    palette: ['#c88fa0', '#7ea6cc', '#7fc3a2', '#ccba7c', '#9c8ecd', '#cd9885'],
+    nouveaute: null,
+    apporte: { fr: 'Les plus vastes grilles du jeu', en: 'The largest grids in the game', es: 'Las cuadrículas más amplias del juego', it: 'Le griglie più vaste del gioco', zh: '全游戏最大的棋盘' },
+    W: 9, H: 11, colorCount: 6, gateCount: 8,
+    murs: [5, 8], verrous: [4, 6], rails: [10, 16],
+    ancres: [6, 10], encombrants: [5, 9], doubles: [2, 4],
+    portesPartagees: [2, 3], porteLarge: 0.2, formesMin: 2, densite: [0.26, 0.33],
+    jokers: 0, marge: 1, scelleCouleur: true, cle: true,
+  },
+  {
+    id: 17,
+    nom: { fr: 'Dernier Souffle', en: 'Last Breath', es: 'Último Aliento', it: 'Ultimo Respiro', zh: '最后一息' },
+    difficulte: { fr: 'sans retour', en: 'no way back', es: 'sin retorno', it: 'senza ritorno', zh: '无路可退' },
+    teinte: 200,
+    palette: ['#c98b9c', '#7ba2cc', '#7cc09f', '#cbb679', '#9a8aca', '#ca9482'],
+    nouveaute: null,
+    apporte: { fr: 'Des portes au comptage exact, et rien pour se rattraper', en: 'Gates counted to the cell, and nothing to fall back on', es: 'Puertas contadas al detalle y nada a lo que recurrir', it: 'Porte contate al millimetro e nulla su cui ripiegare', zh: '门的容量精确到格，毫无退路' },
+    W: 9, H: 11, colorCount: 6, gateCount: 8,
+    murs: [5, 8], verrous: [5, 7], rails: [10, 16],
+    ancres: [7, 10], encombrants: [5, 9], doubles: [2, 4],
+    portesPartagees: [2, 4], porteLarge: 0.15, formesMin: 2, densite: [0.27, 0.34],
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true,
   },
 ];
 
@@ -205,10 +349,21 @@ function curve(n) {
   // c'est la seule façon d'avoir une grille aussi remplie au premier niveau
   // d'un monde qu'au dernier du précédent, alors que la grille vient de
   // grandir. Une forme fait 2,3 cases en moyenne, d'où les coefficients.
-  const blockCount = Math.round(R.W * R.H * (0.24 + 0.09 * t));
+  const [densiteBasse, densiteHaute] = R.densite || [0.24, 0.33];
+  const formesMin = R.formesMin ?? 1;
 
-  // Avancement sur l'ensemble du jeu — ce qui ne dépend pas du monde s'y indexe.
-  const global = (n - 1) / (TOTAL_LEVELS - 1);
+  // Le nombre de blocs se déduit de la SURFACE, mais il faut le corriger par la
+  // TAILLE des pièces disponibles : interdire les pièces d'une case fait monter
+  // la moyenne, et viser le même compte revenait à demander une grille remplie
+  // à 97 % — le générateur n'y arrivait pas et rendait le niveau introuvable.
+  const taille = (min) => {
+    const dispo = SHAPES.filter((f) => f.cells.length >= min);
+    return dispo.reduce((somme, f) => somme + f.cells.length, 0) / dispo.length;
+  };
+  const correction = taille(1) / taille(formesMin);
+  const blockCount = Math.round(
+    R.W * R.H * (densiteBasse + (densiteHaute - densiteBasse) * t) * correction);
+
 
   return {
     W: R.W, H: R.H, colorCount: R.colorCount, gateCount: R.gateCount,
@@ -217,9 +372,25 @@ function curve(n) {
     rails: rampe(R.rails),
     ancres: rampe(R.ancres),
     encombrants: rampe(R.encombrants),
+    doubles: rampe(R.doubles || [0, 0]),
+    portesPartagees: rampe(R.portesPartagees || [0, 0]),
+    // Part de portes de trois cases, et taille minimale des formes : deux
+    // leviers qui ne coûtent rien au moteur et resserrent beaucoup la grille.
+    porteLarge: R.porteLarge ?? 0.35,
+    formesMin: R.formesMin ?? 1,
+    cle: R.cle === true,
     jokers: R.jokers,
     blockCount,
-    recul: [6, Math.round(11 + 5 * global)],
+    /**
+     * Longueur de la marche arrière, indexée sur le MONDE et non sur
+     * l'avancement dans le jeu entier.
+     *
+     * Elle l'était : `11 + 5 × (n / TOTAL_LEVELS)`. Ajouter des mondes changeait
+     * alors le recul de TOUS les niveaux déjà publiés — donc leur grille, donc
+     * les records des joueurs. Une quantité qui décide de la forme d'une grille
+     * ne doit dépendre que de son monde, jamais de la longueur du jeu.
+     */
+    recul: R.recul || [6, 11 + Math.min(5, R.id)],
     // `marge` est le rab accordé aux portes à capacité, au-delà de ce que la
     // solution de référence leur destine. Sans capacité, aucun ordre de sortie
     // ne peut être mauvais — sortir un bloc ne fait que libérer de la place — et
@@ -254,7 +425,7 @@ class Grille {
 const absolute = (shape, x, y) => shape.cells.map(([dx, dy]) => [x + dx, y + dy]);
 
 /** Portes : réparties sur les côtés, sans chevauchement, chaque couleur servie. */
-function makeGates({ W, H, colorCount, gateCount }, rng) {
+function makeGates({ W, H, colorCount, gateCount, porteLarge, portesPartagees }, rng) {
   const gates = [];
   const parSide = { top: [], right: [], bottom: [], left: [] };
   const longueurDe = (side) => (side === 'top' || side === 'bottom' ? W : H);
@@ -265,7 +436,10 @@ function makeGates({ W, H, colorCount, gateCount }, rng) {
     for (let essai = 0; essai < 40; essai++) {
       const side = pick(rng, SIDES);
       const max = longueurDe(side);
-      const length = Math.min(max, rng() < 0.35 ? 3 : 2);
+      // `porteLarge` est la part de portes de trois cases. La ramener à zéro
+      // n'ouvre plus que des passages de deux : les formes encombrantes doivent
+      // alors viser juste, et le choix de la porte cesse d'être une formalité.
+      const length = Math.min(max, rng() < porteLarge ? 3 : 2);
       const start = Math.floor(rng() * (max - length + 1));
       const chevauche = parSide[side].some((g) => start < g.start + g.length && g.start < start + length);
       if (chevauche) continue;
@@ -274,6 +448,16 @@ function makeGates({ W, H, colorCount, gateCount }, rng) {
       gates.push(gate);
       break;
     }
+  }
+
+  // Portes partagées : une seconde couleur admise. Le joueur y gagne une
+  // option, et y perd la certitude qu'une porte ne sert qu'une famille — deux
+  // couleurs se disputent alors la même capacité.
+  for (let i = 0; i < (portesPartagees || 0) && i < gates.length; i++) {
+    const g = gates[gates.length - 1 - i];
+    const autres = couleurs.filter((c) => c !== g.color);
+    if (!autres.length) break;
+    g.colors = [g.color, pick(rng, autres)];
   }
   return gates;
 }
@@ -366,6 +550,11 @@ function build(n) {
   const p = curve(n);
   const { W, H } = p;
 
+  // Formes autorisées. Interdire les petites pièces est un levier à part
+  // entière : une case isolée se faufile partout et sert de bouche-trou, alors
+  // qu'un tétromino doit trouver un passage à sa mesure.
+  const formes = SHAPES.filter((f) => f.cells.length >= p.formesMin);
+
   // On explore plusieurs grilles et on garde la PLUS DENSE : la difficulté de
   // ce genre vient de l'encombrement, et se contenter de la première grille
   // acceptable donnait des niveaux à moitié vides.
@@ -406,7 +595,7 @@ function build(n) {
         let gate = null;
 
         for (const candidate of ordre) {
-          for (const shape of shuffled(rng, SHAPES)) {
+          for (const shape of shuffled(rng, formes)) {
             const at = poseAuPorte(candidate, shape, W, H, rng);
             if (!at) continue;
             if (!grille.libre(absolute(shape, at.x, at.y))) continue;
@@ -563,6 +752,24 @@ function build(n) {
       poses_verrouillees++;
     }
 
+    // Blocs doubles : une seconde couleur acceptée, en plus de la leur. Sûr
+    // pour la résolubilité — leur porte d'origine reste valable — et ils
+    // n'ouvrent qu'une famille de plus, là où le joker les ouvre toutes.
+    // Le tirage n'a lieu que si le monde en demande : `shuffled` consomme le
+    // RNG, et l'appeler pour rien décalerait toutes les grilles des mondes
+    // antérieurs — le niveau n doit rendre la même grille qu'hier.
+    let doublesPoses = 0;
+    for (const etape of (p.doubles > 0 ? shuffled(rng, solution) : [])) {
+      if (doublesPoses >= p.doubles) break;
+      const b = parId.get(etape.id);
+      if (!b || b.kind !== KIND.NORMAL) continue;
+      const autres = [...Array(p.colorCount).keys()].filter((c) => c !== b.color);
+      if (!autres.length) break;
+      b.kind = KIND.DOUBLE;
+      b.colors = [b.color, pick(rng, autres)];
+      doublesPoses++;
+    }
+
     // Jokers : un bloc normal devient multicolore. Toujours sûr pour la
     // résolubilité — un joker accepte sa porte d'origine comme toutes les autres.
     let jokersPoses = 0;
@@ -572,6 +779,35 @@ function build(n) {
       if (!b || b.kind !== KIND.NORMAL) continue;
       b.kind = KIND.JOKER;
       jokersPoses++;
+    }
+
+    /**
+     * La clé. Un bloc dont la sortie ouvre d'un coup tous les verrous d'un
+     * niveau — les verrous ne comptent plus les sorties, ils l'attendent lui.
+     *
+     * Il faut qu'il sorte AVANT eux dans la solution de référence, sans quoi la
+     * condition ne serait jamais remplie au moment voulu. On prend donc le
+     * dernier bloc ordinaire qui précède le premier verrou.
+     */
+    if (p.cle) {
+      const verrouilles = solution
+        .map((etape, rang) => ({ b: parId.get(etape.id), rang }))
+        .filter(({ b }) => b && b.kind === KIND.LOCKED && b.condition?.type === 'exits');
+      const premierVerrou = Math.min(...verrouilles.map((v) => v.rang));
+      if (verrouilles.length && Number.isFinite(premierVerrou)) {
+        // N'importe quel bloc que le joueur peut saisir fait une clé : le rôle ne
+        // contraint pas le déplacement. Le réserver aux blocs ordinaires n'en
+        // laissait un candidat que dans trois niveaux sur cinq, les autres
+        // n'ayant devant leur premier verrou que des glissières et des ancres.
+        const PORTEURS = [KIND.NORMAL, KIND.RAIL, KIND.ANCRE, KIND.ENCOMBRANT];
+        for (let rang = premierVerrou - 1; rang >= 0; rang--) {
+          const b = parId.get(solution[rang].id);
+          if (!b || !PORTEURS.includes(b.kind)) continue;
+          b.estCle = true;
+          for (const v of verrouilles) v.b.condition = { type: 'block', id: b.id };
+          break;
+        }
+      }
     }
 
     // Capacité des portes : chaque porte n'accepte que le nombre de cases que
@@ -686,8 +922,11 @@ export function getLevel(n) {
   const level = {
     levelId: `lvl_${String(n).padStart(3, '0')}`,
     number: n,
-    realm: realm.name,
-    difficulty: realm.difficulty,
+    // Libellé français : c'est l'identifiant lisible du monde dans les données.
+    // Ce que le joueur voit passe par le catalogue et `i18n.texteMonde`, qui
+    // dispose des cinq langues.
+    realm: realm.nom.fr,
+    difficulty: realm.difficulte.fr,
     width: g.W,
     height: g.H,
     colorCount: g.colorCount,

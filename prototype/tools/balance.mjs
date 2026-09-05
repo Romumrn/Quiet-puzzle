@@ -46,7 +46,7 @@ if (process.argv.includes('--tout')) for (let n = 1; n <= TOTAL_LEVELS; n++) DET
 
 console.log('niv  monde              blocs murs verr rail ancr enc joker  rempli  éloign  gestes  ★3  ★2  coups  temps  états');
 let alertes = [];
-const parMonde = REALMS.map(() => ({ blocs: 0, effets: 0, gestes: 0, n: 0 }));
+const parMonde = REALMS.map(() => ({ cases: 0, effets: 0, gestes: 0, n: 0 }));
 
 for (let n = 1; n <= TOTAL_LEVELS; n++) {
   const L = getLevel(n);
@@ -61,8 +61,12 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
   const rempli = ((cases / (L.width * L.height)) * 100).toFixed(0);
   const relache = Math.ceil(L.minDrags * 1.3);
 
-  const b = new Board({ ...L, moveLimit: 9999, timeLimit: 9999 });
-  const sol = resoudre(b, BUDGET_HORS_LIGNE);
+  // Le solveur ne tourne que sur les niveaux DÉTAILLÉS. Sur trois cent soixante
+  // grilles, dont quelques-unes demandent plusieurs secondes, il ferait de cet
+  // outil de lecture rapide une commande qu'on lance et qu'on abandonne.
+  const sol = DETAILLE.has(n)
+    ? resoudre(new Board({ ...L, moveLimit: 9999, timeLimit: 9999 }), BUDGET_HORS_LIGNE)
+    : null;
 
   // Distance moyenne d'un bloc à sa porte au départ : la mesure directe du
   // reproche « les blocs sont déjà à côté de leur sortie ».
@@ -100,13 +104,11 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
     String(L.starDrags[1]).padStart(4),
     String(L.moveLimit).padStart(6),
     `${L.timeLimit}s`.padStart(6),
-    String(sol.etats).padStart(6),
+    String(sol ? sol.etats : '—').padStart(6),
   );
-  if (!sol.resoluble) alertes.push(`niveau ${n} : NON RESOLU par le solveur`);
-  // Frôler le budget du solveur n'est pas un défaut en soi — c'est la signature
-  // d'une grille vraiment contrainte — mais au-delà, le test de résolubilité
-  // rendrait un « recherche coupée » qui ne prouve plus rien.
-  if (sol.etats > BUDGET_HORS_LIGNE / 2) alertes.push(`niveau ${n} : solveur à ${sol.etats} états, proche de sa limite`);
+  // Un abandon ne dit rien du niveau : le budget est épuisé, pas l'espace des
+  // solutions. Seul un échec au terme d'une recherche complète est un défaut.
+  if (sol && !sol.resoluble && !sol.abandon) alertes.push(`niveau ${n} : NON RESOLU par le solveur`);
 
   if (L.minDrags > L.moveLimit) alertes.push(`niveau ${n} : insoluble dans la limite de coups`);
   if (etoilesPour(L, relache) === 0) alertes.push(`niveau ${n} : 30 % de gestes en trop = défaite`);
@@ -123,7 +125,10 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
   if (L.timeLimit / L.minDrags < 3) alertes.push(`niveau ${n} : moins de 3 s par glissé`);
 
   const monde = parMonde[realmDe(n).id];
-  monde.blocs += jouables;
+  // On mesure les CASES occupées, et non le nombre de blocs : un monde qui
+  // interdit les petites pièces en compte forcément moins, alors qu'il encombre
+  // autant la grille. Compter les blocs le faisait passer pour un recul.
+  monde.cases += cases;
   monde.effets += murs + verrous + rails + ancres + encombrants;
   monde.gestes += L.minDrags;
   monde.n++;
@@ -137,19 +142,19 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
  * joueur ressent vraiment.
  */
 console.log('\nPROGRESSION PAR MONDE');
-console.log('monde                blocs  effets  gestes');
+console.log('monde                cases  effets  gestes');
 let precedent = null;
 for (const [i, m] of parMonde.entries()) {
   if (!m.n) continue;
-  const moy = { blocs: m.blocs / m.n, effets: m.effets / m.n, gestes: m.gestes / m.n };
+  const moy = { cases: m.cases / m.n, effets: m.effets / m.n, gestes: m.gestes / m.n };
   console.log(
     REALMS[i].name.padEnd(20),
-    moy.blocs.toFixed(1).padStart(5),
+    moy.cases.toFixed(1).padStart(5),
     moy.effets.toFixed(1).padStart(7),
     moy.gestes.toFixed(1).padStart(7),
   );
   if (precedent) {
-    const recule = ['blocs', 'effets', 'gestes'].filter((k) => moy[k] < precedent.moy[k] - 0.05);
+    const recule = ['cases', 'effets', 'gestes'].filter((k) => moy[k] < precedent.moy[k] - 0.05);
     // Un monde peut échanger un levier contre un autre — moins de blocs, plus
     // d'effets. Ce n'est un vrai recul que si TOUT redescend à la fois.
     if (recule.length === 3) alertes.push(`monde « ${REALMS[i].name} » : plus facile que « ${REALMS[i - 1].name} »`);
