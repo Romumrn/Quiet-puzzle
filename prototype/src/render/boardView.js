@@ -30,6 +30,9 @@ const wait = (ms) => (document.hidden ? Promise.resolve() : new Promise((r) => s
 
 const VECTEURS = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] };
 
+/** Sens de sortie, tel qu'il s'affiche sur la porte. */
+const FLECHES = { top: '▲', right: '▶', bottom: '▼', left: '◀' };
+
 export class BoardView {
   constructor(root) {
     this.root = root;
@@ -111,9 +114,16 @@ export class BoardView {
       const debut = `${g.start * this.cell}px`;
       if (g.side === 'top' || g.side === 'bottom') { el.style.left = debut; el.style.width = long; }
       else { el.style.top = debut; el.style.height = long; }
-      const glyphe = document.createElement('span');
-      glyphe.textContent = COLORS[g.color]?.glyph ?? '';
-      el.appendChild(glyphe);
+      // Une flèche qui pointe VERS L'EXTÉRIEUR, dans le sens où les blocs
+      // quittent la grille. Le glyphe de couleur y était auparavant, repris à
+      // l'identique sur les blocs, et servait à apparier bloc et porte sans
+      // dépendre de la couleur ; il reste porté par les blocs, et l'aide au
+      // repérage est déplacée sur l'étiquette de la porte (voir `title`).
+      const fleche = document.createElement('span');
+      fleche.className = 'gate-fleche';
+      fleche.textContent = FLECHES[g.side];
+      el.appendChild(fleche);
+      el.title = `Sortie ${COLORS[g.color]?.name ?? ''}`.trim();
 
       // Une porte à capacité limitée DOIT afficher ce qu'il lui reste :
       // une contrainte invisible se lit comme un bug, pas comme une règle.
@@ -131,7 +141,8 @@ export class BoardView {
     const node = document.createElement('div');
     node.className = `block k-${b.kind}`
       + (b.color >= 0 && b.kind !== KIND.JOKER ? ` c${b.color}` : '')
-      + (b.kind === KIND.RAIL ? ` axis-${b.axis}` : '');
+      + (b.kind === KIND.RAIL ? ` axis-${b.axis}` : '')
+      + (b.kind === KIND.ANCRE ? ` dir-${b.dir}` : '');
     node.dataset.id = b.id;
     node.style.width = `${b.width * this.cell}px`;
     node.style.height = `${b.height * this.cell}px`;
@@ -155,7 +166,11 @@ export class BoardView {
       node.appendChild(c);
     }
 
-    if (b.kind !== KIND.WALL) {
+    // Un bloc ne porte une marque QUE si elle dit quelque chose sur son
+    // comportement : cadenas, poids, joker. La couleur seule identifie sa porte
+    // — les glyphes de famille (●◆▲★■⬢) l'encombraient sans rien apprendre à
+    // qui joue déjà à la couleur.
+    if (b.kind === KIND.LOCKED || b.kind === KIND.ENCOMBRANT || b.kind === KIND.JOKER) {
       const marque = document.createElement('span');
       marque.className = 'block-mark';
       const [gx, gy] = this._centreCell(b);
@@ -166,8 +181,14 @@ export class BoardView {
         // recouvrait les blocs voisins et rendait la grille illisible.
         marque.classList.add('locked-mark');
         marque.innerHTML = '<span>🔒</span><b class="lock-count"></b>';
+      } else if (b.kind === KIND.ENCOMBRANT) {
+        // Ce que ce bloc coûtera à sa porte, écrit dessus : sans le chiffre, un
+        // encombrant se confond avec un bloc ordinaire et le joueur ne peut pas
+        // anticiper la porte qu'il va saturer.
+        marque.classList.add('poids-mark');
+        marque.innerHTML = '<b>×2</b>';
       } else {
-        marque.textContent = b.kind === KIND.JOKER ? '✳' : COLORS[b.color].glyph;
+        marque.textContent = '✳';
       }
       node.appendChild(marque);
     }
@@ -178,6 +199,16 @@ export class BoardView {
       const rail = document.createElement('u');
       rail.className = 'block-rail';
       node.appendChild(rail);
+    }
+
+    // Ancre : une flèche vers sa porte. Le rail montre un axe et se lit dans les
+    // deux sens ; l'ancre n'en a qu'un, et c'est justement ce qui la distingue —
+    // la marque doit donc pointer, pas traverser.
+    if (b.kind === KIND.ANCRE) {
+      const fleche = document.createElement('u');
+      fleche.className = 'block-fleche';
+      fleche.textContent = { top: '▲', right: '▶', bottom: '▼', left: '◀' }[b.dir] || '';
+      node.appendChild(fleche);
     }
 
     if (b.kind === KIND.LOCKED) this._majVerrou(node, b);
@@ -305,9 +336,8 @@ export class BoardView {
     if (!node) return;
     node.classList.remove('k-locked');
     node.classList.add('k-normal', 'unlocking');
-    const b = this.board.blocks.get(id);
-    const marque = node.querySelector('.block-mark');
-    if (marque && b) marque.textContent = COLORS[b.color].glyph;
+    // Le bloc redevient ordinaire : sa marque de verrou n'a plus rien à dire.
+    node.querySelector('.block-mark')?.remove();
     node.querySelector('.block-cond')?.remove();
     setTimeout(() => node.classList.remove('unlocking'), TIMING.UNLOCK);
   }
@@ -334,6 +364,18 @@ export class BoardView {
   _majVerrou(node, b) {
     const compteur = node.querySelector('.lock-count');
     if (!compteur) return;
+    // Un scellé de couleur n'a pas de décompte à afficher : il porte le glyphe
+    // de la couleur qu'il attend, et le joueur compte à l'écran ce qui reste.
+    if (b.condition?.type === 'color') {
+      // Une pastille de la couleur attendue, et non son glyphe : les familles
+      // ne se lisent plus qu'à la couleur, la condition doit se lire pareil.
+      const ouvert = this.board.conditionMet(b);
+      compteur.textContent = '';
+      compteur.classList.toggle('lock-couleur', !ouvert);
+      compteur.style.setProperty('--attendu', `var(--c${b.condition.color})`);
+      node.classList.toggle('lock-open', ouvert);
+      return;
+    }
     const reste = this.board.restantAvantOuverture(b);
     compteur.textContent = reste > 0 ? reste : '';
     node.classList.toggle('lock-open', reste === 0);
@@ -445,5 +487,8 @@ export function conditionLabel(condition, board = null) {
     const reste = Math.max(0, condition.count - board.exited.length);
     return reste === 0 ? 'Ouvert' : `Encore ${reste}`;
   }
-  return `${COLORS[condition.color].glyph} fini`;
+  const nom = COLORS[condition.color]?.name ?? '';
+  if (!board) return `${nom} fini`;
+  const reste = [...board.blocks.values()].filter((b) => b.color === condition.color).length;
+  return reste === 0 ? 'Ouvert' : `Encore ${reste} ${nom}`;
 }

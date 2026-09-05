@@ -3,7 +3,7 @@
  * HUD in-game : chrono, coups restants, blocs restants, aperçu des étoiles.
  */
 
-import { objectiveLabel } from '../core/levels.js';
+import { objectiveLabel } from '../data/levelStore.js';
 import { renderStars } from './screens.js';
 
 const el = (id) => document.getElementById(id);

@@ -1,33 +1,53 @@
 /**
- * Teinte de l'interface, indexée sur la progression.
+ * Habillage chromatique, indexé sur la progression.
  *
- * Toute la chromie de l'habillage (fonds, traits, accents) dérive d'une seule
- * variable CSS `--h`. En avançant dans les niveaux, cette teinte glisse
- * lentement du rose vers le vert d'eau, en passant par le lilas et le bleu
- * poudré : le joueur voit le monde changer sous lui sans jamais de rupture.
+ * Deux choses distinctes, et il faut les tenir séparées :
  *
- * Les COULEURS DES BLOCS, elles, ne bougent jamais. Elles portent la règle du
- * jeu — un bloc rose sort par une porte rose — et un joueur doit pouvoir les
- * apprendre une fois pour toutes.
+ *  - LA TEINTE DE L'INTERFACE (`--h`) — fonds, traits, accents. Chaque monde a
+ *    sa teinte d'ancrage, et l'on glisse de celle-ci vers celle du monde suivant
+ *    au fil de ses vingt niveaux. Le joueur voit donc le décor virer sous lui
+ *    sans jamais de rupture, tout en reconnaissant chaque monde à sa dominante.
+ *
+ *  - LES COULEURS DES BLOCS (`--c0`…`--c5`) — elles changent d'un monde à
+ *    l'autre, mais D'UN SEUL COUP, au passage, et jamais à l'intérieur d'un
+ *    monde. Les six familles gardent leurs glyphes (●◆▲★■⬢) : c'est le glyphe,
+ *    et non la teinte, qui identifie une famille d'un bout à l'autre du jeu.
+ *    Repeindre les familles change donc l'ambiance sans rien à réapprendre.
  */
 
-import { TOTAL_LEVELS } from '../core/levels.js';
+import { realms, levelsPerRealm, realmDe } from '../data/levelStore.js';
 
-/** Rose poudré au départ, vert d'eau à l'arrivée, en descendant la roue. */
-export const TEINTE_DEBUT = 345;
-export const TEINTE_FIN = 165;
+/**
+ * Interpolation sur le plus court arc de la roue chromatique. Sans elle, passer
+ * de 345° à 22° redescendait toute la roue à l'envers — le joueur traversait le
+ * spectre entier au lieu des trente-sept degrés qui les séparent réellement.
+ */
+function arc(depuis, vers, t) {
+  const delta = ((vers - depuis + 540) % 360) - 180;
+  return (depuis + delta * t + 360) % 360;
+}
 
 export function teintePour(niveau) {
-  const t = Math.min(1, Math.max(0, (niveau - 1) / (TOTAL_LEVELS - 1)));
-  return Math.round(TEINTE_DEBUT + (TEINTE_FIN - TEINTE_DEBUT) * t);
+  const tous = realms();
+  const n = Math.min(Math.max(1, niveau), tous.length * levelsPerRealm());
+  const monde = realmDe(n);
+  const suivant = tous[monde.id + 1] || monde;   // le dernier monde garde la sienne
+  const t = ((n - 1) % levelsPerRealm()) / levelsPerRealm();
+  return Math.round(arc(monde.teinte, suivant.teinte, t));
 }
 
-/** Applique la teinte d'un niveau à toute l'application. */
-export function appliquer(niveau) {
-  document.getElementById('app').style.setProperty('--h', teintePour(niveau));
+/** Les six couleurs de blocs du monde auquel appartient ce niveau. */
+export function palettePour(niveau) {
+  return realmDe(Math.min(Math.max(1, niveau), realms().length * levelsPerRealm())).palette;
 }
 
-/** Applique une teinte à un élément précis (sections de la carte). */
+/** Applique teinte et palette à un élément. */
 export function appliquerA(element, niveau) {
   element.style.setProperty('--h', teintePour(niveau));
+  palettePour(niveau).forEach((couleur, i) => element.style.setProperty(`--c${i}`, couleur));
+}
+
+/** Applique l'habillage d'un niveau à toute l'application. */
+export function appliquer(niveau) {
+  appliquerA(document.getElementById('app'), niveau);
 }

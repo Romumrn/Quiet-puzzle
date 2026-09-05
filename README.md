@@ -30,9 +30,13 @@ grille — une forme de trois cases ne passe pas par une porte de deux. Objectif
 vider le plateau.
 
 Sur la route : des blocs montés sur glissière qui ne vont que sur un axe, des
-blocs scellés qu'il faut contourner, des blocs verrouillés qui s'ouvrent après
-un certain nombre de sorties, et des portes à capacité limitée — y envoyer le
+ancres qui n'avancent que vers leur porte, des blocs scellés qu'il faut
+contourner, des verrous qui s'ouvrent après un certain nombre de sorties, des
+encombrants qui coûtent double, et des portes à capacité limitée — y envoyer le
 mauvais bloc gâche de la place.
+
+Huit mondes de vingt niveaux. Chacun change de couleurs, apporte un bloc qu'on
+n'a jamais vu, et resserre un cran.
 
 | Le plateau | La carte | Le profil |
 |---|---|---|
@@ -49,6 +53,7 @@ Prototype web, sans dépendance ni build : HTML, CSS et JavaScript natifs.
 | Dossier | Contenu |
 |---|---|
 | `prototype/` | Les sources, modulaires — c'est ici qu'on travaille |
+| `prototype/levels/` | La base de niveaux en JSON, ce que le jeu lit réellement |
 | `docs/` | Le fichier unique servi par GitHub Pages, produit par le bundler |
 | `media/` | Captures et animations du README, régénérables |
 
@@ -59,12 +64,20 @@ cd prototype && python3 -m http.server 8123
 ```
 
 ```bash
+node tools/build-levels.mjs
+```
+
+Fabrique la base de niveaux dans `prototype/levels/` — un index et un fichier
+par monde. Le jeu ne génère rien au démarrage : il lit ces fichiers. Un niveau
+peut donc être retouché à la main (`--garder` protège l'existant).
+
+```bash
 node tools/test.mjs
 ```
 
-Les tests **prouvent que chaque niveau est résoluble** : ils rejouent la solution
-de référence sur le vrai moteur, puis un solveur indépendant revide les grilles
-sans lire cette solution.
+Les tests **prouvent que chaque niveau livré est résoluble** : ils rejouent, sur
+le vrai moteur, la solution de référence de chaque niveau **de la base**, puis un
+solveur indépendant revide les grilles sans lire cette solution.
 
 ```bash
 node tools/balance.mjs
@@ -100,4 +113,6 @@ la même chose automatiquement à chaque push sur `main`.
 
 Toute la documentation de conception — règles, génération des niveaux,
 équilibrage, monétisation, correspondance avec l'architecture Unity visée — est
-dans [prototype/README.md](prototype/README.md).
+dans [prototype/README.md](prototype/README.md), et la marche à suivre pour
+allonger la progression dans
+[prototype/docs/creation-de-niveaux.md](prototype/docs/creation-de-niveaux.md).

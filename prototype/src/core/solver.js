@@ -74,6 +74,17 @@ function sortiesPossibles(board, id) {
  * @returns {{resoluble:boolean, ordre:number[], etats:number, abandon:boolean}}
  *          `abandon` signale que la recherche a été coupée par la limite.
  */
+/**
+ * Budget de recherche des outils hors ligne (tests, équilibrage). Bien plus
+ * large que le défaut : l'éditeur doit répondre au clic, une vérification en
+ * ligne de commande peut réfléchir quelques secondes. Les grilles du dernier
+ * monde, dont les portes n'ont plus aucune marge de capacité, ouvrent un arbre
+ * d'impasses où la recherche exhaustive dépasse largement le budget interactif
+ * — sans que le niveau soit pour autant difficile à lire pour un joueur, qui
+ * route ses blocs en lisant les capacités au lieu d'énumérer les ordres.
+ */
+export const BUDGET_HORS_LIGNE = 200000;
+
 export function resoudre(board, maxEtats = 40000) {
   const depart = board.snapshot();
   const vus = new Set();

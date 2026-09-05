@@ -20,6 +20,20 @@ const VOLUME_MUSIQUE = 0.34;
 const VOLUME_EFFETS = 0.62;
 const FONDU = 1.6;          // secondes, entrée et sortie de la musique
 
+/**
+ * Degré du carillon au n-ième pas d'une série, en aller-retour.
+ *
+ * Le motif fait 2×(N−1) pas : il monte du grave à l'aigu, puis redescend sans
+ * rejouer ni l'extrémité aiguë ni l'extrémité grave deux fois de suite — un
+ * simple modulo les aurait doublées, et le pivot s'entend tout de suite.
+ */
+export function degreDeLaSerie(pas, notes = SORTIES.length) {
+  if (notes < 2) return 0;
+  const periode = 2 * (notes - 1);
+  const p = ((pas % periode) + periode) % periode;
+  return p < notes ? p : periode - p;
+}
+
 /** Au-delà de ce délai, la série de sorties repart du grave. */
 const REPRISE_SERIE_MS = 2600;
 
@@ -33,7 +47,8 @@ export class AudioManager {
     this.effetsActifs = true;
     this.tampons = new Map();
     this.musique = null;
-    this.degre = -1;
+    this.pas = 0;
+    this.degre = 0;
     this.derniereSortie = 0;
 
     // Le premier geste de l'utilisateur, quel qu'il soit, débloque le son.
@@ -128,22 +143,26 @@ export class AudioManager {
   }
 
   /**
-   * Bloc sorti. Le carillon monte d'un degré à chaque sortie enchaînée et
-   * revient au grave après une pause : un enchaînement s'entend alors comme une
-   * progression, et pas comme le même son répété.
+   * Bloc sorti. Le carillon monte d'un degré à chaque sortie enchaînée, puis
+   * REDESCEND une fois l'aigu atteint, et remonte : 1 2 3 4 5 6 5 4 3 2 1 2 3…
+   *
+   * Il s'arrêtait auparavant sur la note la plus haute, et une longue série
+   * finissait sur le même carillon répété — exactement ce qu'un son de
+   * récompense ne doit pas faire. L'aller-retour n'a pas de fin et reste
+   * consonant, quelle que soit la longueur de l'enchaînement.
    */
   sortie() {
     const maintenant = performance.now();
-    this.degre = (maintenant - this.derniereSortie > REPRISE_SERIE_MS)
-      ? 0
-      : Math.min(this.degre + 1, SORTIES.length - 1);
+    this.pas = (maintenant - this.derniereSortie > REPRISE_SERIE_MS) ? 0 : this.pas + 1;
     this.derniereSortie = maintenant;
+    this.degre = degreDeLaSerie(this.pas);
     this._jouer(`sortie${this.degre}`);
   }
 
-  /** Nouveau niveau : la série repart de zéro. */
+  /** Nouveau niveau : la série repart du grave. */
   reinitialiserSerie() {
-    this.degre = -1;
+    this.pas = 0;
+    this.degre = 0;
     this.derniereSortie = 0;
   }
 

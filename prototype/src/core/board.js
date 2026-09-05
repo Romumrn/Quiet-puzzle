@@ -12,7 +12,7 @@
  * en C# mécanique.
  */
 
-import { Block, KIND, DEPLACABLES } from './block.js';
+import { Block, KIND, DEPLACABLES, coutCapacite } from './block.js';
 import { GameState } from './gameState.js';
 
 /** Les quatre côtés, avec leur vecteur de sortie. */
@@ -83,8 +83,14 @@ export class Board {
 
   /** Ce bloc accepte-t-il un déplacement dans cette direction ? */
   accepteDirection(block, dx, dy) {
-    if (block.kind !== KIND.RAIL) return true;
-    return block.axis === 'h' ? dy === 0 : dx === 0;
+    if (block.kind === KIND.RAIL) return block.axis === 'h' ? dy === 0 : dx === 0;
+    // Une ancre n'a qu'un seul sens de marche : celui de sa porte. Elle ne peut
+    // donc jamais s'écarter pour laisser passer, ce qui est tout son intérêt.
+    if (block.kind === KIND.ANCRE && block.dir) {
+      const [ax, ay] = SIDES[block.dir];
+      return dx === ax && dy === ay;
+    }
+    return true;
   }
 
   /** Combien de blocs restent à sortir avant l'ouverture d'un verrou. */
@@ -189,8 +195,10 @@ export class Board {
       // Un JOKER sort par n'importe quelle porte : c'est tout son intérêt.
       const couleurOk = block.kind === KIND.JOKER || gate.color === block.color;
       if (gate.side !== side || !couleurOk) continue;
-      // Porte saturée : elle n'accepte plus ce bloc.
-      if (gate.capacity !== undefined && gate.capacity < block.cells.length) continue;
+      // Porte saturée : elle n'accepte plus ce bloc. Un encombrant coûte le
+      // double, et se voit donc refuser une porte qui accepterait son jumeau
+      // ordinaire — c'est ce qui en fait un problème de routage.
+      if (gate.capacity !== undefined && gate.capacity < coutCapacite(block)) continue;
       const couvre = travers.every((v) => v >= gate.start && v < gate.start + gate.length);
       if (couvre) return gate;
     }
@@ -200,7 +208,7 @@ export class Board {
   _exit(block, gate, dx, dy) {
     this.blocks.delete(block.id);
     this.exited.push(block.id);
-    if (gate.capacity !== undefined) gate.capacity -= block.cells.length;
+    if (gate.capacity !== undefined) gate.capacity -= coutCapacite(block);
     this._reindex();
     return { type: 'exit', id: block.id, gate, dx, dy, restants: this.remaining() };
   }

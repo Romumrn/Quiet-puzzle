@@ -92,10 +92,13 @@ Les leviers réellement efficaces, dans l'ordre :
 
 1. **Portes à capacité** — router un bloc vers la mauvaise porte de la bonne
    couleur gâche des cases. C'est ce qui oblige à planifier.
-2. **Blocs sur glissière** — un bloc qui ne peut pas contourner impose un ordre.
-3. **Densité** — 60 à 70 % des cases occupées ; en dessous, la grille se lit
+2. **Blocs bridés en déplacement** — glissières (un axe) et ancres (un seul
+   sens) : un bloc qui ne peut pas s'écarter impose un ordre.
+3. **Encombrants** — ils coûtent le double à leur porte, et la saturent plus
+   vite que leur taille ne le laisse croire.
+4. **Densité** — 60 à 70 % des cases occupées ; en dessous, la grille se lit
    d'un coup d'œil.
-4. **Verrous et limites** de coups et de temps.
+5. **Verrous et limites** de coups et de temps.
 
 `tools/balance.mjs` affiche le nombre d'états explorés par le solveur : c'est la
 mesure de « combien de retours en arrière » un joueur devra faire, et donc le
@@ -170,7 +173,21 @@ la grille. Trois conséquences :
   condition déjà remplie au moment où la solution lui demande de bouger.
 
 Le RNG est seedé : le niveau *n* produit toujours la même grille, sur toutes les
-machines. `TOTAL_LEVELS` seul limite la progression à 20.
+machines. Le générateur ne tourne cependant plus dans le jeu : `node
+tools/build-levels.mjs` écrit la base `levels/` (un index, un fichier par
+monde), et l'application ne fait que la lire. Un niveau peut donc être retouché
+à la main sans qu'une exécution l'écrase, et les niveaux livrés sont exactement
+ceux qui ont été testés.
+
+La progression tient en **huit mondes de vingt niveaux**, et un monde entier
+tient dans une ligne de la table `REALMS` : sa palette, sa teinte, le type de
+bloc qu'il introduit, et les quantités notées `[début, fin]` qu'on interpole sur
+ses vingt niveaux. La difficulté monte donc DANS le monde et fait un palier
+ENTRE les mondes — une mécanique s'apprend avant d'être combinée à la suivante.
+
+La marche à suivre pour ajouter des niveaux, palier par palier, avec les
+garde-fous à vérifier après coup, est dans
+[docs/creation-de-niveaux.md](docs/creation-de-niveaux.md).
 
 ## Équilibrage
 
@@ -185,8 +202,16 @@ Deux constats mesurés, qui ont chacun corrigé une erreur de conception :
    que les blocs se gênent et imposent un ordre de sortie. Les grilles visent donc
    45 à 65 % de cases occupées.
 
-Chiffres actuels : 5 à 12 blocs par niveau, 45 à 90 secondes, et bien jouer
+Chiffres actuels : 7 à 25 blocs par niveau, 65 à 135 secondes, et bien jouer
 rapporte 3★ à tous les niveaux.
+
+Une troisième erreur, corrigée en portant la progression à 40 niveaux : **la
+limite de coups était calculée indépendamment du barème d'étoiles.** Son plancher
+fixe (`minDrags + 5`) garantissait une marge d'erreur tant que la solution tenait
+en quinze glissés ; au-delà il passait sous le seuil 3★, et toute victoire valait
+alors trois étoiles. Elle se cale désormais au-dessus du seuil 1★, et
+`tools/balance.mjs` refuse tout niveau dont les trois notes ne sont pas
+atteignables.
 
 ## Correspondance avec l'architecture Unity (document §4)
 
@@ -217,7 +242,7 @@ Deux principes rendent ce portage mécanique :
 - **`core/` ne touche jamais au DOM.** Chaque geste produit des évènements
   (`move`, `exit`, `unlock`) que `render/` rejoue en animation. La logique tourne
   telle quelle sous Node — c'est ce qui permet à `tools/test.mjs` de **prouver que
-  les 20 niveaux sont résolubles** en rejouant leur solution sur le vrai moteur,
+  les 160 niveaux sont résolubles** en rejouant leur solution sur le vrai moteur,
   et ce qui donnera la couverture unitaire visée au §10.1.
 - **`Board.snapshot()` / `restore()`** permettent d'explorer des coups sans les
   jouer : c'est ce qui mesure l'équilibrage aujourd'hui, et ce qui portera

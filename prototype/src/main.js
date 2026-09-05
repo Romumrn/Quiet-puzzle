@@ -9,7 +9,7 @@
 
 import { Board } from './core/board.js';
 import { GameState } from './core/gameState.js';
-import { TOTAL_LEVELS } from './core/levels.js';
+import * as levels from './data/levelStore.js';
 import { KIND } from './core/block.js';
 import { BoardView, setSpeed, conditionLabel } from './render/boardView.js';
 import { InputHandler } from './input/input.js';
@@ -118,6 +118,13 @@ async function showBrief(n) {
   el('brief-objective').textContent = hud.labelFor(level);
   el('brief-moves').textContent = level.moveLimit;
   el('brief-difficulty').textContent = level.difficulty;
+  // Nouveauté du monde, annoncée à son premier niveau seulement. Un type de
+  // bloc jamais vu doit être nommé une fois ; le répéter aux dix-neuf niveaux
+  // suivants transformerait l'encart en décor que plus personne ne lit.
+  const nouveaute = el('brief-nouveaute');
+  const entreeDeMonde = (n - 1) % levels.levelsPerRealm() === 0 && levels.realmDe(n).apporte;
+  nouveaute.hidden = !entreeDeMonde;
+  if (entreeDeMonde) nouveaute.textContent = `Nouveau : ${levels.realmDe(n).apporte}`;
   el('brief-best').textContent = rec.bestScore ? `${rec.bestScore} coups` : '—';
   theme.appliquer(n);
   screens.show('brief');
@@ -304,7 +311,7 @@ async function finishLevel() {
     onMap: showMap,
     onRetry: startLevel,
     onNext: async () => {
-      if (level.number < TOTAL_LEVELS) { await showBrief(level.number + 1); startLevel(); }
+      if (level.number < levels.totalLevels()) { await showBrief(level.number + 1); startLevel(); }
       else showMap();
     },
   });
@@ -327,10 +334,36 @@ el('btn-daily').onclick = () => {
   audio.definirEffets(d.effets !== false);
 }
 
-// Série quotidienne, puis menu.
-daily.ouvrirSession();
-window.addEventListener('pagehide', () => track('session_ended', {}));
-showMenu();
+/**
+ * Démarrage : la BASE DE NIVEAUX D'ABORD.
+ *
+ * Rien ne peut s'afficher avant elle — le menu compte les niveaux, la carte
+ * dessine les mondes, le thème lit leur palette. Tout cela se lit ensuite de
+ * façon synchrone ; cet `await` est le seul endroit du jeu qui attend la base.
+ */
+(async () => {
+  try {
+    await levels.ouvrir();
+    // Le champ « aller au niveau » suit le total de la base. Codé en dur dans
+    // le markup, il plafonnait la saisie et rendait les niveaux ajoutés
+    // inatteignables depuis le panneau — et il ne peut être réglé qu'ICI, la
+    // base seule sachant combien de niveaux elle contient.
+    el('debug-level').max = levels.totalLevels();
+  } catch (e) {
+    // Sans base, il n'y a pas de jeu : mieux vaut le dire que d'afficher un
+    // menu vide dont aucun bouton ne répondrait.
+    document.getElementById('app').innerHTML =
+      '<div class="boot-error"><h1>Base de niveaux introuvable</h1>'
+      + '<p>Lancer <code>node tools/build-levels.mjs</code>, puis recharger.</p></div>';
+    console.error(e);
+    return;
+  }
+
+  // Série quotidienne, puis menu.
+  daily.ouvrirSession();
+  window.addEventListener('pagehide', () => track('session_ended', {}));
+  showMenu();
+})();
 };
 
 el('btn-restart').onclick = () => { if (!busy) startLevel(); };
@@ -500,10 +533,36 @@ el('btn-reset').onclick = () => {
   audio.definirEffets(d.effets !== false);
 }
 
-// Série quotidienne, puis menu.
-daily.ouvrirSession();
-window.addEventListener('pagehide', () => track('session_ended', {}));
-showMenu();
+/**
+ * Démarrage : la BASE DE NIVEAUX D'ABORD.
+ *
+ * Rien ne peut s'afficher avant elle — le menu compte les niveaux, la carte
+ * dessine les mondes, le thème lit leur palette. Tout cela se lit ensuite de
+ * façon synchrone ; cet `await` est le seul endroit du jeu qui attend la base.
+ */
+(async () => {
+  try {
+    await levels.ouvrir();
+    // Le champ « aller au niveau » suit le total de la base. Codé en dur dans
+    // le markup, il plafonnait la saisie et rendait les niveaux ajoutés
+    // inatteignables depuis le panneau — et il ne peut être réglé qu'ICI, la
+    // base seule sachant combien de niveaux elle contient.
+    el('debug-level').max = levels.totalLevels();
+  } catch (e) {
+    // Sans base, il n'y a pas de jeu : mieux vaut le dire que d'afficher un
+    // menu vide dont aucun bouton ne répondrait.
+    document.getElementById('app').innerHTML =
+      '<div class="boot-error"><h1>Base de niveaux introuvable</h1>'
+      + '<p>Lancer <code>node tools/build-levels.mjs</code>, puis recharger.</p></div>';
+    console.error(e);
+    return;
+  }
+
+  // Série quotidienne, puis menu.
+  daily.ouvrirSession();
+  window.addEventListener('pagehide', () => track('session_ended', {}));
+  showMenu();
+})();
 };
 document.querySelectorAll('[data-nav]').forEach((b) => {
   b.onclick = () => (b.dataset.nav === 'menu' ? showMenu() : showMap());
@@ -526,7 +585,7 @@ el('debug-toggle').onclick = () => {
 };
 
 el('debug-go').onclick = async () => {
-  const n = Math.min(TOTAL_LEVELS, Math.max(1, Number(el('debug-level').value) || 1));
+  const n = Math.min(levels.totalLevels(), Math.max(1, Number(el('debug-level').value) || 1));
   await showBrief(n);
   startLevel();
 };
@@ -626,7 +685,7 @@ el('debug-editor').onclick = () => {
 
 el('debug-unlock').onclick = () => {
   const d = store.load();
-  d.unlockedLevel = TOTAL_LEVELS;
+  d.unlockedLevel = levels.totalLevels();
   store.save(d);
   screens.toast('Tous les niveaux débloqués');
   refreshDebug();
@@ -646,7 +705,7 @@ window.__game = {
 function refreshDebug() {
   const d = store.load();
   el('debug-info').textContent =
-    `débloqué : ${d.unlockedLevel}/${TOTAL_LEVELS} · ★ ${store.totalStars()} · ${d.coins} pièces`
+    `débloqué : ${d.unlockedLevel}/${levels.totalLevels()} · ★ ${store.totalStars()} · ${d.coins} pièces`
     + (board ? `\nplateau ${board.W}×${board.H} · ${board.remaining()} blocs · réf. ${level.minDrags} glissés` : '');
 }
 
@@ -657,7 +716,33 @@ function refreshDebug() {
   audio.definirEffets(d.effets !== false);
 }
 
-// Série quotidienne, puis menu.
-daily.ouvrirSession();
-window.addEventListener('pagehide', () => track('session_ended', {}));
-showMenu();
+/**
+ * Démarrage : la BASE DE NIVEAUX D'ABORD.
+ *
+ * Rien ne peut s'afficher avant elle — le menu compte les niveaux, la carte
+ * dessine les mondes, le thème lit leur palette. Tout cela se lit ensuite de
+ * façon synchrone ; cet `await` est le seul endroit du jeu qui attend la base.
+ */
+(async () => {
+  try {
+    await levels.ouvrir();
+    // Le champ « aller au niveau » suit le total de la base. Codé en dur dans
+    // le markup, il plafonnait la saisie et rendait les niveaux ajoutés
+    // inatteignables depuis le panneau — et il ne peut être réglé qu'ICI, la
+    // base seule sachant combien de niveaux elle contient.
+    el('debug-level').max = levels.totalLevels();
+  } catch (e) {
+    // Sans base, il n'y a pas de jeu : mieux vaut le dire que d'afficher un
+    // menu vide dont aucun bouton ne répondrait.
+    document.getElementById('app').innerHTML =
+      '<div class="boot-error"><h1>Base de niveaux introuvable</h1>'
+      + '<p>Lancer <code>node tools/build-levels.mjs</code>, puis recharger.</p></div>';
+    console.error(e);
+    return;
+  }
+
+  // Série quotidienne, puis menu.
+  daily.ouvrirSession();
+  window.addEventListener('pagehide', () => track('session_ended', {}));
+  showMenu();
+})();

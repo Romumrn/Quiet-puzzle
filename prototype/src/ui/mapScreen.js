@@ -3,7 +3,7 @@
  * Carte des niveaux : chemin serpentin, étoiles obtenues, verrouillage.
  */
 
-import { TOTAL_LEVELS, LEVELS_PER_REALM, REALMS } from '../core/levels.js';
+import { totalLevels, levelsPerRealm, realms } from '../data/levelStore.js';
 import * as store from '../data/save.js';
 import { renderStars } from './screens.js';
 import * as theme from './theme.js';
@@ -16,8 +16,8 @@ export function render(onSelect) {
   const unlocked = store.load().unlockedLevel;
   scroll.replaceChildren();
 
-  for (let realm = 0; realm < REALMS.length; realm++) {
-    const from = realm * LEVELS_PER_REALM + 1;
+  for (const monde of realms()) {
+    const from = monde.premier;
 
     // Chaque monde adopte la teinte de son premier niveau : en faisant défiler
     // la carte, on voit la gradation chromatique de toute la progression.
@@ -27,13 +27,13 @@ export function render(onSelect) {
 
     const label = document.createElement('div');
     label.className = 'realm-label';
-    label.textContent = REALMS[realm].name;
+    label.textContent = monde.name;
     section.appendChild(label);
 
     const path = document.createElement('div');
     path.className = 'map-path';
 
-    for (let n = from; n < from + LEVELS_PER_REALM && n <= TOTAL_LEVELS; n++) {
+    for (let n = from; n <= monde.dernier && n <= totalLevels(); n++) {
       const rec = store.levelRecord(n);
       const locked = n > unlocked;
 

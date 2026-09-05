@@ -9,7 +9,7 @@
  */
 
 import * as store from './save.js';
-import { getLevel as buildLevel, TOTAL_LEVELS } from '../core/levels.js';
+import * as levels from './levelStore.js';
 
 /**
  * Niveau global du joueur, dérivé de l'XP. Palier fixe de 100 XP : simple à
@@ -37,14 +37,18 @@ export async function getProfile() {
     currentLevel: d.unlockedLevel,
     highestLevel: d.unlockedLevel,
     totalStars: store.totalStars(),
-    maxStars: TOTAL_LEVELS * 3,
+    maxStars: levels.totalLevels() * 3,
   };
 }
 
-/** GET /api/level/{levelNumber} */
+/**
+ * GET /api/level/{levelNumber}
+ *
+ * Lit la base de niveaux. Le jour où un vrai serveur sert les niveaux, seul le
+ * corps de `levelStore` change : les appelants, eux, voient déjà une Promise.
+ */
 export async function getLevel(n) {
-  if (n < 1 || n > TOTAL_LEVELS) throw new Error(`Niveau ${n} introuvable`);
-  return buildLevel(n);
+  return levels.getLevel(n);
 }
 
 /**
@@ -75,7 +79,7 @@ export async function completeLevel(n, { score, stars, failed }) {
   d.coins += coinsEarned;
   d.xp += xpEarned;
 
-  const nextLevelUnlocked = n === d.unlockedLevel && n < TOTAL_LEVELS;
+  const nextLevelUnlocked = n === d.unlockedLevel && n < levels.totalLevels();
   if (nextLevelUnlocked) d.unlockedLevel = n + 1;
 
   store.save(d);

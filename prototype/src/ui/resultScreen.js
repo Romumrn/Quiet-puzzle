@@ -3,7 +3,7 @@
  * Overlay de fin de niveau : victoire (étoiles, score, récompense) ou échec.
  */
 
-import { TOTAL_LEVELS } from '../core/levels.js';
+import { totalLevels } from '../data/levelStore.js';
 import { renderStars } from './screens.js';
 
 const el = (id) => document.getElementById(id);
@@ -47,7 +47,7 @@ export function show(r) {
     }
   };
 
-  const isLast = r.level >= TOTAL_LEVELS;
+  const isLast = r.level >= totalLevels();
   const next = el('btn-result-next');
   next.hidden = !r.won || isLast;
   el('btn-result-retry').hidden = r.won && !isLast;

@@ -16,18 +16,117 @@
  * Chaque objet respecte la forme de `GET /api/level/{levelNumber}` (doc §6.1).
  */
 
-import { SHAPES, KIND } from './block.js';
+import { SHAPES, KIND, coutCapacite } from './block.js';
 import { Board, SIDES as VECTEURS_SORTIE } from './board.js';
 
-export const TOTAL_LEVELS = 20;
-export const LEVELS_PER_REALM = 5;
+/**
+ * Un monde tient sur vingt niveaux et se définit par une seule ligne de la
+ * table ci-dessous. Il apporte trois choses au joueur, toujours les trois
+ * ensemble :
+ *
+ *  1. UNE NOUVEAUTÉ — un type de bloc, ou une règle, qu'il n'a jamais vu.
+ *  2. UNE PALETTE — les six familles gardent leurs glyphes (●◆▲★■⬢), qui
+ *     portent la règle, mais changent de teintes : le monde se reconnaît au
+ *     premier coup d'œil sans que l'appariement bloc/porte soit à réapprendre.
+ *  3. UN CRAN DE DIFFICULTÉ — grille plus grande, une couleur ou une porte de
+ *     plus, et surtout une marge de capacité qui se resserre.
+ *
+ * Vingt niveaux par monde plutôt que cinq : une mécanique nouvelle a besoin
+ * d'être pratiquée avant d'être combinée à la suivante. La difficulté monte
+ * DANS le monde (les quantités notées `[début, fin]` sont interpolées sur ses
+ * vingt niveaux) et fait un palier ENTRE les mondes.
+ */
+export const LEVELS_PER_REALM = 20;
 
 export const REALMS = [
-  { id: 0, name: 'Atelier de Verre', difficulty: 'facile' },
-  { id: 1, name: 'Fonderie', difficulty: 'moyen' },
-  { id: 2, name: 'Chambre Froide', difficulty: 'difficile' },
-  { id: 3, name: 'Tour de Contrôle', difficulty: 'expert' },
+  {
+    id: 0, name: 'Atelier de Verre', difficulty: 'apprentissage',
+    teinte: 345,
+    palette: ['#eb9aad', '#93bde4', '#97cfb6', '#e9cd8c', '#bdaadd', '#f0b18b'],
+    nouveaute: null,
+    apporte: 'Les blocs et leurs portes',
+    W: 5, H: 6, colorCount: 3, gateCount: 3,
+    murs: [0, 0], verrous: [0, 0], rails: [0, 0], ancres: [0, 0], encombrants: [0, 0],
+    jokers: 0, marge: null, scelleCouleur: false,
+  },
+  {
+    id: 1, name: 'Fonderie', difficulty: 'facile',
+    teinte: 22,
+    palette: ['#e8907b', '#7fb0c9', '#a9c48b', '#edc073', '#c39fc0', '#d9a06b'],
+    nouveaute: KIND.RAIL,
+    apporte: 'Blocs sur glissière, portes à capacité',
+    W: 6, H: 6, colorCount: 4, gateCount: 4,
+    murs: [0, 1], verrous: [0, 0], rails: [1, 5], ancres: [0, 0], encombrants: [0, 0],
+    jokers: 0, marge: 3, scelleCouleur: false,
+  },
+  {
+    id: 2, name: 'Chambre Froide', difficulty: 'moyen',
+    teinte: 196,
+    palette: ['#d99aa8', '#8cc6e0', '#8fd3c4', '#d7d295', '#aeb3e0', '#e2b3a6'],
+    nouveaute: KIND.WALL,
+    apporte: 'Blocs scellés, immobiles',
+    W: 6, H: 7, colorCount: 4, gateCount: 4,
+    murs: [1, 4], verrous: [0, 0], rails: [2, 6], ancres: [0, 0], encombrants: [0, 0],
+    jokers: 0, marge: 3, scelleCouleur: false,
+  },
+  {
+    id: 3, name: 'Tour de Contrôle', difficulty: 'soutenu',
+    teinte: 262,
+    palette: ['#e493b4', '#8fa8e2', '#86cbb0', '#e3c886', '#b49ae0', '#7fc4d4'],
+    nouveaute: KIND.LOCKED,
+    apporte: 'Verrous à décompte',
+    W: 6, H: 8, colorCount: 5, gateCount: 5,
+    murs: [1, 4], verrous: [1, 3], rails: [3, 7], ancres: [0, 0], encombrants: [0, 0],
+    jokers: 0, marge: 2, scelleCouleur: false,
+  },
+  {
+    id: 4, name: 'Salle des Machines', difficulty: 'exigeant',
+    teinte: 30,
+    palette: ['#dd9b95', '#96b6cc', '#9fc9a4', '#d9bd7f', '#b2a6c9', '#e0a97f'],
+    nouveaute: KIND.JOKER,
+    apporte: 'Le joker, qui sort par où il veut',
+    W: 7, H: 8, colorCount: 5, gateCount: 5,
+    murs: [2, 4], verrous: [1, 3], rails: [4, 9], ancres: [0, 0], encombrants: [0, 0],
+    jokers: 1, marge: 2, scelleCouleur: false,
+  },
+  {
+    id: 5, name: 'Serre Suspendue', difficulty: 'redoutable',
+    teinte: 128,
+    palette: ['#ec9cc0', '#8ec7d9', '#93cf8e', '#dfd083', '#c1a3dc', '#efb28f'],
+    nouveaute: KIND.ANCRE,
+    apporte: 'Ancres, qui n\'avancent que vers leur porte',
+    W: 7, H: 9, colorCount: 6, gateCount: 6,
+    murs: [2, 5], verrous: [1, 3], rails: [4, 9], ancres: [1, 4], encombrants: [0, 0],
+    jokers: 1, marge: 1, scelleCouleur: false,
+  },
+  {
+    id: 6, name: 'Observatoire', difficulty: 'implacable',
+    teinte: 288,
+    palette: ['#d792bb', '#8bacdf', '#8ecdc0', '#e6cd90', '#a99ae0', '#e5a3a0'],
+    nouveaute: KIND.ENCOMBRANT,
+    apporte: 'Encombrants, qui coûtent double à leur porte',
+    W: 8, H: 9, colorCount: 6, gateCount: 6,
+    murs: [3, 5], verrous: [2, 3], rails: [5, 10], ancres: [2, 5], encombrants: [1, 4],
+    jokers: 1, marge: 1, scelleCouleur: false,
+  },
+  {
+    id: 7, name: 'Dernière Verrière', difficulty: 'sans marge',
+    teinte: 165,
+    palette: ['#ef8fa6', '#85b8e8', '#8ad4b1', '#f0cd7e', '#b99ae6', '#f4ab84'],
+    nouveaute: 'scelle-couleur',
+    apporte: 'Scellés de couleur, et des portes sans un pouce de marge',
+    W: 8, H: 10, colorCount: 6, gateCount: 7,
+    murs: [3, 6], verrous: [2, 4], rails: [6, 12], ancres: [3, 6], encombrants: [2, 5],
+    jokers: 0, marge: 0, scelleCouleur: true,
+  },
 ];
+
+export const TOTAL_LEVELS = REALMS.length * LEVELS_PER_REALM;
+
+/** Le monde auquel appartient le niveau `n` (1-indexé). */
+export function realmDe(n) {
+  return REALMS[Math.min(REALMS.length - 1, Math.floor((n - 1) / LEVELS_PER_REALM))];
+}
 
 const SIDES = ['top', 'right', 'bottom', 'left'];
 
@@ -66,32 +165,54 @@ const shuffled = (rng, arr) => {
   return a;
 };
 
-/** Courbe de difficulté. Constantes de tuning, à ajuster après playtest. */
+/**
+ * Courbe de difficulté : ce que le générateur doit produire pour le niveau `n`.
+ *
+ * Tout vient de la table REALMS. Le monde fixe le décor et les plafonds, la
+ * position DANS le monde fixe les quantités : `t` vaut 0 au premier niveau du
+ * monde, 1 au vingtième, et chaque intervalle `[début, fin]` est lu à ce point.
+ * Une mécanique arrive donc au compte-gouttes — une ancre au niveau 101, six au
+ * niveau 120 — au lieu de tomber d'un bloc au changement de monde.
+ */
 function curve(n) {
+  const R = realmDe(n);
+  const rang = (n - 1) % LEVELS_PER_REALM;                 // 0 … 19
+  const t = LEVELS_PER_REALM > 1 ? rang / (LEVELS_PER_REALM - 1) : 0;
+  const rampe = ([a, b]) => Math.round(a + (b - a) * t);
+
   // La DENSITE fait la difficulté, pas la longueur des chemins : un bloc isolé
   // rejoint toujours sa porte d'un seul glissé. Ce qui fait réfléchir, c'est
   // que les blocs se gênent et imposent un ordre de sortie. On vise donc une
   // grille bien remplie (55 à 70 % des cases occupées).
-  const palier =
-    n <= 4 ? { W: 5, H: 6, colorCount: 3, gateCount: 3, murs: 0, verrous: 0, rails: 1, jokers: 0 } :
-    n <= 10 ? { W: 6, H: 7, colorCount: 4, gateCount: 4, murs: 1, verrous: 1, rails: 4, jokers: 1 } :
-    n <= 15 ? { W: 6, H: 7, colorCount: 5, gateCount: 5, murs: 2, verrous: 1, rails: 6, jokers: 1 } :
-              { W: 6, H: 8, colorCount: 5, gateCount: 5, murs: 3, verrous: 2, rails: 8, jokers: 1 };
-
-  // Le nombre de blocs monte en rampe continue plutôt que par paliers : sinon
-  // le premier niveau d'un nouveau monde double brutalement de charge.
   //
-  // `marge` est le nombre de cases de rab accordé aux portes à capacité. Sans
-  // capacité, aucun ordre de sortie ne peut être mauvais — sortir un bloc ne
-  // fait que libérer de la place — et le niveau se résout au premier essai
-  // quelle que soit la méthode. La capacité est le seul levier qui crée un
-  // vrai casse-tête ; la marge décroissante en règle la sévérité.
+  // Le nombre de blocs se déduit de la SURFACE et non d'une rampe absolue :
+  // c'est la seule façon d'avoir une grille aussi remplie au premier niveau
+  // d'un monde qu'au dernier du précédent, alors que la grille vient de
+  // grandir. Une forme fait 2,3 cases en moyenne, d'où les coefficients.
+  const blockCount = Math.round(R.W * R.H * (0.24 + 0.09 * t));
+
+  // Avancement sur l'ensemble du jeu — ce qui ne dépend pas du monde s'y indexe.
+  const global = (n - 1) / (TOTAL_LEVELS - 1);
+
   return {
-    ...palier,
-    blockCount: Math.round(7 + (n - 1) * 0.5),
-    recul: [6, n <= 10 ? 11 : 14],
-    capacite: n >= 8,
-    marge: n >= 16 ? 1 : 2,
+    W: R.W, H: R.H, colorCount: R.colorCount, gateCount: R.gateCount,
+    murs: rampe(R.murs),
+    verrous: rampe(R.verrous),
+    rails: rampe(R.rails),
+    ancres: rampe(R.ancres),
+    encombrants: rampe(R.encombrants),
+    jokers: R.jokers,
+    blockCount,
+    recul: [6, Math.round(11 + 5 * global)],
+    // `marge` est le rab accordé aux portes à capacité, au-delà de ce que la
+    // solution de référence leur destine. Sans capacité, aucun ordre de sortie
+    // ne peut être mauvais — sortir un bloc ne fait que libérer de la place — et
+    // le niveau se résout au premier essai quelle que soit la méthode. La
+    // capacité est le seul levier qui crée un vrai casse-tête ; la marge
+    // décroissante en règle la sévérité, jusqu'à zéro au dernier monde.
+    capacite: R.marge !== null,
+    marge: R.marge ?? 0,
+    scelleCouleur: R.scelleCouleur,
   };
 }
 
@@ -253,7 +374,8 @@ function build(n) {
     // Pose à l'envers : entrée par la porte, puis recul dans la grille.
     const poses = [];
     const parPorte = new Map(gates.map((g) => [g, 0]));
-    let railsPoses = 0;
+    const poses_par_type = { [KIND.RAIL]: 0, [KIND.ANCRE]: 0, [KIND.ENCOMBRANT]: 0 };
+    const plafond = { [KIND.RAIL]: p.rails, [KIND.ANCRE]: p.ancres, [KIND.ENCOMBRANT]: p.encombrants };
 
     for (let i = 0; i < p.blockCount; i++) {
       // Plusieurs tentatives par bloc : on garde la première qui éloigne
@@ -290,18 +412,30 @@ function build(n) {
         grille.poser(id, absolute(pose.shape, x, y));
         const chemin = [{ x, y }];
 
-        // Bloc sur glissière : il n'ira que sur l'axe de sa porte. On contraint
-        // donc aussi sa marche arrière, sinon le chemin retour serait injouable.
+        // Type spécial de ce bloc. Il se décide AVANT la marche arrière, parce
+        // qu'un bloc bridé en déplacement doit reculer sous la même bride :
+        // sinon le chemin retour, qui est la solution lue à l'envers, serait
+        // injouable. L'ancre passe en premier — c'est la contrainte la plus
+        // forte, et la laisser en second la rendrait introuvable.
         const axeDeLaPorte = gate.side === 'left' || gate.side === 'right' ? 'h' : 'v';
-        const surGlissiere = railsPoses < p.rails && rng() < 0.55;
-        const axe = surGlissiere ? axeDeLaPorte : null;
+        const dispo = (k) => poses_par_type[k] < plafond[k];
+        const special =
+          dispo(KIND.ANCRE) && rng() < 0.4 ? KIND.ANCRE :
+          dispo(KIND.RAIL) && rng() < 0.55 ? KIND.RAIL :
+          dispo(KIND.ENCOMBRANT) && rng() < 0.5 ? KIND.ENCOMBRANT :
+          null;
+        const axe = special === KIND.RAIL ? axeDeLaPorte : null;
 
         // Marche arrière ORIENTEE : à chaque pas on privilégie la direction qui
         // ELOIGNE le bloc de sa porte. Une marche purement aléatoire le laissait
         // à une ou deux cases de sa sortie, et le niveau se jouait tout seul.
         const reculs = p.recul[0] + Math.floor(rng() * (p.recul[1] - p.recul[0] + 1));
+        // Une ancre ne connaît qu'un sens de marche : reculer, pour elle, c'est
+        // s'éloigner en ligne droite à l'exact opposé de sa porte.
+        const [sx, sy] = VECTEURS_SORTIE[gate.side];
         for (let r = 0; r < reculs; r++) {
-          const toutes = axe === 'h' ? [[1, 0], [-1, 0]]
+          const toutes = special === KIND.ANCRE ? [[-sx, -sy]]
+            : axe === 'h' ? [[1, 0], [-1, 0]]
             : axe === 'v' ? [[0, 1], [0, -1]]
             : [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
@@ -324,7 +458,7 @@ function build(n) {
         }
 
         const eloignement = distanceALaPorte(gate, pose.shape, x, y, W, H);
-        const candidat = { id, gate, chemin, pose, x, y, axe, eloignement, surGlissiere };
+        const candidat = { id, gate, chemin, pose, x, y, axe, eloignement, special };
 
         if (!meilleurEssai || eloignement > meilleurEssai.eloignement) {
           if (meilleurEssai) grille.retirer(absolute(meilleurEssai.pose.shape, meilleurEssai.x, meilleurEssai.y));
@@ -340,12 +474,13 @@ function build(n) {
         continue;
       }
 
-      const { id, gate, chemin, pose, x, y, axe, surGlissiere } = meilleurEssai;
-      if (surGlissiere) railsPoses++;
+      const { id, gate, chemin, pose, x, y, axe, special } = meilleurEssai;
+      if (special) poses_par_type[special]++;
       blocks.push({
         id, color: gate.color, cells: pose.shape.cells, x, y,
-        kind: axe ? KIND.RAIL : KIND.NORMAL,
-        axis: axe,
+        kind: special || KIND.NORMAL,
+        axis: special === KIND.RAIL ? axe : null,
+        dir: special === KIND.ANCRE ? gate.side : null,
       });
       parPorte.set(gate, (parPorte.get(gate) || 0) + 1);
       poses.push({ id, gate, chemin });
@@ -358,9 +493,44 @@ function build(n) {
       id, gate: gate.side, chemin: [...chemin].reverse(),
     }));
 
+    const parId = new Map(blocks.map((b) => [b.id, b]));
+
+    // Scellés de couleur : « je m'ouvre quand tous les ▲ ont quitté la grille ».
+    // La condition n'est posée que si la solution de référence la remplit déjà
+    // au moment voulu — donc si toute la couleur visée sort AVANT ce bloc. Le
+    // joueur, lui, la lit sur le bloc et compte les ▲ restants à l'écran.
+    // Il passe AVANT les verrous à décompte : sa condition est bien plus
+    // exigeante — il lui faut une couleur entièrement évacuée — et laisser le
+    // décompte se servir d'abord ne lui laissait un candidat que dans un
+    // niveau sur quatre, la nouveauté du monde manquant aux trois autres.
+    if (p.scelleCouleur) {
+      const rangDe = new Map(solution.map((etape, i) => [etape.id, i]));
+      const dernierRang = new Map();
+      for (const b of blocks) {
+        if (b.kind === KIND.WALL) continue;
+        const r = rangDe.get(b.id);
+        if (r === undefined) continue;
+        dernierRang.set(b.color, Math.max(dernierRang.get(b.color) ?? -1, r));
+      }
+      for (let rang = solution.length - 1; rang >= 0; rang--) {
+        const b = parId.get(solution[rang].id);
+        if (!b || b.kind !== KIND.NORMAL) continue;
+        // Une couleur entièrement évacuée avant ce bloc, et qui n'est pas la
+        // sienne : sans quoi le bloc s'attendrait lui-même et ne s'ouvrirait
+        // jamais.
+        const couleurs = [...dernierRang.entries()]
+          .filter(([c, dernier]) => c !== b.color && dernier < rang);
+        if (!couleurs.length) continue;
+        b.kind = KIND.LOCKED;
+        b.axis = null;
+        b.dir = null;
+        b.condition = { type: 'color', color: pick(rng, couleurs)[0] };
+        break; // un seul par grille : deux attentes de couleur sont illisibles
+      }
+    }
+
     // Verrous : un bloc ne peut être verrouillé que par une condition déjà
     // remplie au moment où la solution lui demande de bouger.
-    const parId = new Map(blocks.map((b) => [b.id, b]));
     let poses_verrouillees = 0;
     for (let rang = solution.length - 1; rang >= 0 && poses_verrouillees < p.verrous; rang--) {
       const sortisAvant = rang; // nombre de blocs qui sortent avant celui-ci
@@ -397,8 +567,12 @@ function build(n) {
       let quotaJokers = 0;
       for (const pose of poses) {
         const b = parId.get(pose.id);
-        if (b.kind === KIND.JOKER) { quotaJokers += b.cells.length; continue; }
-        demande.set(pose.gate, demande.get(pose.gate) + b.cells.length);
+        // `coutCapacite` et non `cells.length` : un encombrant consomme le
+        // double, et provisionner moins que ce que le moteur retire rendrait le
+        // niveau infaisable sans que le joueur puisse le prévoir.
+        const cout = coutCapacite(b);
+        if (b.kind === KIND.JOKER) { quotaJokers += cout; continue; }
+        demande.set(pose.gate, demande.get(pose.gate) + cout);
       }
       // Le joker sort par la porte qu'il veut : si son quota n'était compté que
       // sur sa porte d'origine, l'envoyer ailleurs affamerait cette autre porte
@@ -430,11 +604,19 @@ function build(n) {
     const dominante = Math.max(...parCouleur.values()) / Math.max(1, poses.length);
 
     const densite = occupees / (W * H);
-    const note = densite + eloignementMoyen / 8 - 1.6 * Math.max(0, dominante - 0.4);
+
+    // Le NOMBRE de blocs compte dans la note, pas seulement les cases occupées :
+    // à densité égale, une grille de quinze gros blocs demande moins de sorties
+    // qu'une de vingt petits. Sans ce terme, la charge d'un niveau à l'autre
+    // faisait des creux de quatre blocs à l'intérieur d'un même monde, et la
+    // progression se sentait reculer.
+    const charge = poses.length / p.blockCount;
+    const note = densite + eloignementMoyen / 8 + charge / 3
+      - 1.6 * Math.max(0, dominante - 0.4);
     if (!meilleure || note > meilleure.note) {
       meilleure = { W, H, gates, blocks, solution, occupees, note, eloignementMoyen, dominante, colorCount: p.colorCount };
     }
-    if (densite >= 0.6 && eloignementMoyen >= 3.2 && dominante <= 0.4) break;
+    if (densite >= 0.6 && eloignementMoyen >= 3.2 && dominante <= 0.4 && charge >= 0.9) break;
   }
 
   if (!meilleure) return null;
@@ -453,13 +635,37 @@ export function getLevel(n) {
   const g = build(n);
   if (!g) throw new Error(`Génération impossible pour le niveau ${n}`);
 
-  const realm = REALMS[Math.min(REALMS.length - 1, Math.floor((n - 1) / LEVELS_PER_REALM))];
-  const serre = 1 - Math.min(0.3, 0.016 * (n - 1)); // les marges se resserrent
-  const moveLimit = Math.max(g.minDrags + 5, Math.ceil(g.minDrags * 1.7 * serre) + 1);
+  const realm = realmDe(n);
+  // Les marges se resserrent sur TOUTE la progression, pas sur ses vingt
+  // premiers niveaux : indexé sur un nombre absolu, ce facteur touchait le fond
+  // avant la fin du premier monde et n'avait plus rien à donner ensuite.
+  const serre = 1 - 0.3 * ((n - 1) / (TOTAL_LEVELS - 1));
+
+  /**
+   * Barème des étoiles, indexé sur la solution de référence. Une fraction de
+   * `moveLimit` ne marchait pas : la limite de coups se resserrant avec la
+   * progression, un joueur parfait plafonnait à 2★ passé le niveau 7. Ici,
+   * bien jouer paie à tout niveau.
+   */
+  const starDrags = [Math.ceil(g.minDrags * 1.3), Math.ceil(g.minDrags * 1.8)];
+
+  /**
+   * La limite de coups est un FILET, pas un barème — c'est le chrono qui porte
+   * la tension. Elle se cale donc au-dessus du seuil 1★ : sous ce seuil, un
+   * joueur laborieux perdait au lieu de décrocher une étoile, et l'écran de
+   * résultat promettait une note qu'aucune partie ne pouvait obtenir. Le
+   * précédent plancher fixe (`minDrags + 5`) le garantissait tant que la
+   * solution tenait en quinze glissés ; au-delà il passait sous le seuil 3★, et
+   * toute victoire valait alors trois étoiles. La marge est désormais
+   * proportionnelle, `serre` la resserrant au fil de la progression.
+   */
+  const moveLimit = starDrags[1] + Math.max(2, Math.round(g.minDrags * 0.4 * serre));
   // Le temps se joue sur la réflexion, pas sur le nombre de gestes : on le cale
   // sur le nombre de blocs à sortir. Registre casual : une à deux minutes.
   const jouables = g.blocks.filter((b) => b.kind !== KIND.WALL).length;
-  const timeLimit = Math.min(120, Math.max(40, Math.round((jouables * 7 + 15) * serre / 5) * 5));
+  // Le plafond suit la taille des grilles : à 120 s, les vingt-six blocs du
+  // dernier monde laissaient moins de cinq secondes par sortie, geste compris.
+  const timeLimit = Math.min(180, Math.max(40, Math.round((jouables * 7 + 15) * serre / 5) * 5));
 
   const level = {
     levelId: `lvl_${String(n).padStart(3, '0')}`,
@@ -473,13 +679,7 @@ export function getLevel(n) {
     timeLimit,
     minDrags: g.minDrags,
     objective: { type: 'clear_all', target: g.blocks.filter((b) => b.kind !== KIND.WALL).length },
-    /**
-     * Nombre maximal de glissés pour décrocher 3★ puis 2★, indexé sur la
-     * solution de référence. Une fraction de `moveLimit` ne marchait pas : la
-     * limite de coups se resserrant avec la progression, un joueur parfait
-     * plafonnait à 2★ passé le niveau 7. Ici, bien jouer paie à tout niveau.
-     */
-    starDrags: [Math.ceil(g.minDrags * 1.3), Math.ceil(g.minDrags * 1.8)],
+    starDrags,
     estimatedTime: timeLimit,
     gates: g.gates,
     blocks: g.blocks,
@@ -487,10 +687,4 @@ export function getLevel(n) {
   };
   cache.set(n, level);
   return level;
-}
-
-/** Libellé de l'objectif, pour le pré-niveau et le HUD. */
-export function objectiveLabel(level) {
-  const n = level.objective.target;
-  return `Faire sortir les ${n} blocs`;
 }

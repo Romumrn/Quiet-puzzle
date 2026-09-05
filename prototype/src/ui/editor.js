@@ -17,6 +17,10 @@ import { Board } from '../core/board.js';
 import { resoudre } from '../core/solver.js';
 
 const COTES = ['top', 'right', 'bottom', 'left'];
+/**
+ * Une ancre a besoin de sa direction, d'où les quatre entrées : c'est la
+ * direction qui la définit, comme l'axe définit une glissière.
+ */
 const NATURES = [
   { kind: KIND.NORMAL, label: 'Normal' },
   { kind: KIND.RAIL, label: 'Glissière', axis: 'h' },
@@ -24,6 +28,11 @@ const NATURES = [
   { kind: KIND.JOKER, label: 'Joker' },
   { kind: KIND.LOCKED, label: 'Verrou' },
   { kind: KIND.WALL, label: 'Scellé' },
+  { kind: KIND.ENCOMBRANT, label: 'Encombrant ×2' },
+  { kind: KIND.ANCRE, label: 'Ancre ▲', dir: 'top' },
+  { kind: KIND.ANCRE, label: 'Ancre ▶', dir: 'right' },
+  { kind: KIND.ANCRE, label: 'Ancre ▼', dir: 'bottom' },
+  { kind: KIND.ANCRE, label: 'Ancre ◀', dir: 'left' },
 ];
 
 const el = (id) => document.getElementById(id);
@@ -190,7 +199,9 @@ function dessiner() {
         c.classList.add('plein', `k-${bloc.kind}`);
         if (bloc.color >= 0 && bloc.kind !== KIND.JOKER) c.classList.add(`c${bloc.color}`);
         c.textContent = bloc.kind === KIND.WALL ? '' : bloc.kind === KIND.JOKER ? '✳'
-          : bloc.kind === KIND.LOCKED ? '🔒' : COLORS[bloc.color].glyph;
+          : bloc.kind === KIND.LOCKED ? '🔒'
+          : bloc.kind === KIND.ANCRE ? { top: '▲', right: '▶', bottom: '▼', left: '◀' }[bloc.dir]
+          : COLORS[bloc.color].glyph;
       }
       c.onclick = () => (bloc ? retirer(bloc) : poser(x, y));
       grille.appendChild(c);
@@ -212,6 +223,7 @@ function poser(x, y) {
     x, y,
     kind: nature.kind,
     axis: nature.axis || null,
+    dir: nature.dir || null,
     condition: nature.kind === KIND.LOCKED ? { type: 'exits', count: choix.verrouCount } : null,
   });
   dessiner();

@@ -23,8 +23,8 @@ const MODULES = [
   'src/core/block.js',
   'src/core/gameState.js',
   'src/core/board.js',
-  'src/core/levels.js',
   'src/core/solver.js',
+  'src/data/levelStore.js',
   'src/data/save.js',
   'src/data/events.js',
   'src/audio/manifest.js',
@@ -96,6 +96,26 @@ for (const chemin of [...new Set(audios)]) {
   bundle = bundle.split(`'${chemin}'`).join(`'data:audio/mpeg;base64,${b64}'`);
 }
 
+/**
+ * Base de niveaux, embarquée elle aussi.
+ *
+ * Un fichier unique n'a pas de serveur d'où charger ses données, et un `fetch`
+ * sur `file://` échoue. `levelStore` expose donc un objet `EMBARQUE` que ce
+ * script remplit : le lecteur passe par lui quand il est garni, par le réseau
+ * sinon. Aucune ligne du jeu ne change entre les deux modes.
+ */
+const base = { index: null, mondes: {} };
+base.index = JSON.parse(read('levels/index.json'));
+for (const monde of base.index.realms) base.mondes[monde.fichier] = JSON.parse(read(`levels/${monde.fichier}`));
+const poidsBase = JSON.stringify(base).length;
+bundle = bundle.replace(
+  'const EMBARQUE = { index: null, mondes: {} };',
+  `const EMBARQUE = ${JSON.stringify(base)};`,
+);
+if (!bundle.includes('const EMBARQUE = {"index"')) {
+  throw new Error('bundle : la base de niveaux n\'a pas pu être injectée dans levelStore');
+}
+
 // Markup : on reprend le contenu du <body> d'index.html, sans la balise script.
 const html = read('index.html');
 const body = html
@@ -139,5 +159,6 @@ ${out}
 `;
 writeFileSync(join(root, 'dist/standalone.html'), standalone);
 console.log(`dist/quiet-puzzle.html (fragment Artifact) — ${(out.length / 1024).toFixed(0)} Ko `
-  + `dont ${(poidsAudio / 1024).toFixed(0)} Ko de son, ${MODULES.length} modules`);
+  + `dont ${(poidsAudio / 1024).toFixed(0)} Ko de son et ${(poidsBase / 1024).toFixed(0)} Ko de niveaux, `
+  + `${MODULES.length} modules`);
 console.log(`dist/standalone.html (document complet, utf-8) — ${(standalone.length / 1024).toFixed(0)} Ko`);
