@@ -1,8 +1,17 @@
 # Quiet Puzzle — prototype jouable
 
 Prototype web du jeu décrit dans `../Document_Technique_Developpeurs.md`.
-Genre : **puzzle de blocs à faire sortir par des portes de couleur**, dans la
-famille de *Color Block Jam* (Rollic) et *Color Block: Puzzle 3D*.
+Genre : **puzzle de blocs à faire sortir par des portes de couleur**.
+
+L'intention tient en une phrase : offrir un casse-tête où l'on décompresse.
+Pas de score à battre ni d'adversaire — un geste simple et répétable, qui occupe
+les mains et laisse l'esprit se poser après une journée dense. Cette intention
+n'est pas décorative, elle tranche des arbitrages concrets tout au long de ce
+document : le chronomètre reste large, la palette évolue lentement, la musique
+change de caractère pour ne pas tourner en rond, et les publicités sont cadencées
+pour ne jamais couper un joueur au moment où il veut recommencer.
+
+<img src="../media/jeu.png" width="240" align="right" alt="Le plateau en cours de partie">
 
 Il sert deux objectifs :
 

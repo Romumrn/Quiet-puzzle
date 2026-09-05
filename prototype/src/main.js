@@ -40,6 +40,21 @@ let busy = false;
 let offreUtilisee = false;   // l'offre de continuation ne vaut qu'une fois par tentative
 let echecsDuNiveau = 0;      // sert à ne pas couper la toute première défaite par une pub
 let debutNiveau = 0;
+
+/**
+ * Respiration entre le dernier bloc sorti et l'écran de réussite.
+ *
+ * Enchaîner immédiatement écrase le moment le plus gratifiant de la partie :
+ * le joueur voit son dernier bloc franchir la porte, entend son carillon, et
+ * l'écran lui tombe dessus avant qu'il ait pu en profiter. On laisse donc le
+ * son et l'animation se poser, on ponctue par l'arpège de victoire, puis on
+ * affiche.
+ */
+const PAUSE_AVANT_REUSSITE = 780;   // ms, après la sortie du dernier bloc
+const PAUSE_APRES_ARPEGE = 420;     // ms, entre l'arpège et l'écran
+
+/** En arrière-plan on n'attend pas : les minuteurs y sont bridés à une seconde. */
+const pause = (ms) => (document.hidden ? Promise.resolve() : new Promise((r) => setTimeout(r, ms)));
 let gesteMemorise = false;   // un seul instantané par geste, pour l'annulation
 let modeMarteau = false;
 
@@ -229,8 +244,14 @@ async function finishLevel() {
   input.locked = true;
 
   const won = board.gameState === GameState.WON;
-  if (won) audio.victoire();
   const duree = Math.round((Date.now() - debutNiveau) / 1000);
+
+  // On laisse respirer avant d'annoncer la réussite.
+  if (won) {
+    await pause(PAUSE_AVANT_REUSSITE);
+    audio.victoire();
+    await pause(PAUSE_APRES_ARPEGE);
+  }
 
   // Défaite : on propose de continuer AVANT d'acter l'échec.
   if (!won && !offreUtilisee) {
@@ -617,6 +638,7 @@ window.__game = {
   get view() { return view; },
   get input() { return input; },
   get audio() { return audio; },
+  finirPourCapture: () => (board?.gameState !== GameState.PLAYING ? finishLevel() : null),
   get level() { return level; },
   get busy() { return busy; },
 };

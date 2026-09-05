@@ -252,6 +252,7 @@ function build(n) {
 
     // Pose à l'envers : entrée par la porte, puis recul dans la grille.
     const poses = [];
+    const parPorte = new Map(gates.map((g) => [g, 0]));
     let railsPoses = 0;
 
     for (let i = 0; i < p.blockCount; i++) {
@@ -346,6 +347,7 @@ function build(n) {
         kind: axe ? KIND.RAIL : KIND.NORMAL,
         axis: axe,
       });
+      parPorte.set(gate, (parPorte.get(gate) || 0) + 1);
       poses.push({ id, gate, chemin });
     }
 
@@ -415,14 +417,24 @@ function build(n) {
       return sum + distanceALaPorte(pose.gate, forme, b.x, b.y, W, H);
     }, 0) / Math.max(1, poses.length);
 
-    // On note une grille sur sa densité ET sur l'éloignement des blocs à leur
-    // porte : une grille pleine mais dont chaque bloc touche déjà sa sortie
-    // n'est pas un niveau.
-    const note = occupees / (W * H) + eloignementMoyen / 8;
-    if (!meilleure || note > meilleure.note) {
-      meilleure = { W, H, gates, blocks, solution, occupees, note, eloignementMoyen, colorCount: p.colorCount };
+    // Part de la couleur la plus représentée. Une grille peut être dense et
+    // bien étalée tout en étant aux trois quarts d'une seule couleur : les
+    // portes se bouchent au fil des poses, et les blocs suivants se rabattent
+    // tous sur la dernière encore dégagée. Le résultat se joue moins bien et se
+    // regarde mal, il faut donc le pénaliser explicitement.
+    const parCouleur = new Map();
+    for (const pose of poses) {
+      const c = parId.get(pose.id).color;
+      parCouleur.set(c, (parCouleur.get(c) || 0) + 1);
     }
-    if (occupees / (W * H) >= 0.6 && eloignementMoyen >= 3.2) break;
+    const dominante = Math.max(...parCouleur.values()) / Math.max(1, poses.length);
+
+    const densite = occupees / (W * H);
+    const note = densite + eloignementMoyen / 8 - 1.6 * Math.max(0, dominante - 0.4);
+    if (!meilleure || note > meilleure.note) {
+      meilleure = { W, H, gates, blocks, solution, occupees, note, eloignementMoyen, dominante, colorCount: p.colorCount };
+    }
+    if (densite >= 0.6 && eloignementMoyen >= 3.2 && dominante <= 0.4) break;
   }
 
   if (!meilleure) return null;
