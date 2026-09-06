@@ -651,6 +651,26 @@ body { display: grid; place-items: center; }
 }
 .langue-select:hover, .langue-select:focus-visible { border-color: var(--accent); outline: none; }
 
+/* Puzzle du jour : l'entrée du menu porte son titre en second niveau. */
+#btn-daily-puzzle { display: grid; gap: 2px; line-height: 1.25; }
+#btn-daily-puzzle small { font-size: 12px; opacity: 0.72; font-weight: 400; }
+
+/* Classement du jour. */
+.rank-mine { margin: 6px 0 12px; color: var(--accent-deep); font: 500 15px var(--font-ui); }
+.rank-list { list-style: none; display: grid; gap: 4px; margin: 0 0 12px; text-align: left; }
+.rank-list li {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  padding: 7px 12px; border-radius: 12px;
+  background: var(--ground); color: var(--ink-soft);
+  font: 400 14px var(--font-ui);
+}
+.rank-list li.moi { background: var(--accent-wash); color: var(--accent-deep); font-weight: 500; }
+.rank-list b { font-variant-numeric: tabular-nums; }
+
+/* Bouton pleine largeur du menu utilisateur (éditeur). */
+.user-large { width: 100%; }
+.ed-submit { width: 100%; }
+
 /* Échec de démarrage : la base de niveaux n'a pas pu être lue. */
 .boot-error {
   position: absolute; inset: 0;

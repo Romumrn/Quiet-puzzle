@@ -148,6 +148,39 @@ pas un lien minuscule.
 à la défaite (« il ne restait qu'un bloc ! »), reprise immédiate, doublement des
 pièces par pub à la victoire.
 
+## Puzzle du jour
+
+L'éditeur a quitté le panneau QA — où il voisinait « Gagner » et « Perdre », et
+où aucun joueur ne l'aurait trouvé — pour le **menu utilisateur**, à côté des
+réglages. Une grille qu'on y dessine peut être **proposée comme puzzle du
+jour** : le solveur la vérifie au dépôt, elle rejoint une file, et chaque jour
+une proposition en est tirée — le tirage est seedé sur la date, donc le même
+pour tout le monde.
+
+Le score mêle rapidité et économie de gestes, dans cet ordre : on part d'un
+socle de 1000, on retire 25 points par geste superflu puis 2 points par seconde.
+Un joueur qui réfléchit longtemps mais joue juste passe donc devant un joueur
+rapide et brouillon — c'est la hiérarchie qu'un jeu de réflexion doit
+récompenser. Le score ne descend jamais sous 100 : une grille finie vaut
+toujours mieux qu'une grille abandonnée.
+
+Deux limites à connaître, et le jeu les dit à l'écran :
+
+- **le classement est local à l'appareil.** `src/meta/dailyPuzzle.js` tient le
+  rôle qu'un backend tiendra, derrière les signatures qu'auront les routes REST
+  (`submitDailyPuzzle`, `getDailyPuzzle`, `submitDailyScore`,
+  `getDailyLeaderboard` dans `src/data/api.js`). Il n'y a pas de serveur à qui
+  envoyer les scores, et le prototype ne fait semblant de rien ;
+- **l'auteur est un jeton tiré au sort**, pas une adresse IP. Une page web ne
+  connaît pas sa propre IP : seul le serveur qui reçoit la requête la voit. Le
+  champ `auteur` est à la bonne place, prêt à la recevoir côté serveur ; le
+  remplir depuis le navigateur demanderait d'interroger un service tiers à
+  chaque partie.
+
+Le score est recalculé dans `api.js` à partir des chiffres de la partie, jamais
+repris de ce que l'appelant annonce — un score que le client fournit est un
+score qu'il choisit. Le vrai serveur devra faire de même.
+
 ## Éditeur de niveaux
 
 Accessible depuis le panneau QA. On dépose des formes, on choisit couleur et

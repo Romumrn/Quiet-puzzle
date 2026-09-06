@@ -15,7 +15,11 @@ export function labelFor(level) { return objectiveLabel(level); }
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, '0')}`;
 
 export function mount(level) {
-  el('hud-level').textContent = level.number;
+  // Le puzzle du jour n'a pas de numéro : il porte son titre. « Niveau 0 » se
+  // lisait comme un bug, et c'en était presque un.
+  const duJour = !level.number;
+  el('hud-level-mot').hidden = duJour;
+  el('hud-level').textContent = duJour ? (level.realm || t('daily.title')) : level.number;
   dernierRestant = null;
 }
 

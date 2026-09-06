@@ -15,6 +15,7 @@
 import { SHAPES, COLORS, KIND } from '../core/block.js';
 import { Board } from '../core/board.js';
 import { resoudre } from '../core/solver.js';
+import { t } from './i18n.js';
 
 const COTES = ['top', 'right', 'bottom', 'left'];
 /**
@@ -40,6 +41,7 @@ const el = (id) => document.getElementById(id);
 let etat = null;
 let choix = { shape: 0, color: 0, nature: 0, verrouCount: 2 };
 let onTester = null;
+let onSoumettre = null;
 
 const vide = (W, H) => ({
   W, H,
@@ -52,8 +54,9 @@ const vide = (W, H) => ({
   },
 });
 
-export function init({ onTest }) {
+export function init({ onTest, onSubmit }) {
   onTester = onTest;
+  onSoumettre = onSubmit;
   etat = vide(6, 7);
   construirePalettes();
   brancherBoutons();
@@ -273,6 +276,32 @@ function brancherBoutons() {
       return;
     }
     onTester?.(niveau);
+  };
+
+  /**
+   * Proposer la grille comme puzzle du jour.
+   *
+   * On repasse le solveur ICI plutôt que de se fier au bouton « Vérifier » :
+   * rien n'oblige le joueur à l'avoir cliqué, et une grille insoluble envoyée à
+   * tout le monde est le seul défaut que ce dépôt ne doit jamais laisser
+   * passer. Une recherche interrompue vaut refus — dans le doute, on ne
+   * propose pas.
+   */
+  el('ed-submit').onclick = () => {
+    const niveau = versNiveau();
+    if (!niveau.gates.length || !niveau.objective.target) {
+      majEtat(t('editor.submit.unsolved'), 'ko');
+      return;
+    }
+    const r = resoudre(new Board({ ...niveau, moveLimit: 9999, timeLimit: 9999 }));
+    if (!r.resoluble) { majEtat(t('editor.submit.unsolved'), 'ko'); return; }
+
+    const titre = prompt(t('editor.submit.ask'), '');
+    if (titre === null) return;
+    // Le nombre de sorties de la solution trouvée sert de repère de gestes :
+    // sans solution de référence, c'est la seule mesure honnête dont on dispose.
+    onSoumettre?.({ ...niveau, minDrags: Math.max(1, r.ordre.length) }, titre.trim());
+    majEtat(t('editor.submit.ok'), 'ok');
   };
 
   el('ed-export').onclick = async () => {

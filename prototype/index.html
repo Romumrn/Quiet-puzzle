@@ -33,6 +33,10 @@
         <span class="daily-amount" id="daily-amount">+50</span>
       </button>
       <button class="btn btn-primary btn-lg" id="btn-play" data-i18n="menu.play">Jouer</button>
+      <button class="btn btn-ghost btn-lg" id="btn-daily-puzzle" hidden>
+        <span data-i18n="daily.title">Puzzle du jour</span>
+        <small id="daily-puzzle-sub"></small>
+      </button>
     </section>
 
     <!-- ============ CARTE DES NIVEAUX ============ -->
@@ -70,7 +74,7 @@
     <section class="screen" id="screen-game">
       <header class="topbar">
         <button class="icon-btn" data-nav="map" aria-label="Quitter le niveau">‹</button>
-        <span class="topbar-title"><span data-i18n="user.level">Niveau</span> <b id="hud-level">1</b></span>
+        <span class="topbar-title"><span id="hud-level-mot" data-i18n="user.level">Niveau</span> <b id="hud-level">1</b></span>
         <span class="pill" id="hud-moves">0</span>
       </header>
 
@@ -190,6 +194,13 @@
         <p class="user-note" data-i18n="user.ads.note">Achat simulé — aucune régie n’est branchée.</p>
       </div>
 
+      <div class="user-section">
+        <span class="user-legend" data-i18n="user.create">Créer</span>
+        <button class="btn btn-ghost btn-sm user-large" id="btn-editor"
+                data-i18n="user.editor">Éditeur de niveaux</button>
+        <p class="user-note" data-i18n="user.editor.note">Dessinez une grille, vérifiez-la, proposez-la comme puzzle du jour.</p>
+      </div>
+
       <button class="btn btn-ghost btn-sm user-danger" id="btn-reset"
               data-i18n="user.reset">Réinitialiser la progression</button>
     </div>
@@ -209,6 +220,19 @@
           <button class="btn btn-ghost" id="btn-result-map" data-i18n="result.map">Carte</button>
           <button class="btn btn-ghost" id="btn-result-retry" data-i18n="result.retry">Rejouer</button>
           <button class="btn btn-primary" id="btn-result-next" data-i18n="result.next">Suivant</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CLASSEMENT DU PUZZLE DU JOUR ============ -->
+    <div class="overlay" id="overlay-rank" hidden>
+      <div class="result-card">
+        <h2 data-i18n="daily.rank.title">Classement du jour</h2>
+        <p class="rank-mine" id="rank-mine"></p>
+        <ol class="rank-list" id="rank-list"></ol>
+        <p class="user-note" id="rank-note" data-i18n="daily.rank.note">Ce classement est local à cet appareil : le prototype n’a pas de serveur où envoyer les scores.</p>
+        <div class="result-actions">
+          <button class="btn btn-primary" id="btn-rank-close" data-i18n="ad.close">Fermer</button>
         </div>
       </div>
     </div>
@@ -251,6 +275,10 @@
           <button class="btn btn-ghost btn-sm" id="ed-export">Exporter</button>
           <button class="btn btn-ghost btn-sm" id="ed-import">Importer</button>
           <button class="btn btn-ghost btn-sm" id="ed-clear">Vider</button>
+        </div>
+        <div class="ed-actions">
+          <button class="btn btn-primary btn-sm ed-submit" id="ed-submit"
+                  data-i18n="editor.submit">Proposer comme puzzle du jour</button>
         </div>
         <textarea class="ed-json" id="ed-json" hidden placeholder="JSON du niveau"></textarea>
       </div>
@@ -307,7 +335,6 @@
         <button class="btn btn-ghost btn-sm" id="debug-noads">Activer sans-pub</button>
         <button class="btn btn-ghost btn-sm" id="debug-coins">+500 pièces</button>
         <button class="btn btn-ghost btn-sm" id="debug-events">Journal analytics</button>
-        <button class="btn btn-ghost btn-sm" id="debug-editor">Éditeur de niveaux</button>
       </div>
       <p class="debug-info" id="debug-info"></p>
       <ol class="debug-events" id="debug-events-list" hidden></ol>

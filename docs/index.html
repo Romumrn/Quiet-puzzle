@@ -662,6 +662,26 @@ body { display: grid; place-items: center; }
 }
 .langue-select:hover, .langue-select:focus-visible { border-color: var(--accent); outline: none; }
 
+/* Puzzle du jour : l'entrée du menu porte son titre en second niveau. */
+#btn-daily-puzzle { display: grid; gap: 2px; line-height: 1.25; }
+#btn-daily-puzzle small { font-size: 12px; opacity: 0.72; font-weight: 400; }
+
+/* Classement du jour. */
+.rank-mine { margin: 6px 0 12px; color: var(--accent-deep); font: 500 15px var(--font-ui); }
+.rank-list { list-style: none; display: grid; gap: 4px; margin: 0 0 12px; text-align: left; }
+.rank-list li {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  padding: 7px 12px; border-radius: 12px;
+  background: var(--ground); color: var(--ink-soft);
+  font: 400 14px var(--font-ui);
+}
+.rank-list li.moi { background: var(--accent-wash); color: var(--accent-deep); font-weight: 500; }
+.rank-list b { font-variant-numeric: tabular-nums; }
+
+/* Bouton pleine largeur du menu utilisateur (éditeur). */
+.user-large { width: 100%; }
+.ed-submit { width: 100%; }
+
 /* Échec de démarrage : la base de niveaux n'a pas pu être lue. */
 .boot-error {
   position: absolute; inset: 0;
@@ -1074,6 +1094,10 @@ body { display: grid; place-items: center; }
         <span class="daily-amount" id="daily-amount">+50</span>
       </button>
       <button class="btn btn-primary btn-lg" id="btn-play" data-i18n="menu.play">Jouer</button>
+      <button class="btn btn-ghost btn-lg" id="btn-daily-puzzle" hidden>
+        <span data-i18n="daily.title">Puzzle du jour</span>
+        <small id="daily-puzzle-sub"></small>
+      </button>
     </section>
 
     <!-- ============ CARTE DES NIVEAUX ============ -->
@@ -1111,7 +1135,7 @@ body { display: grid; place-items: center; }
     <section class="screen" id="screen-game">
       <header class="topbar">
         <button class="icon-btn" data-nav="map" aria-label="Quitter le niveau">‹</button>
-        <span class="topbar-title"><span data-i18n="user.level">Niveau</span> <b id="hud-level">1</b></span>
+        <span class="topbar-title"><span id="hud-level-mot" data-i18n="user.level">Niveau</span> <b id="hud-level">1</b></span>
         <span class="pill" id="hud-moves">0</span>
       </header>
 
@@ -1231,6 +1255,13 @@ body { display: grid; place-items: center; }
         <p class="user-note" data-i18n="user.ads.note">Achat simulé — aucune régie n’est branchée.</p>
       </div>
 
+      <div class="user-section">
+        <span class="user-legend" data-i18n="user.create">Créer</span>
+        <button class="btn btn-ghost btn-sm user-large" id="btn-editor"
+                data-i18n="user.editor">Éditeur de niveaux</button>
+        <p class="user-note" data-i18n="user.editor.note">Dessinez une grille, vérifiez-la, proposez-la comme puzzle du jour.</p>
+      </div>
+
       <button class="btn btn-ghost btn-sm user-danger" id="btn-reset"
               data-i18n="user.reset">Réinitialiser la progression</button>
     </div>
@@ -1250,6 +1281,19 @@ body { display: grid; place-items: center; }
           <button class="btn btn-ghost" id="btn-result-map" data-i18n="result.map">Carte</button>
           <button class="btn btn-ghost" id="btn-result-retry" data-i18n="result.retry">Rejouer</button>
           <button class="btn btn-primary" id="btn-result-next" data-i18n="result.next">Suivant</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CLASSEMENT DU PUZZLE DU JOUR ============ -->
+    <div class="overlay" id="overlay-rank" hidden>
+      <div class="result-card">
+        <h2 data-i18n="daily.rank.title">Classement du jour</h2>
+        <p class="rank-mine" id="rank-mine"></p>
+        <ol class="rank-list" id="rank-list"></ol>
+        <p class="user-note" id="rank-note" data-i18n="daily.rank.note">Ce classement est local à cet appareil : le prototype n’a pas de serveur où envoyer les scores.</p>
+        <div class="result-actions">
+          <button class="btn btn-primary" id="btn-rank-close" data-i18n="ad.close">Fermer</button>
         </div>
       </div>
     </div>
@@ -1292,6 +1336,10 @@ body { display: grid; place-items: center; }
           <button class="btn btn-ghost btn-sm" id="ed-export">Exporter</button>
           <button class="btn btn-ghost btn-sm" id="ed-import">Importer</button>
           <button class="btn btn-ghost btn-sm" id="ed-clear">Vider</button>
+        </div>
+        <div class="ed-actions">
+          <button class="btn btn-primary btn-sm ed-submit" id="ed-submit"
+                  data-i18n="editor.submit">Proposer comme puzzle du jour</button>
         </div>
         <textarea class="ed-json" id="ed-json" hidden placeholder="JSON du niveau"></textarea>
       </div>
@@ -1348,7 +1396,6 @@ body { display: grid; place-items: center; }
         <button class="btn btn-ghost btn-sm" id="debug-noads">Activer sans-pub</button>
         <button class="btn btn-ghost btn-sm" id="debug-coins">+500 pièces</button>
         <button class="btn btn-ghost btn-sm" id="debug-events">Journal analytics</button>
-        <button class="btn btn-ghost btn-sm" id="debug-editor">Éditeur de niveaux</button>
       </div>
       <p class="debug-info" id="debug-info"></p>
       <ol class="debug-events" id="debug-events-list" hidden></ol>
@@ -2269,6 +2316,21 @@ const LANGUES = [
 
 const TEXTES = {
   fr: {
+    'user.create': 'Créer', 'user.editor': 'Éditeur de niveaux',
+    'user.editor.note': 'Dessinez une grille, vérifiez-la, proposez-la comme puzzle du jour.',
+    'editor.submit': 'Proposer comme puzzle du jour',
+    'editor.submit.ask': 'Un nom pour votre puzzle ?',
+    'editor.submit.ok': 'Puzzle proposé — il peut sortir un de ces jours',
+    'editor.submit.unsolved': 'Vérifiez d’abord que la grille se résout',
+    'daily.title': 'Puzzle du jour', 'daily.by': 'par {auteur}',
+    'daily.none': 'Aucun puzzle proposé — dessinez le premier',
+    'daily.done': 'Déjà joué aujourd’hui · {score} pts',
+    'daily.play': 'À vous de jouer',
+    'daily.score': 'Score : {score}', 'daily.rank': 'Rang {rang} sur {total}',
+    'daily.rank.title': 'Classement du jour',
+    'daily.rank.note': 'Ce classement est local à cet appareil : le prototype n’a pas de serveur où envoyer les scores.',
+    'daily.rank.empty': 'Personne n’a encore joué aujourd’hui',
+    'daily.rank.me': 'vous',
     'app.title': 'Quiet Puzzle — un casse-tête pour décompresser',
     'map.next': 'Suivant',
     'result.drags': 'glissés', 'result.double': 'Doubler les pièces',
@@ -2348,6 +2410,21 @@ const TEXTES = {
   },
 
   en: {
+    'user.create': 'Create', 'user.editor': 'Level editor',
+    'user.editor.note': 'Draw a grid, check it, submit it as the daily puzzle.',
+    'editor.submit': 'Submit as daily puzzle',
+    'editor.submit.ask': 'A name for your puzzle?',
+    'editor.submit.ok': 'Puzzle submitted — it may come up one of these days',
+    'editor.submit.unsolved': 'Check the grid solves first',
+    'daily.title': 'Daily puzzle', 'daily.by': 'by {auteur}',
+    'daily.none': 'No puzzle submitted yet — draw the first one',
+    'daily.done': 'Already played today · {score} pts',
+    'daily.play': 'Your turn',
+    'daily.score': 'Score: {score}', 'daily.rank': 'Rank {rang} of {total}',
+    'daily.rank.title': 'Today’s leaderboard',
+    'daily.rank.note': 'This leaderboard is local to this device: the prototype has no server to send scores to.',
+    'daily.rank.empty': 'Nobody has played yet today',
+    'daily.rank.me': 'you',
     'app.title': 'Quiet Puzzle — a puzzle to unwind with',
     'map.next': 'Next',
     'result.drags': 'drags', 'result.double': 'Double the coins',
@@ -2427,6 +2504,21 @@ const TEXTES = {
   },
 
   es: {
+    'user.create': 'Crear', 'user.editor': 'Editor de niveles',
+    'user.editor.note': 'Dibuja una cuadrícula, compruébala y propónla como puzle del día.',
+    'editor.submit': 'Proponer como puzle del día',
+    'editor.submit.ask': '¿Un nombre para tu puzle?',
+    'editor.submit.ok': 'Puzle propuesto — puede salir cualquier día',
+    'editor.submit.unsolved': 'Comprueba primero que la cuadrícula se resuelve',
+    'daily.title': 'Puzle del día', 'daily.by': 'de {auteur}',
+    'daily.none': 'Aún no hay puzles propuestos — dibuja el primero',
+    'daily.done': 'Ya jugado hoy · {score} pts',
+    'daily.play': 'Te toca',
+    'daily.score': 'Puntuación: {score}', 'daily.rank': 'Puesto {rang} de {total}',
+    'daily.rank.title': 'Clasificación de hoy',
+    'daily.rank.note': 'Esta clasificación es local a este dispositivo: el prototipo no tiene servidor al que enviar las puntuaciones.',
+    'daily.rank.empty': 'Nadie ha jugado todavía hoy',
+    'daily.rank.me': 'tú',
     'app.title': 'Quiet Puzzle — un rompecabezas para desconectar',
     'map.next': 'Siguiente',
     'result.drags': 'arrastres', 'result.double': 'Duplicar las monedas',
@@ -2506,6 +2598,21 @@ const TEXTES = {
   },
 
   it: {
+    'user.create': 'Creare', 'user.editor': 'Editor di livelli',
+    'user.editor.note': 'Disegna una griglia, verificala, proponila come rompicapo del giorno.',
+    'editor.submit': 'Proponi come rompicapo del giorno',
+    'editor.submit.ask': 'Un nome per il tuo rompicapo?',
+    'editor.submit.ok': 'Rompicapo proposto — potrebbe uscire un giorno di questi',
+    'editor.submit.unsolved': 'Verifica prima che la griglia si risolva',
+    'daily.title': 'Rompicapo del giorno', 'daily.by': 'di {auteur}',
+    'daily.none': 'Nessun rompicapo proposto — disegna il primo',
+    'daily.done': 'Già giocato oggi · {score} pt',
+    'daily.play': 'Tocca a te',
+    'daily.score': 'Punteggio: {score}', 'daily.rank': 'Posizione {rang} su {total}',
+    'daily.rank.title': 'Classifica di oggi',
+    'daily.rank.note': 'Questa classifica è locale a questo dispositivo: il prototipo non ha un server a cui inviare i punteggi.',
+    'daily.rank.empty': 'Oggi non ha ancora giocato nessuno',
+    'daily.rank.me': 'tu',
     'app.title': 'Quiet Puzzle — un rompicapo per staccare',
     'map.next': 'Avanti',
     'result.drags': 'trascinamenti', 'result.double': 'Raddoppia le monete',
@@ -2585,6 +2692,21 @@ const TEXTES = {
   },
 
   zh: {
+    'user.create': '创作', 'user.editor': '关卡编辑器',
+    'user.editor.note': '画一张棋盘，验证它，然后投稿为每日谜题。',
+    'editor.submit': '投稿为每日谜题',
+    'editor.submit.ask': '给你的谜题起个名字？',
+    'editor.submit.ok': '已投稿 — 某天可能会被抽中',
+    'editor.submit.unsolved': '请先验证棋盘可解',
+    'daily.title': '每日谜题', 'daily.by': '作者 {auteur}',
+    'daily.none': '还没有投稿 — 来画第一个',
+    'daily.done': '今天已玩过 · {score} 分',
+    'daily.play': '轮到你了',
+    'daily.score': '得分：{score}', 'daily.rank': '第 {rang} 名，共 {total} 人',
+    'daily.rank.title': '今日排行榜',
+    'daily.rank.note': '此排行榜仅存于本设备：原型没有可上传成绩的服务器。',
+    'daily.rank.empty': '今天还没有人游玩',
+    'daily.rank.me': '你',
     'app.title': 'Quiet Puzzle — 放松心情的解谜游戏',
     'map.next': '下一关',
     'result.drags': '次拖动', 'result.double': '金币翻倍',
@@ -3525,6 +3647,196 @@ function recompenseDeDemain() {
 return { ouvrirSession, serie, recompenseDuJour, peutReclamer, reclamer, recompenseDeDemain };
 })();
 
+const __m_dailyPuzzle = (() => {
+/**
+ * Puzzle du jour : les grilles dessinées par les joueurs.
+ *
+ * Un niveau proposé dans l'éditeur entre dans une file d'attente. Chaque jour,
+ * une grille en est tirée — la même pour tout le monde — et chacun la joue une
+ * fois, pour un score qui mêle rapidité et économie de gestes. Les scores du
+ * jour forment un classement.
+ *
+ * TOUT EST LOCAL. Ce module joue le rôle qu'un backend tiendra : la file, le
+ * tirage et le classement vivent dans `localStorage`, derrière les mêmes
+ * signatures qu'auront les routes REST. Deux conséquences à connaître :
+ *
+ *  - le classement ne montre que les scores de CE navigateur. Il n'y a pas de
+ *    serveur à qui les envoyer, et le prototype ne fait semblant de rien ;
+ *  - l'AUTEUR d'une proposition et d'un score est identifié par un jeton tiré
+ *    au sort au premier lancement, et non par son adresse IP. Une page web ne
+ *    connaît pas sa propre IP : seul le serveur qui reçoit la requête la voit.
+ *    Le champ `auteur` est donc là, à la bonne place, prêt à recevoir l'IP côté
+ *    serveur ; le remplir côté client demanderait d'interroger un service tiers
+ *    à chaque partie, ce qui enverrait les joueurs se faire pister ailleurs pour
+ *    rien.
+ */
+
+const store = __m_save;
+const { track } = __m_events;
+
+const CLE_FILE = 'puzzlequest.dailypuzzle.v1';
+
+const jour = () => new Date().toISOString().slice(0, 10);
+
+/** Petit RNG seedé, pour que le tirage du jour soit le même pour tous. */
+function graineDe(texte) {
+  let h = 2166136261;
+  for (let i = 0; i < texte.length; i++) {
+    h ^= texte.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+// --- Dépôt local -----------------------------------------------------------
+
+const vide = () => ({ version: 1, propositions: [], scores: {} });
+
+function lire() {
+  try {
+    const brut = localStorage.getItem(CLE_FILE);
+    return brut ? { ...vide(), ...JSON.parse(brut) } : vide();
+  } catch {
+    return vide();
+  }
+}
+
+function ecrire(data) {
+  try {
+    localStorage.setItem(CLE_FILE, JSON.stringify(data));
+  } catch { /* stockage plein ou bloqué : le jeu continue sans */ }
+}
+
+/**
+ * Jeton d'auteur, tiré au premier usage et gardé avec la sauvegarde.
+ *
+ * Il tient la place de l'identifiant que le backend attribuera. Voir l'en-tête
+ * du module sur la question de l'adresse IP.
+ */
+function auteur() {
+  const d = store.load();
+  if (!d.auteurId) {
+    d.auteurId = 'j' + Math.random().toString(36).slice(2, 8);
+    store.save(d);
+  }
+  return d.auteurId;
+}
+
+// --- Propositions ----------------------------------------------------------
+
+/**
+ * Dépose un niveau dans la file. Le niveau est supposé VÉRIFIÉ : c'est
+ * l'éditeur qui passe le solveur avant d'appeler ici, et lui seul sait si la
+ * grille tient debout.
+ *
+ * @returns {{id:string, rang:number}} l'identifiant attribué et le rang dans la file
+ */
+function proposer(niveau, titre) {
+  const data = lire();
+  const id = `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+  data.propositions.push({
+    id,
+    titre: (titre || '').slice(0, 40),
+    auteur: auteur(),
+    deposeLe: jour(),
+    niveau,
+  });
+  ecrire(data);
+  track('daily_puzzle_submitted', { id, blocs: niveau.blocks.length });
+  return { id, rang: data.propositions.length };
+}
+
+const propositions = () => lire().propositions;
+
+// --- Le puzzle du jour -----------------------------------------------------
+
+/**
+ * La proposition du jour, ou null si la file est vide.
+ *
+ * Le tirage est seedé sur la DATE : tout le monde joue la même grille le même
+ * jour, et le résultat ne dépend pas de l'ordre dans lequel on a ouvert le jeu.
+ * Une file d'une seule proposition la ressert chaque jour, ce qui est le
+ * comportement juste : mieux vaut la même grille qu'aucune.
+ */
+function duJour(date = jour()) {
+  const liste = lire().propositions;
+  if (!liste.length) return null;
+  return liste[graineDe(date) % liste.length];
+}
+
+// --- Score et classement ---------------------------------------------------
+
+/**
+ * Score d'une partie du puzzle du jour.
+ *
+ * Deux termes, et l'ordre compte : on part d'un socle, on retire ce que coûtent
+ * les gestes superflus, puis ce que coûte le temps. Un joueur qui réfléchit
+ * longtemps mais joue juste finit donc devant un joueur rapide et brouillon —
+ * c'est la hiérarchie qu'un jeu de réflexion doit récompenser.
+ *
+ * Le score ne descend jamais sous 100 : une grille finie vaut toujours mieux
+ * qu'une grille abandonnée, et un barème qui rendrait zéro pour une victoire
+ * lente serait vexant sans être informatif.
+ */
+const BAREME = Object.freeze({
+  SOCLE: 1000,
+  PAR_GESTE_SUPERFLU: 25,
+  PAR_SECONDE: 2,
+  PLANCHER: 100,
+});
+
+function calculerScore({ drags, minDrags, secondes }) {
+  const superflus = Math.max(0, drags - minDrags);
+  const brut = BAREME.SOCLE
+    - superflus * BAREME.PAR_GESTE_SUPERFLU
+    - Math.round(secondes) * BAREME.PAR_SECONDE;
+  return Math.max(BAREME.PLANCHER, brut);
+}
+
+/**
+ * Enregistre un score. Un joueur ne garde que son MEILLEUR score du jour :
+ * rejouer doit pouvoir améliorer, jamais dégrader.
+ */
+function enregistrerScore({ score, drags, secondes, date = jour() }) {
+  const data = lire();
+  const table = (data.scores[date] ||= []);
+  const moi = auteur();
+  const existant = table.find((e) => e.auteur === moi);
+  if (existant) {
+    if (score <= existant.score) return { ameliore: false, entree: existant };
+    Object.assign(existant, { score, drags, secondes, a: Date.now() });
+  } else {
+    table.push({ auteur: moi, score, drags, secondes, a: Date.now() });
+  }
+  ecrire(data);
+  track('daily_puzzle_scored', { score, drags, secondes });
+  return { ameliore: true, entree: table.find((e) => e.auteur === moi) };
+}
+
+/**
+ * Classement du jour, du meilleur au moins bon. À score égal, celui qui a joué
+ * en premier passe devant : deux joueurs qui font la même partie ne peuvent pas
+ * être départagés autrement sans inventer un critère.
+ */
+function classement(date = jour()) {
+  const table = [...(lire().scores[date] || [])];
+  table.sort((a, b) => b.score - a.score || a.a - b.a);
+  return table.map((e, i) => ({ ...e, rang: i + 1, moi: e.auteur === auteur() }));
+}
+
+/** A-t-on déjà joué le puzzle d'aujourd'hui ? */
+function dejaJoue(date = jour()) {
+  return classement(date).some((e) => e.moi);
+}
+
+/** Remet la file et les scores à zéro — panneau QA. */
+function reinitialiser() {
+  ecrire(vide());
+}
+
+return { auteur, proposer, duJour, calculerScore, enregistrerScore, classement, dejaJoue, reinitialiser, propositions, BAREME };
+})();
+
 const __m_api = (() => {
 /**
  * APIClient — équivalent de Scripts/Backend/APIClient.cs (doc §4)
@@ -3538,6 +3850,7 @@ const __m_api = (() => {
 
 const store = __m_save;
 const levels = __m_levelStore;
+const dailyPuzzle = __m_dailyPuzzle;
 
 /**
  * Niveau global du joueur, dérivé de l'XP. Palier fixe de 100 XP : simple à
@@ -3577,6 +3890,45 @@ async function getProfile() {
  */
 async function getLevel(n) {
   return levels.getLevel(n);
+}
+
+// ---------------------------------------------------------------------------
+// Puzzle du jour — grilles proposées par les joueurs
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /api/daily-puzzle
+ *
+ * Dépose une grille dans la file des propositions. Le niveau doit avoir été
+ * VÉRIFIÉ par l'appelant : c'est l'éditeur qui passe le solveur, et lui seul
+ * sait si la grille tient debout.
+ */
+async function submitDailyPuzzle(niveau, titre) {
+  return dailyPuzzle.proposer(niveau, titre);
+}
+
+/** GET /api/daily-puzzle — la grille du jour, ou null si la file est vide. */
+async function getDailyPuzzle() {
+  return dailyPuzzle.duJour();
+}
+
+/**
+ * POST /api/daily-puzzle/score
+ *
+ * Le score est recalculé ICI, à partir des chiffres de la partie, et non repris
+ * de ce que l'appelant annonce. Le jour où ce corps deviendra un `fetch`, c'est
+ * le serveur qui le calculera pour la même raison : un score que le client
+ * fournit est un score qu'il choisit.
+ */
+async function submitDailyScore({ drags, minDrags, secondes }) {
+  const score = dailyPuzzle.calculerScore({ drags, minDrags, secondes });
+  const { ameliore } = dailyPuzzle.enregistrerScore({ score, drags, secondes });
+  return { score, ameliore, classement: dailyPuzzle.classement() };
+}
+
+/** GET /api/daily-puzzle/leaderboard */
+async function getDailyLeaderboard() {
+  return dailyPuzzle.classement();
 }
 
 /**
@@ -3620,7 +3972,7 @@ async function completeLevel(n, { score, stars, failed }) {
   return { stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems: [] };
 }
 
-return { niveauJoueur, getProfile, getLevel, completeLevel, XP_PAR_NIVEAU };
+return { niveauJoueur, getProfile, getLevel, submitDailyPuzzle, getDailyPuzzle, submitDailyScore, getDailyLeaderboard, completeLevel, XP_PAR_NIVEAU };
 })();
 
 const __m_boardView = (() => {
@@ -4384,6 +4736,7 @@ const __m_editor = (() => {
 const { SHAPES, COLORS, KIND } = __m_block;
 const { Board } = __m_board;
 const { resoudre } = __m_solver;
+const { t } = __m_i18n;
 
 const COTES = ['top', 'right', 'bottom', 'left'];
 /**
@@ -4409,6 +4762,7 @@ const el = (id) => document.getElementById(id);
 let etat = null;
 let choix = { shape: 0, color: 0, nature: 0, verrouCount: 2 };
 let onTester = null;
+let onSoumettre = null;
 
 const vide = (W, H) => ({
   W, H,
@@ -4421,8 +4775,9 @@ const vide = (W, H) => ({
   },
 });
 
-function init({ onTest }) {
+function init({ onTest, onSubmit }) {
   onTester = onTest;
+  onSoumettre = onSubmit;
   etat = vide(6, 7);
   construirePalettes();
   brancherBoutons();
@@ -4642,6 +4997,32 @@ function brancherBoutons() {
       return;
     }
     onTester?.(niveau);
+  };
+
+  /**
+   * Proposer la grille comme puzzle du jour.
+   *
+   * On repasse le solveur ICI plutôt que de se fier au bouton « Vérifier » :
+   * rien n'oblige le joueur à l'avoir cliqué, et une grille insoluble envoyée à
+   * tout le monde est le seul défaut que ce dépôt ne doit jamais laisser
+   * passer. Une recherche interrompue vaut refus — dans le doute, on ne
+   * propose pas.
+   */
+  el('ed-submit').onclick = () => {
+    const niveau = versNiveau();
+    if (!niveau.gates.length || !niveau.objective.target) {
+      majEtat(t('editor.submit.unsolved'), 'ko');
+      return;
+    }
+    const r = resoudre(new Board({ ...niveau, moveLimit: 9999, timeLimit: 9999 }));
+    if (!r.resoluble) { majEtat(t('editor.submit.unsolved'), 'ko'); return; }
+
+    const titre = prompt(t('editor.submit.ask'), '');
+    if (titre === null) return;
+    // Le nombre de sorties de la solution trouvée sert de repère de gestes :
+    // sans solution de référence, c'est la seule mesure honnête dont on dispose.
+    onSoumettre?.({ ...niveau, minDrags: Math.max(1, r.ordre.length) }, titre.trim());
+    majEtat(t('editor.submit.ok'), 'ok');
   };
 
   el('ed-export').onclick = async () => {
@@ -4884,7 +5265,11 @@ function labelFor(level) { return objectiveLabel(level); }
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, '0')}`;
 
 function mount(level) {
-  el('hud-level').textContent = level.number;
+  // Le puzzle du jour n'a pas de numéro : il porte son titre. « Niveau 0 » se
+  // lisait comme un bug, et c'en était presque un.
+  const duJour = !level.number;
+  el('hud-level-mot').hidden = duJour;
+  el('hud-level').textContent = duJour ? (level.realm || t('daily.title')) : level.number;
   dernierRestant = null;
 }
 
@@ -5019,6 +5404,7 @@ const { AdManager, PLACEMENT } = __m_adManager;
 const currency = __m_currency;
 const failOffer = __m_failOffer;
 const daily = __m_daily;
+const dailyPuzzle = __m_dailyPuzzle;
 const { track, recent, subscribe } = __m_events;
 const { AudioManager } = __m_audioManager;
 
@@ -5028,6 +5414,8 @@ let view = null;
 let input = null;
 let board = null;
 let level = null;
+/** Proposition en cours quand on joue le puzzle du jour, sinon null. */
+let puzzleDuJour = null;
 let chrono = null;
 let busy = false;
 let offreUtilisee = false;   // l'offre de continuation ne vaut qu'une fois par tentative
@@ -5070,6 +5458,7 @@ async function showMenu() {
   // « 121 / 160 » plutôt que « 121 » : seul, le chiffre ne dit pas où l'on en
   // est — il se lisait comme un score, alors qu'il mesure un avancement.
   el('menu-progress').textContent = `${p.currentLevel}/${levels.totalLevels()}`;
+  await majMenuPuzzleDuJour();
   majCadeauDuJour();
   majPastilleSon();
   theme.appliquer(p.currentLevel); // le menu prend la couleur d'où en est le joueur
@@ -5279,6 +5668,34 @@ async function finishLevel() {
   }
 
   const stars = board.stars();
+
+  /**
+   * Le puzzle du jour ne suit pas le circuit de la progression : il ne débloque
+   * rien, ne verse pas de pièces, et se solde par un score et un rang. Le
+   * mélanger au reste ferait avancer la carte au gré de grilles que le joueur
+   * a dessinées lui-même.
+   */
+  if (puzzleDuJour) {
+    const propose = puzzleDuJour;
+    puzzleDuJour = null;
+    if (won) {
+      const { score } = await api.submitDailyScore({
+        drags: board.dragsUsed(),
+        minDrags: level.minDrags || board.dragsUsed(),
+        secondes: duree,
+      });
+      track('daily_puzzle_completed', { id: propose.id, score, duree });
+      await majMenuPuzzleDuJour();
+      showMenu();
+      montrerClassement(score);
+    } else {
+      showMenu();
+    }
+    busy = false;
+    input.locked = false;
+    return;
+  }
+
   const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won });
 
   // Une interstitielle à la fin d'un niveau, si et seulement si la politique
@@ -5536,6 +5953,81 @@ function construireChoixLangue() {
   hote.replaceChildren(select);
 }
 
+/**
+ * L'éditeur. Il vivait dans le panneau QA, avec les boutons « Gagner » et
+ * « Perdre » : un joueur ne l'y trouvait jamais. Il est maintenant dans le menu
+ * utilisateur, à côté des réglages, où l'on va quand on cherche à faire quelque
+ * chose plutôt qu'à jouer.
+ */
+el('btn-editor').onclick = () => {
+  ouvrirPanneau(false);
+  editor.init({
+    onTest: (niveau) => { level = niveau; startLevel(); },
+    onSubmit: async (niveau, titre) => {
+      const { id } = await api.submitDailyPuzzle(niveau, titre);
+      track('daily_puzzle_submitted_ui', { id });
+      majMenuPuzzleDuJour();
+    },
+  });
+  screens.show('editor');
+  majBanniere('editor');
+};
+
+// ---------------------------------------------------------------------------
+// Puzzle du jour
+// ---------------------------------------------------------------------------
+
+/**
+ * Le bouton du menu. Il ne s'affiche QUE si une grille a été proposée : une
+ * entrée qui mène à « rien pour l'instant » se lit comme une panne, alors que
+ * son absence ne se remarque pas.
+ */
+async function majMenuPuzzleDuJour() {
+  const bouton = el('btn-daily-puzzle');
+  const propose = await api.getDailyPuzzle();
+  bouton.hidden = !propose;
+  if (!propose) return;
+  const mien = dailyPuzzle.classement().find((e) => e.moi);
+  el('daily-puzzle-sub').textContent = mien
+    ? t('daily.done', { score: mien.score })
+    : (propose.titre || t('daily.play'));
+}
+
+el('btn-daily-puzzle').onclick = async () => {
+  const propose = await api.getDailyPuzzle();
+  if (!propose) return;
+  puzzleDuJour = propose;
+  // Le puzzle du jour se joue au chrono : les limites du niveau proposé sont
+  // celles que l'éditeur lui a données, on ne les resserre pas.
+  level = { ...propose.niveau, levelId: `daily_${propose.id}`, number: 0,
+            realm: propose.titre || t('daily.title'), difficulty: '' };
+  startLevel();
+  track('daily_puzzle_started', { id: propose.id });
+};
+
+el('btn-rank-close').onclick = () => { el('overlay-rank').hidden = true; };
+
+/** Affiche le classement du jour, avec sa place mise en avant. */
+function montrerClassement(monScore) {
+  const liste = dailyPuzzle.classement();
+  const moi = liste.find((e) => e.moi);
+  el('rank-mine').textContent = moi
+    ? `${t('daily.score', { score: monScore ?? moi.score })} · ${t('daily.rank', { rang: moi.rang, total: liste.length })}`
+    : '';
+  el('rank-list').replaceChildren(...liste.slice(0, 10).map((e) => {
+    const li = document.createElement('li');
+    if (e.moi) li.className = 'moi';
+    const qui = document.createElement('span');
+    qui.textContent = e.moi ? t('daily.rank.me') : e.auteur;
+    const pts = document.createElement('b');
+    pts.textContent = e.score;
+    li.append(qui, pts);
+    return li;
+  }));
+  if (!liste.length) el('rank-list').textContent = t('daily.rank.empty');
+  el('overlay-rank').hidden = false;
+}
+
 el('opt-noads').onchange = (ev) => {
   currency.definirSuppressionPubs(ev.target.checked);
   majBanniere(screens.current());
@@ -5664,15 +6156,6 @@ function majJournal() {
   }));
 }
 subscribe(() => majJournal());
-
-el('debug-editor').onclick = () => {
-  el('debug-panel').hidden = true;
-  editor.init({
-    onTest: (niveau) => { level = niveau; startLevel(); },
-  });
-  screens.show('editor');
-  majBanniere('editor');
-};
 
 el('debug-unlock').onclick = () => {
   const d = store.load();

@@ -28,6 +28,7 @@ import { AdManager, PLACEMENT } from './monetization/adManager.js';
 import * as currency from './monetization/currency.js';
 import * as failOffer from './monetization/failOffer.js';
 import * as daily from './meta/daily.js';
+import * as dailyPuzzle from './meta/dailyPuzzle.js';
 import { track, recent, subscribe } from './data/events.js';
 import { AudioManager } from './audio/audioManager.js';
 
@@ -37,6 +38,8 @@ let view = null;
 let input = null;
 let board = null;
 let level = null;
+/** Proposition en cours quand on joue le puzzle du jour, sinon null. */
+let puzzleDuJour = null;
 let chrono = null;
 let busy = false;
 let offreUtilisee = false;   // l'offre de continuation ne vaut qu'une fois par tentative
@@ -79,6 +82,7 @@ async function showMenu() {
   // « 121 / 160 » plutôt que « 121 » : seul, le chiffre ne dit pas où l'on en
   // est — il se lisait comme un score, alors qu'il mesure un avancement.
   el('menu-progress').textContent = `${p.currentLevel}/${levels.totalLevels()}`;
+  await majMenuPuzzleDuJour();
   majCadeauDuJour();
   majPastilleSon();
   theme.appliquer(p.currentLevel); // le menu prend la couleur d'où en est le joueur
@@ -288,6 +292,34 @@ async function finishLevel() {
   }
 
   const stars = board.stars();
+
+  /**
+   * Le puzzle du jour ne suit pas le circuit de la progression : il ne débloque
+   * rien, ne verse pas de pièces, et se solde par un score et un rang. Le
+   * mélanger au reste ferait avancer la carte au gré de grilles que le joueur
+   * a dessinées lui-même.
+   */
+  if (puzzleDuJour) {
+    const propose = puzzleDuJour;
+    puzzleDuJour = null;
+    if (won) {
+      const { score } = await api.submitDailyScore({
+        drags: board.dragsUsed(),
+        minDrags: level.minDrags || board.dragsUsed(),
+        secondes: duree,
+      });
+      track('daily_puzzle_completed', { id: propose.id, score, duree });
+      await majMenuPuzzleDuJour();
+      showMenu();
+      montrerClassement(score);
+    } else {
+      showMenu();
+    }
+    busy = false;
+    input.locked = false;
+    return;
+  }
+
   const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won });
 
   // Une interstitielle à la fin d'un niveau, si et seulement si la politique
@@ -545,6 +577,81 @@ function construireChoixLangue() {
   hote.replaceChildren(select);
 }
 
+/**
+ * L'éditeur. Il vivait dans le panneau QA, avec les boutons « Gagner » et
+ * « Perdre » : un joueur ne l'y trouvait jamais. Il est maintenant dans le menu
+ * utilisateur, à côté des réglages, où l'on va quand on cherche à faire quelque
+ * chose plutôt qu'à jouer.
+ */
+el('btn-editor').onclick = () => {
+  ouvrirPanneau(false);
+  editor.init({
+    onTest: (niveau) => { level = niveau; startLevel(); },
+    onSubmit: async (niveau, titre) => {
+      const { id } = await api.submitDailyPuzzle(niveau, titre);
+      track('daily_puzzle_submitted_ui', { id });
+      majMenuPuzzleDuJour();
+    },
+  });
+  screens.show('editor');
+  majBanniere('editor');
+};
+
+// ---------------------------------------------------------------------------
+// Puzzle du jour
+// ---------------------------------------------------------------------------
+
+/**
+ * Le bouton du menu. Il ne s'affiche QUE si une grille a été proposée : une
+ * entrée qui mène à « rien pour l'instant » se lit comme une panne, alors que
+ * son absence ne se remarque pas.
+ */
+async function majMenuPuzzleDuJour() {
+  const bouton = el('btn-daily-puzzle');
+  const propose = await api.getDailyPuzzle();
+  bouton.hidden = !propose;
+  if (!propose) return;
+  const mien = dailyPuzzle.classement().find((e) => e.moi);
+  el('daily-puzzle-sub').textContent = mien
+    ? t('daily.done', { score: mien.score })
+    : (propose.titre || t('daily.play'));
+}
+
+el('btn-daily-puzzle').onclick = async () => {
+  const propose = await api.getDailyPuzzle();
+  if (!propose) return;
+  puzzleDuJour = propose;
+  // Le puzzle du jour se joue au chrono : les limites du niveau proposé sont
+  // celles que l'éditeur lui a données, on ne les resserre pas.
+  level = { ...propose.niveau, levelId: `daily_${propose.id}`, number: 0,
+            realm: propose.titre || t('daily.title'), difficulty: '' };
+  startLevel();
+  track('daily_puzzle_started', { id: propose.id });
+};
+
+el('btn-rank-close').onclick = () => { el('overlay-rank').hidden = true; };
+
+/** Affiche le classement du jour, avec sa place mise en avant. */
+function montrerClassement(monScore) {
+  const liste = dailyPuzzle.classement();
+  const moi = liste.find((e) => e.moi);
+  el('rank-mine').textContent = moi
+    ? `${t('daily.score', { score: monScore ?? moi.score })} · ${t('daily.rank', { rang: moi.rang, total: liste.length })}`
+    : '';
+  el('rank-list').replaceChildren(...liste.slice(0, 10).map((e) => {
+    const li = document.createElement('li');
+    if (e.moi) li.className = 'moi';
+    const qui = document.createElement('span');
+    qui.textContent = e.moi ? t('daily.rank.me') : e.auteur;
+    const pts = document.createElement('b');
+    pts.textContent = e.score;
+    li.append(qui, pts);
+    return li;
+  }));
+  if (!liste.length) el('rank-list').textContent = t('daily.rank.empty');
+  el('overlay-rank').hidden = false;
+}
+
 el('opt-noads').onchange = (ev) => {
   currency.definirSuppressionPubs(ev.target.checked);
   majBanniere(screens.current());
@@ -673,15 +780,6 @@ function majJournal() {
   }));
 }
 subscribe(() => majJournal());
-
-el('debug-editor').onclick = () => {
-  el('debug-panel').hidden = true;
-  editor.init({
-    onTest: (niveau) => { level = niveau; startLevel(); },
-  });
-  screens.show('editor');
-  majBanniere('editor');
-};
 
 el('debug-unlock').onclick = () => {
   const d = store.load();

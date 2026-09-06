@@ -10,6 +10,7 @@
 
 import * as store from './save.js';
 import * as levels from './levelStore.js';
+import * as dailyPuzzle from '../meta/dailyPuzzle.js';
 
 /**
  * Niveau global du joueur, dérivé de l'XP. Palier fixe de 100 XP : simple à
@@ -49,6 +50,45 @@ export async function getProfile() {
  */
 export async function getLevel(n) {
   return levels.getLevel(n);
+}
+
+// ---------------------------------------------------------------------------
+// Puzzle du jour — grilles proposées par les joueurs
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /api/daily-puzzle
+ *
+ * Dépose une grille dans la file des propositions. Le niveau doit avoir été
+ * VÉRIFIÉ par l'appelant : c'est l'éditeur qui passe le solveur, et lui seul
+ * sait si la grille tient debout.
+ */
+export async function submitDailyPuzzle(niveau, titre) {
+  return dailyPuzzle.proposer(niveau, titre);
+}
+
+/** GET /api/daily-puzzle — la grille du jour, ou null si la file est vide. */
+export async function getDailyPuzzle() {
+  return dailyPuzzle.duJour();
+}
+
+/**
+ * POST /api/daily-puzzle/score
+ *
+ * Le score est recalculé ICI, à partir des chiffres de la partie, et non repris
+ * de ce que l'appelant annonce. Le jour où ce corps deviendra un `fetch`, c'est
+ * le serveur qui le calculera pour la même raison : un score que le client
+ * fournit est un score qu'il choisit.
+ */
+export async function submitDailyScore({ drags, minDrags, secondes }) {
+  const score = dailyPuzzle.calculerScore({ drags, minDrags, secondes });
+  const { ameliore } = dailyPuzzle.enregistrerScore({ score, drags, secondes });
+  return { score, ameliore, classement: dailyPuzzle.classement() };
+}
+
+/** GET /api/daily-puzzle/leaderboard */
+export async function getDailyLeaderboard() {
+  return dailyPuzzle.classement();
 }
 
 /**
