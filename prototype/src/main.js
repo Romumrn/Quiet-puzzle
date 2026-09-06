@@ -631,6 +631,77 @@ el('btn-daily-puzzle').onclick = async () => {
 
 el('btn-rank-close').onclick = () => { el('overlay-rank').hidden = true; };
 
+// ---------------------------------------------------------------------------
+// Boutique de pièces
+// ---------------------------------------------------------------------------
+
+/**
+ * Deux façons d'obtenir des pièces, et il faut les présenter dans cet ordre :
+ * la gratuite d'abord. Mettre les packs en tête ferait passer la pub
+ * récompensée pour un lot de consolation, alors que c'est elle qui dépanne le
+ * joueur au moment où il en a besoin.
+ */
+function majBoutique() {
+  el('shop-solde').textContent = currency.solde();
+
+  const restantes = currency.pubsRestantes();
+  const bouton = el('btn-shop-ad');
+  bouton.disabled = restantes <= 0;
+  el('shop-ad-label').textContent = t('shop.ad', { n: currency.PUB_RECOMPENSE.PIECES });
+  el('shop-ad-note').textContent = restantes > 0
+    ? t('shop.ad.left', { n: restantes, total: currency.PUB_RECOMPENSE.PAR_JOUR })
+    : t('shop.ad.none');
+
+  el('shop-packs').replaceChildren(...currency.PACKS.map((pack) => {
+    const carte = document.createElement('button');
+    carte.className = 'shop-pack';
+    const total = Math.round(pack.pieces * (1 + pack.bonus / 100));
+
+    const montant = document.createElement('b');
+    montant.textContent = total;
+    const bonus = document.createElement('small');
+    bonus.className = 'shop-pack-bonus';
+    bonus.textContent = pack.bonus ? t('shop.pack.bonus', { n: pack.bonus }) : '';
+    const prix = document.createElement('span');
+    prix.className = 'shop-pack-prix';
+    prix.textContent = pack.prix;
+
+    carte.append(montant, bonus, prix);
+    carte.onclick = () => {
+      const verse = currency.acheterPack(pack.id);
+      majBoutique();
+      majMenu();
+      screens.toast(t('shop.bought', { n: verse }));
+    };
+    return carte;
+  }));
+}
+
+/** Rafraîchit les compteurs du menu sans le reconstruire entièrement. */
+function majMenu() {
+  el('menu-coins').textContent = currency.solde();
+}
+
+el('btn-shop').onclick = () => {
+  majBoutique();
+  el('overlay-shop').hidden = false;
+  track('shop_opened', { solde: currency.solde() });
+};
+
+el('btn-shop-close').onclick = () => { el('overlay-shop').hidden = true; };
+
+el('btn-shop-ad').onclick = async () => {
+  if (currency.pubsRestantes() <= 0) return;
+  const vue = await ads.montrerRecompensee(PLACEMENT.RECOMPENSE_PIECES);
+  if (!vue) { screens.toast(t('shop.ad.failed')); return; }
+  // Le crédit passe par `currency` : c'est lui qui tient le compteur du jour,
+  // et le verser ici le contournerait.
+  const gagne = currency.crediterPub();
+  majBoutique();
+  majMenu();
+  screens.toast(t('shop.earned', { n: gagne }));
+};
+
 /** Affiche le classement du jour, avec sa place mise en avant. */
 function montrerClassement(monScore) {
   const liste = dailyPuzzle.classement();

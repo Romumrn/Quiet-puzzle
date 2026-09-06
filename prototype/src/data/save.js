@@ -30,6 +30,11 @@ const EMPTY = () => ({
    * pour qui ne peut pas s'appuyer sur la teinte.
    */
   glyphes: false,
+  /** Jeton d'auteur pour le puzzle du jour (voir meta/dailyPuzzle.js). */
+  auteurId: null,
+  /** Visionnages de pubs « pièces » : le jour en cours et leur nombre. */
+  pubsPiecesJour: null,
+  pubsPiecesCompte: 0,
   streak: 0,         // jours consécutifs joués
   lastPlayDay: null, // 'YYYY-MM-DD'
   dailyClaimedOn: null,

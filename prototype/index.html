@@ -21,7 +21,7 @@
       <p class="tagline" data-i18n="menu.baseline">Videz la grille par les portes de couleur</p>
       <div class="menu-stats">
         <div class="stat"><b id="menu-stars">0</b><small data-i18n="menu.stars">étoiles</small></div>
-        <div class="stat"><b id="menu-coins">0</b><small data-i18n="menu.coins">pièces</small></div>
+        <button class="stat stat-action" id="btn-shop" data-i18n-aria="shop.title"><b id="menu-coins">0</b><small data-i18n="menu.coins">pièces</small></button>
         <div class="stat"><b id="menu-progress">1</b><small data-i18n="menu.level">niveaux</small></div>
       </div>
       <button class="btn btn-daily" id="btn-daily" hidden>
@@ -220,6 +220,26 @@
           <button class="btn btn-ghost" id="btn-result-map" data-i18n="result.map">Carte</button>
           <button class="btn btn-ghost" id="btn-result-retry" data-i18n="result.retry">Rejouer</button>
           <button class="btn btn-primary" id="btn-result-next" data-i18n="result.next">Suivant</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ BOUTIQUE DE PIECES ============ -->
+    <div class="overlay" id="overlay-shop" hidden>
+      <div class="result-card shop-card">
+        <h2 data-i18n="shop.title">Pièces</h2>
+        <p class="shop-solde"><b id="shop-solde">0</b> <span data-i18n="menu.coins">pièces</span></p>
+
+        <button class="btn btn-reward shop-ad" id="btn-shop-ad">
+          <span>▶</span> <span id="shop-ad-label"></span>
+        </button>
+        <p class="user-note" id="shop-ad-note"></p>
+
+        <div class="shop-packs" id="shop-packs"></div>
+        <p class="user-note" data-i18n="shop.simulated">Achats simulés — aucun système de paiement n’est branché.</p>
+
+        <div class="result-actions">
+          <button class="btn btn-primary" id="btn-shop-close" data-i18n="ad.close">Fermer</button>
         </div>
       </div>
     </div>

@@ -651,6 +651,40 @@ body { display: grid; place-items: center; }
 }
 .langue-select:hover, .langue-select:focus-visible { border-color: var(--accent); outline: none; }
 
+/* La tuile « pièces » du menu est un bouton : elle ouvre la boutique. Elle garde
+   l'allure des deux autres tuiles, avec juste ce qu'il faut pour qu'on devine
+   qu'elle répond — une tuile qui réagit sans le montrer ne se clique jamais. */
+.stat-action {
+  border: 1px solid var(--line); cursor: pointer;
+  font: inherit; text-align: center;
+  transition: border-color 0.16s ease, transform 0.14s ease;
+}
+.stat-action:hover { border-color: var(--accent); }
+.stat-action:active { transform: scale(0.97); }
+
+/* Boutique. */
+.shop-card { max-width: 340px; }
+.shop-solde { margin: 4px 0 14px; color: var(--ink-soft); font: 400 15px var(--font-ui); }
+.shop-solde b { color: var(--ink); font-size: 22px; font-variant-numeric: tabular-nums; }
+.shop-ad { width: 100%; }
+.shop-ad[disabled] { opacity: 0.45; pointer-events: none; }
+
+.shop-packs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 10px; }
+.shop-pack {
+  display: grid; gap: 2px; padding: 12px 8px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 16px;
+  color: var(--ink); font: inherit; cursor: pointer;
+  transition: border-color 0.16s ease, transform 0.14s ease;
+}
+.shop-pack:hover { border-color: var(--accent); }
+.shop-pack:active { transform: scale(0.97); }
+.shop-pack b { font: 400 20px var(--font-ui); font-variant-numeric: tabular-nums; }
+.shop-pack-bonus { color: var(--accent-deep); font-size: 11px; min-height: 13px; }
+.shop-pack-prix {
+  margin-top: 4px; padding: 3px 0; border-radius: 999px;
+  background: var(--accent-wash); color: var(--accent-deep); font-size: 13px;
+}
+
 /* Puzzle du jour : l'entrée du menu porte son titre en second niveau. */
 #btn-daily-puzzle { display: grid; gap: 2px; line-height: 1.25; }
 #btn-daily-puzzle small { font-size: 12px; opacity: 0.72; font-weight: 400; }

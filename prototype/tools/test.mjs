@@ -492,6 +492,55 @@ console.log('\n== Cadencement publicitaire ==');
   check('bannière interdite avec l\'achat sans-pub', p.peutAfficherBanniere('menu', true) === false);
 }
 
+console.log('\n== Boutique de pièces ==');
+{
+  const currency = await import('../src/monetization/currency.js');
+  const store = await import('../src/data/save.js');
+  store.reset();
+
+  const depart = currency.solde();
+  const gagne = currency.crediterPub();
+  check('une pub récompensée verse le montant annoncé',
+    gagne === currency.PUB_RECOMPENSE.PIECES && currency.solde() === depart + gagne,
+    `${gagne} pièces`);
+  check('elle entame le quota du jour',
+    currency.pubsRestantes() === currency.PUB_RECOMPENSE.PAR_JOUR - 1,
+    currency.pubsRestantes() + ' restantes');
+
+  // Le quota protège l'économie : sans lui, une réserve infinie de pièces
+  // gratuites rendrait tous les bonus indolores.
+  while (currency.pubsRestantes() > 0) currency.crediterPub();
+  const avant = currency.solde();
+  const refuse = currency.crediterPub();
+  check('le quota épuisé, elle ne verse plus rien',
+    refuse === 0 && currency.solde() === avant);
+
+  const pack = currency.PACKS[1];
+  const soldeAvant = currency.solde();
+  const verse = currency.acheterPack(pack.id);
+  const attendu = Math.round(pack.pieces * (1 + pack.bonus / 100));
+  check('un pack verse ses pièces, bonus compris',
+    verse === attendu && currency.solde() === soldeAvant + attendu,
+    `${verse} pour ${pack.pieces} +${pack.bonus} %`);
+
+  const avantInconnu = currency.solde();
+  check('un identifiant de pack inconnu ne verse rien',
+    currency.acheterPack('com.puzzle.coins.inexistant') === 0
+    && currency.solde() === avantInconnu);
+
+  // Les paliers doivent rester intéressants dans l'ordre : payer plus cher
+  // pour une pièce plus chère serait un piège, pas une offre.
+  const parEuro = currency.PACKS.map((p) => {
+    const total = p.pieces * (1 + p.bonus / 100);
+    return total / Number(p.prix.replace(',', '.').replace(/[^\d.]/g, ''));
+  });
+  const croissant = parEuro.every((v, i) => i === 0 || v > parEuro[i - 1]);
+  check('chaque pack offre plus de pièces par euro que le précédent',
+    croissant, parEuro.map((v) => Math.round(v)).join(' < '));
+
+  store.reset();
+}
+
 console.log('\n== Indices ==');
 {
   let fiables = 0, absents = 0;

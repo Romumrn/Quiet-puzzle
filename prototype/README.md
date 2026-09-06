@@ -113,6 +113,28 @@ l'économie. À l'ancien barème, un joueur ordinaire payait un indice tous les
 deux niveaux sans y penser, et un bonus qu'on peut toujours s'offrir ne se
 choisit plus.
 
+## Boutique de pièces
+
+La tuile « pièces » du menu ouvre la boutique. Deux façons d'en obtenir, et
+l'ordre compte : **la gratuite d'abord**. Mettre les packs en tête ferait passer
+la pub récompensée pour un lot de consolation, alors que c'est elle qui dépanne
+le joueur au moment où il en a besoin.
+
+- **Pub récompensée** : 25 pièces, cinq fois par jour. La limite quotidienne
+  n'est pas là pour brider le joueur mais pour protéger l'économie — une réserve
+  infinie de pièces gratuites rend tous les bonus indolores, et un bonus
+  indolore ne se choisit plus.
+- **Packs** : 500 à 16 000 pièces, avec un bonus croissant. Les achats sont
+  **simulés**, et l'écran le dit : aucun système de paiement n'est branché. Les
+  identifiants suivent la nomenclature des stores (`com.puzzle.coins.*`), et
+  l'évènement `iap_purchased` est déjà journalisé sous sa forme définitive —
+  le tunnel est mesurable avant d'être réel.
+
+`tools/test.mjs` vérifie le quota, les montants versés, le refus d'un
+identifiant inconnu, et que **chaque palier offre plus de pièces par euro que le
+précédent** : payer plus cher pour une pièce plus chère serait un piège, pas une
+offre.
+
 ## Monétisation
 
 Toute la plomberie publicitaire est en place, prête à recevoir AppLovin MAX

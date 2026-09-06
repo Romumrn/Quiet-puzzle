@@ -26,6 +26,7 @@ export const PLACEMENT = Object.freeze({
   RECOMPENSE_MARTEAU: 'rewarded_hammer',
   RECOMPENSE_TEMPS: 'rewarded_extra_time',
   RECOMPENSE_ANNULER: 'rewarded_undo',
+  RECOMPENSE_PIECES: 'rewarded_coin_shop',
   BANNIERE: 'banner_menu',
 });
 
