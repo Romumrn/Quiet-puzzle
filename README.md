@@ -52,6 +52,12 @@ rend aux six couleurs leur symbole pour qui ne peut pas s'y fier.
 
 ## Le dépôt
 
+**[AGENTS.md](AGENTS.md)** est la carte du projet : « je veux changer X, je
+touche quoi ? », les invariants à ne pas casser, et les pièges déjà rencontrés.
+Elle est faite pour qu'on n'ait pas à parcourir le code pour savoir où aller —
+et un test vérifie que tout ce qu'elle désigne existe encore.
+
+
 Prototype web, sans dépendance ni build : HTML, CSS et JavaScript natifs.
 
 | Dossier | Contenu |

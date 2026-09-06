@@ -452,6 +452,37 @@ console.log('\n== Traduction ==');
   check('aucun texte n\'est écrit depuis le CSS', contenus.length === 0, contenus.join(', '));
 }
 
+console.log('\n== Carte du projet (AGENTS.md) ==');
+{
+  const { readFileSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const racine = new URL('../', import.meta.url).pathname;
+  const carte = readFileSync(join(racine, '..', 'AGENTS.md'), 'utf8');
+
+  /**
+   * Une carte qui ment coûte plus cher que pas de carte : elle envoie ouvrir un
+   * fichier qui n'existe plus, et il faut alors lire tout le code pour s'en
+   * rendre compte — exactement ce qu'elle prétend éviter.
+   */
+  const cites = [...carte.matchAll(/`((?:src|tools|styles)\/[\w./-]+|index\.html)`/g)]
+    .map((m) => m[1]);
+  const absents = [...new Set(cites)].filter((f) => !existsSync(join(racine, f)));
+  check('tous les fichiers cités par la carte existent',
+    absents.length === 0, absents.join(', ') || `${new Set(cites).size} fichiers`);
+
+  // Les symboles mis en avant sont les points d'entrée du travail : s'ils
+  // disparaissent, la carte envoie chercher ce qui n'est plus là.
+  const symboles = ['REALMS', 'PIECES_PAR_ETOILE', 'PALIERS_SERIE', 'THEMES',
+                    'EVENEMENTS', 'PACKS', 'PUB_RECOMPENSE', 'coutCapacite',
+                    'accepteDirection', 'peutSortirDeSaPorte'];
+  const sources = ['src/core/levels.js', 'src/core/block.js', 'src/core/board.js',
+                   'src/data/api.js', 'src/data/analytics.js', 'src/meta/daily.js',
+                   'src/meta/themes.js', 'src/monetization/currency.js']
+    .map((f) => readFileSync(join(racine, f), 'utf8')).join('\n');
+  const perdus = symboles.filter((sym) => !new RegExp(`\\b${sym}\\b`).test(sources));
+  check('les symboles qu\'elle désigne existent encore', perdus.length === 0, perdus.join(', '));
+}
+
 console.log('\n== Nomenclature des évènements ==');
 {
   const { EVENEMENTS, contexteNiveau } = await import('../src/data/analytics.js');
