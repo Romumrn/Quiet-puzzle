@@ -28,7 +28,7 @@
         <span class="daily-flame">🔥</span>
         <span class="daily-text">
           <b id="daily-title" data-i18n="menu.daily">Cadeau du jour</b>
-          <small id="daily-sub">Série de 1 jour</small>
+          <small id="daily-sub"></small>
         </span>
         <span class="daily-amount" id="daily-amount">+50</span>
       </button>
@@ -108,15 +108,15 @@
         </button>
         <button class="action" id="btn-hammer" title="Retire un bloc de votre choix">
           <span class="action-icon">🔨</span>
-          <span class="action-cost ad">Pub</span>
+          <span class="action-cost ad" data-i18n="ad.badge">Pub</span>
         </button>
         <button class="action" id="btn-time" title="Ajoute 30 secondes">
           <span class="action-icon">⏱</span>
-          <span class="action-cost ad">Pub</span>
+          <span class="action-cost ad" data-i18n="ad.badge">Pub</span>
         </button>
         <button class="action" id="btn-undo" title="Annule le dernier geste">
           <span class="action-icon">↶</span>
-          <span class="action-cost ad">Pub</span>
+          <span class="action-cost ad" data-i18n="ad.badge">Pub</span>
         </button>
         <button class="action action-plain" id="btn-restart" title="Recommencer le niveau">
           <span class="action-icon">↺</span>
@@ -199,11 +199,11 @@
       <div class="result-card">
         <h2 id="result-title" data-i18n="result.done">Niveau terminé</h2>
         <div class="stars stars-lg" id="result-stars"></div>
-        <p class="result-score"><span id="result-score">0</span><small>glissés</small></p>
+        <p class="result-score"><span id="result-score">0</span><small data-i18n="result.drags">glissés</small></p>
         <p class="result-near" id="result-near" hidden></p>
         <p class="result-reward" id="result-reward"></p>
         <button class="btn btn-reward" id="btn-double" hidden>
-          <span>▶</span> Doubler les pièces
+          <span>▶</span> <span data-i18n="result.double">Doubler les pièces</span>
         </button>
         <div class="result-actions">
           <button class="btn btn-ghost" id="btn-result-map" data-i18n="result.map">Carte</button>
@@ -259,11 +259,11 @@
     <!-- ============ OFFRE DE CONTINUATION ============ -->
     <div class="overlay" id="overlay-offer" hidden>
       <div class="offer-card">
-        <h2 id="offer-reason">Le temps est écoulé</h2>
+        <h2 id="offer-reason" data-i18n="offer.timeout">Le temps est écoulé</h2>
         <p class="offer-lead"><span data-i18n="offer.lead">Il ne reste que</span>
           <b id="offer-remaining">0</b> <span data-i18n="offer.lead.end">blocs à sortir.</span></p>
         <p class="offer-bonus"><span data-i18n="offer.continue">Continuez avec</span>
-          <b id="offer-bonus">+30 s et +3 coups</b></p>
+          <b id="offer-bonus"></b></p>
         <div class="offer-actions">
           <button class="btn btn-reward btn-lg" id="btn-offer-ad"><span>▶</span> Regarder une pub</button>
           <button class="btn btn-ghost btn-lg" id="btn-offer-coins">
@@ -277,18 +277,18 @@
     <!-- ============ PUBLICITE SIMULEE ============ -->
     <div class="overlay ad-overlay" id="overlay-ad" hidden>
       <div class="ad-card">
-        <span class="ad-tag">Emplacement publicitaire</span>
-        <h2 class="ad-title">Publicité</h2>
+        <span class="ad-tag" data-i18n="ad.tag">Emplacement publicitaire</span>
+        <h2 class="ad-title" data-i18n="ad.title">Publicité</h2>
         <div class="ad-visual"><span class="ad-count">5</span></div>
         <p class="ad-note"></p>
-        <button class="btn btn-primary ad-close" hidden>Fermer</button>
+        <button class="btn btn-primary ad-close" data-i18n="ad.close" hidden>Fermer</button>
       </div>
     </div>
 
     <!-- ============ BANNIERE ============ -->
     <div class="banner" id="banner" hidden>
-      <span class="banner-tag">Pub</span>
-      <span class="banner-text">Emplacement bannière 320×50</span>
+      <span class="banner-tag" data-i18n="ad.badge">Pub</span>
+      <span class="banner-text" data-i18n="ad.banner">Emplacement bannière 320×50</span>
     </div>
 
     <!-- ============ DEBUG ============ -->

@@ -23,6 +23,16 @@ export const LANGUES = [
 
 const TEXTES = {
   fr: {
+    'app.title': 'Quiet Puzzle — un casse-tête pour décompresser',
+    'map.next': 'Suivant',
+    'result.drags': 'glissés', 'result.double': 'Doubler les pièces',
+
+    'ad.tag': 'Emplacement publicitaire', 'ad.banner': 'Emplacement bannière 320×50',
+    'ad.title': 'Publicité', 'ad.title.rewarded': 'Publicité récompensée',
+    'ad.note': 'Emplacement simulé — aucun réseau publicitaire n’est branché',
+    'ad.note.rewarded': 'Regardez jusqu’au bout pour recevoir la récompense',
+    'ad.close': 'Fermer', 'ad.claim': 'Récupérer la récompense',
+    'ad.skip': 'Passer (sans récompense)', 'ad.badge': 'Pub',
     'menu.baseline': 'Videz la grille par les portes de couleur',
     'menu.stars': 'étoiles', 'menu.coins': 'pièces', 'menu.level': 'niveaux',
     'menu.play': 'Jouer', 'menu.daily': 'Cadeau du jour',
@@ -92,6 +102,16 @@ const TEXTES = {
   },
 
   en: {
+    'app.title': 'Quiet Puzzle — a puzzle to unwind with',
+    'map.next': 'Next',
+    'result.drags': 'drags', 'result.double': 'Double the coins',
+
+    'ad.tag': 'Ad placement', 'ad.banner': '320×50 banner placement',
+    'ad.title': 'Advertisement', 'ad.title.rewarded': 'Rewarded ad',
+    'ad.note': 'Simulated placement — no ad network is wired in',
+    'ad.note.rewarded': 'Watch to the end to claim the reward',
+    'ad.close': 'Close', 'ad.claim': 'Claim the reward',
+    'ad.skip': 'Skip (no reward)', 'ad.badge': 'Ad',
     'menu.baseline': 'Clear the grid through the coloured gates',
     'menu.stars': 'stars', 'menu.coins': 'coins', 'menu.level': 'levels',
     'menu.play': 'Play', 'menu.daily': 'Daily gift',
@@ -161,6 +181,16 @@ const TEXTES = {
   },
 
   es: {
+    'app.title': 'Quiet Puzzle — un rompecabezas para desconectar',
+    'map.next': 'Siguiente',
+    'result.drags': 'arrastres', 'result.double': 'Duplicar las monedas',
+
+    'ad.tag': 'Espacio publicitario', 'ad.banner': 'Espacio de banner 320×50',
+    'ad.title': 'Publicidad', 'ad.title.rewarded': 'Anuncio recompensado',
+    'ad.note': 'Espacio simulado — no hay ninguna red publicitaria conectada',
+    'ad.note.rewarded': 'Míralo hasta el final para recibir la recompensa',
+    'ad.close': 'Cerrar', 'ad.claim': 'Recoger la recompensa',
+    'ad.skip': 'Saltar (sin recompensa)', 'ad.badge': 'Anuncio',
     'menu.baseline': 'Vacía la cuadrícula por las puertas de color',
     'menu.stars': 'estrellas', 'menu.coins': 'monedas', 'menu.level': 'niveles',
     'menu.play': 'Jugar', 'menu.daily': 'Regalo del día',
@@ -230,6 +260,16 @@ const TEXTES = {
   },
 
   it: {
+    'app.title': 'Quiet Puzzle — un rompicapo per staccare',
+    'map.next': 'Avanti',
+    'result.drags': 'trascinamenti', 'result.double': 'Raddoppia le monete',
+
+    'ad.tag': 'Spazio pubblicitario', 'ad.banner': 'Spazio banner 320×50',
+    'ad.title': 'Pubblicità', 'ad.title.rewarded': 'Annuncio con premio',
+    'ad.note': 'Spazio simulato — nessun circuito pubblicitario è collegato',
+    'ad.note.rewarded': 'Guardalo fino in fondo per ricevere il premio',
+    'ad.close': 'Chiudi', 'ad.claim': 'Ritira il premio',
+    'ad.skip': 'Salta (senza premio)', 'ad.badge': 'Ann.',
     'menu.baseline': 'Svuota la griglia dalle porte colorate',
     'menu.stars': 'stelle', 'menu.coins': 'monete', 'menu.level': 'livelli',
     'menu.play': 'Gioca', 'menu.daily': 'Regalo del giorno',
@@ -299,6 +339,16 @@ const TEXTES = {
   },
 
   zh: {
+    'app.title': 'Quiet Puzzle — 放松心情的解谜游戏',
+    'map.next': '下一关',
+    'result.drags': '次拖动', 'result.double': '金币翻倍',
+
+    'ad.tag': '广告位', 'ad.banner': '320×50 横幅广告位',
+    'ad.title': '广告', 'ad.title.rewarded': '奖励广告',
+    'ad.note': '模拟广告位 — 未接入任何广告平台',
+    'ad.note.rewarded': '看完即可领取奖励',
+    'ad.close': '关闭', 'ad.claim': '领取奖励',
+    'ad.skip': '跳过（不领奖励）', 'ad.badge': '广告',
     'menu.baseline': '让方块从同色的门离开棋盘',
     'menu.stars': '星星', 'menu.coins': '金币', 'menu.level': '关卡',
     'menu.play': '开始', 'menu.daily': '每日礼物',
@@ -425,7 +475,11 @@ export function appliquer(racine = (typeof document === 'undefined' ? null : doc
   for (const el of racine.querySelectorAll('[data-i18n-aria]')) {
     el.setAttribute('aria-label', t(el.dataset.i18nAria));
   }
-  if (typeof document !== 'undefined') document.documentElement.lang = courante;
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = courante;
+    // Le titre de l'onglet ne porte pas d'attribut : il se pose à la main.
+    document.title = t('app.title');
+  }
 }
 
 /** Choix explicite du joueur : enregistré, et appliqué à tout le markup. */

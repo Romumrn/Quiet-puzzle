@@ -271,9 +271,17 @@ L'interface existe en **français, anglais, espagnol, italien et chinois** ; la
 langue se choisit dans le menu (☰), et suit celle du navigateur tant que le joueur n'a rien choisi —
 enregistrer un défaut aurait figé la langue du premier chargement.
 `src/ui/i18n.js` porte un dictionnaire plat, le markup des attributs `data-i18n`,
-et `tools/test.mjs` vérifie que toutes les tables ont exactement les mêmes clés :
-une clé oubliée ne casse rien (on retombe sur le français), et c'est précisément
-ce qui la rendrait invisible.
+et `tools/test.mjs` vérifie **quatre** choses : que toutes les tables ont
+exactement les mêmes clés, qu'aucune traduction ne perd un paramètre `{n}`,
+qu'aucun texte visible ne reste codé en dur dans le markup, et qu'aucun n'est
+écrit depuis le CSS.
+
+Les deux derniers contrôles ont été ajoutés après coup, et ils manquaient : les
+dictionnaires étaient complets, et pourtant « Suivant » sur la carte, « Fermer »
+sur l'écran publicitaire et « Doubler les pièces » restaient français dans
+toutes les langues. Une chaîne oubliée dans le markup — ou, pire, écrite en CSS
+par `content: 'Suivant'`, hors de portée de toute traduction — ne se voit
+qu'en jouant, et seulement dans une langue qu'on ne parle pas soi-même.
 
 Les mondes voyagent traduits dans le catalogue (`name`/`nameEn`), de sorte que
 l'interface n'a rien à savoir du générateur pour se traduire.

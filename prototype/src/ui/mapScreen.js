@@ -7,7 +7,7 @@ import { totalLevels, levelsPerRealm, realms } from '../data/levelStore.js';
 import * as store from '../data/save.js';
 import { renderStars } from './screens.js';
 import * as theme from './theme.js';
-import { texteMonde } from './i18n.js';
+import { texteMonde, t } from './i18n.js';
 
 /** Décalage horizontal du serpentin, en fraction de la largeur disponible. */
 const OFFSETS = [0, 0.62, 0.9, 0.62, 0, -0.62, -0.9, -0.62];
@@ -42,7 +42,13 @@ export function render(onSelect) {
       node.className = 'map-node';
       node.style.transform = `translateX(${OFFSETS[(n - 1) % OFFSETS.length] * 92}px)`;
       if (locked) node.classList.add('locked');
-      else if (n === unlocked) node.classList.add('current');
+      else if (n === unlocked) {
+        node.classList.add('current');
+        // L'étiquette « Suivant » était écrite dans le CSS (`content: 'Suivant'`),
+        // hors de portée de la traduction. Elle passe par un attribut, que la
+        // feuille de style se contente de rendre.
+        node.dataset.label = t('map.next');
+      }
       if (rec.stars > 0) node.classList.add('done');
 
       const num = document.createElement('b');

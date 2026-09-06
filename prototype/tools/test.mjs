@@ -405,6 +405,51 @@ console.log('\n== Traduction ==');
   definirLangue(codes[0]);
   check('aucune traduction ne perd un paramètre', trous.length === 0, trous.slice(0, 4).join(', '));
   check('la langue courante est restaurée', langue() === codes[0]);
+
+  /**
+   * Aucun texte visible ne doit rester codé en dur.
+   *
+   * C'est le contrôle qui manquait : les traductions étaient complètes, et
+   * pourtant « Suivant » sur la carte, « Fermer » sur l'écran publicitaire et
+   * « Doubler les pièces » restaient français dans toutes les langues — trois
+   * chaînes oubliées dans le markup et dans une feuille de style, qu'aucune
+   * vérification de dictionnaire ne pouvait voir.
+   *
+   * Le panneau QA et l'éditeur sont exclus : outils de développement, ils n'ont
+   * pas vocation à être traduits.
+   */
+  let markup = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  // On retire les deux sections d'outillage, délimitées par leurs commentaires.
+  for (const [debut, fin] of [['<!-- ============ EDITEUR', '<!-- ============ OFFRE'],
+                              ['<!-- ============ DEBUG', '</main>']]) {
+    const i = markup.indexOf(debut);
+    if (i < 0) continue;
+    const j = markup.indexOf(fin, i + debut.length);
+    markup = markup.slice(0, i) + (j < 0 ? '' : markup.slice(j));
+  }
+  const enDur = [];
+  for (const m of markup.matchAll(/<([a-z][a-z0-9]*)\b([^>]*)>([^<>{}]+)<\/\1>/g)) {
+    const [, balise, attrs, brut] = m;
+    const texte = brut.trim();
+    if (!texte || attrs.includes('data-i18n')) continue;
+    // `<title>` est posé par i18n au démarrage ; ce qu'il y a dans le markup
+    // n'est qu'un repli avant que le script ne tourne.
+    if (balise === 'title') continue;
+    if (!/[A-Za-zÀ-ÿ]{3}/.test(texte)) continue;
+    if (['Quiet', 'Puzzle'].includes(texte)) continue;   // le nom du jeu
+    enDur.push(`<${balise}> ${texte}`);
+  }
+  check('aucun texte visible n\'est codé en dur dans le markup',
+    enDur.length === 0, enDur.slice(0, 3).join(' · '));
+
+  // Une feuille de style peut écrire du texte, elle aussi — et celui-là
+  // échappe à toute traduction : `content: attr(...)` est la seule forme
+  // acceptable.
+  const css = readFileSync(new URL('../styles/main.css', import.meta.url), 'utf8');
+  const contenus = [...css.matchAll(/content:\s*'([^']*)'/g)]
+    .map((m) => m[1])
+    .filter((v) => /[A-Za-zÀ-ÿ]{3}/.test(v));
+  check('aucun texte n\'est écrit depuis le CSS', contenus.length === 0, contenus.join(', '));
 }
 
 console.log('\n== Cadencement publicitaire ==');

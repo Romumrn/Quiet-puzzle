@@ -14,6 +14,7 @@
 
 import { AdPolicy } from './adPolicy.js';
 import { track } from '../data/events.js';
+import { t } from '../ui/i18n.js';
 import * as currency from './currency.js';
 
 /** Emplacements, tels qu'ils remonteront dans les rapports de la régie. */
@@ -61,7 +62,7 @@ export class AdManager {
 
     this.policy.noterInterstitiel();
     track('ad_started', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU });
-    await this._jouer({ type: 'interstitial', duree: DUREE_INTERSTITIEL, titre: 'Publicité' });
+    await this._jouer({ type: 'interstitial', duree: DUREE_INTERSTITIEL, titre: t('ad.title') });
     track('ad_watched', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU, revenue: 0.012 });
     return { montree: true, raison: 'ok' };
   }
@@ -80,7 +81,7 @@ export class AdManager {
       return false;
     }
     track('ad_started', { adType: 'rewarded', placement });
-    const termine = await this._jouer({ type: 'rewarded', duree: DUREE_RECOMPENSEE, titre: 'Publicité récompensée' });
+    const termine = await this._jouer({ type: 'rewarded', duree: DUREE_RECOMPENSEE, titre: t('ad.title.rewarded') });
     this.policy.noterRecompensee();
     if (termine) track('ad_watched', { adType: 'rewarded', placement, revenue: 0.045 });
     else track('ad_abandoned', { adType: 'rewarded', placement });
@@ -113,9 +114,7 @@ export class AdManager {
     const note = this.overlay.querySelector('.ad-note');
 
     titreEl.textContent = titre;
-    note.textContent = type === 'rewarded'
-      ? 'Regardez jusqu’au bout pour recevoir la récompense'
-      : 'Emplacement simulé — aucun réseau publicitaire n’est branché';
+    note.textContent = t(type === 'rewarded' ? 'ad.note.rewarded' : 'ad.note');
     fermer.hidden = true;
     this.overlay.hidden = false;
 
@@ -134,7 +133,7 @@ export class AdManager {
         compteur.textContent = Math.max(0, reste);
         if (reste <= 0) {
           fermer.hidden = false;
-          fermer.textContent = type === 'rewarded' ? 'Récupérer la récompense' : 'Fermer';
+          fermer.textContent = t(type === 'rewarded' ? 'ad.claim' : 'ad.close');
           fermer.onclick = () => fin(true);
           clearInterval(minuteur);
         }
@@ -145,7 +144,7 @@ export class AdManager {
         setTimeout(() => {
           if (!this.overlay.hidden && fermer.hidden) {
             fermer.hidden = false;
-            fermer.textContent = 'Passer (sans récompense)';
+            fermer.textContent = t('ad.skip');
             fermer.onclick = () => fin(false);
           }
         }, 2000);

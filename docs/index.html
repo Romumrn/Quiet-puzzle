@@ -304,7 +304,7 @@ body { display: grid; place-items: center; }
 .map-node.current .stars i { color: rgba(255, 255, 255, 0.45); }
 .map-node.current .stars i.on { color: #fff; }
 .map-node.current::after {
-  content: 'Suivant'; position: absolute; top: -9px;
+  content: attr(data-label); position: absolute; top: -9px;
   font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
   background: var(--ink); color: var(--ground); padding: 2px 8px; border-radius: 999px;
 }
@@ -1069,7 +1069,7 @@ body { display: grid; place-items: center; }
         <span class="daily-flame">🔥</span>
         <span class="daily-text">
           <b id="daily-title" data-i18n="menu.daily">Cadeau du jour</b>
-          <small id="daily-sub">Série de 1 jour</small>
+          <small id="daily-sub"></small>
         </span>
         <span class="daily-amount" id="daily-amount">+50</span>
       </button>
@@ -1149,15 +1149,15 @@ body { display: grid; place-items: center; }
         </button>
         <button class="action" id="btn-hammer" title="Retire un bloc de votre choix">
           <span class="action-icon">🔨</span>
-          <span class="action-cost ad">Pub</span>
+          <span class="action-cost ad" data-i18n="ad.badge">Pub</span>
         </button>
         <button class="action" id="btn-time" title="Ajoute 30 secondes">
           <span class="action-icon">⏱</span>
-          <span class="action-cost ad">Pub</span>
+          <span class="action-cost ad" data-i18n="ad.badge">Pub</span>
         </button>
         <button class="action" id="btn-undo" title="Annule le dernier geste">
           <span class="action-icon">↶</span>
-          <span class="action-cost ad">Pub</span>
+          <span class="action-cost ad" data-i18n="ad.badge">Pub</span>
         </button>
         <button class="action action-plain" id="btn-restart" title="Recommencer le niveau">
           <span class="action-icon">↺</span>
@@ -1240,11 +1240,11 @@ body { display: grid; place-items: center; }
       <div class="result-card">
         <h2 id="result-title" data-i18n="result.done">Niveau terminé</h2>
         <div class="stars stars-lg" id="result-stars"></div>
-        <p class="result-score"><span id="result-score">0</span><small>glissés</small></p>
+        <p class="result-score"><span id="result-score">0</span><small data-i18n="result.drags">glissés</small></p>
         <p class="result-near" id="result-near" hidden></p>
         <p class="result-reward" id="result-reward"></p>
         <button class="btn btn-reward" id="btn-double" hidden>
-          <span>▶</span> Doubler les pièces
+          <span>▶</span> <span data-i18n="result.double">Doubler les pièces</span>
         </button>
         <div class="result-actions">
           <button class="btn btn-ghost" id="btn-result-map" data-i18n="result.map">Carte</button>
@@ -1300,11 +1300,11 @@ body { display: grid; place-items: center; }
     <!-- ============ OFFRE DE CONTINUATION ============ -->
     <div class="overlay" id="overlay-offer" hidden>
       <div class="offer-card">
-        <h2 id="offer-reason">Le temps est écoulé</h2>
+        <h2 id="offer-reason" data-i18n="offer.timeout">Le temps est écoulé</h2>
         <p class="offer-lead"><span data-i18n="offer.lead">Il ne reste que</span>
           <b id="offer-remaining">0</b> <span data-i18n="offer.lead.end">blocs à sortir.</span></p>
         <p class="offer-bonus"><span data-i18n="offer.continue">Continuez avec</span>
-          <b id="offer-bonus">+30 s et +3 coups</b></p>
+          <b id="offer-bonus"></b></p>
         <div class="offer-actions">
           <button class="btn btn-reward btn-lg" id="btn-offer-ad"><span>▶</span> Regarder une pub</button>
           <button class="btn btn-ghost btn-lg" id="btn-offer-coins">
@@ -1318,18 +1318,18 @@ body { display: grid; place-items: center; }
     <!-- ============ PUBLICITE SIMULEE ============ -->
     <div class="overlay ad-overlay" id="overlay-ad" hidden>
       <div class="ad-card">
-        <span class="ad-tag">Emplacement publicitaire</span>
-        <h2 class="ad-title">Publicité</h2>
+        <span class="ad-tag" data-i18n="ad.tag">Emplacement publicitaire</span>
+        <h2 class="ad-title" data-i18n="ad.title">Publicité</h2>
         <div class="ad-visual"><span class="ad-count">5</span></div>
         <p class="ad-note"></p>
-        <button class="btn btn-primary ad-close" hidden>Fermer</button>
+        <button class="btn btn-primary ad-close" data-i18n="ad.close" hidden>Fermer</button>
       </div>
     </div>
 
     <!-- ============ BANNIERE ============ -->
     <div class="banner" id="banner" hidden>
-      <span class="banner-tag">Pub</span>
-      <span class="banner-text">Emplacement bannière 320×50</span>
+      <span class="banner-tag" data-i18n="ad.badge">Pub</span>
+      <span class="banner-text" data-i18n="ad.banner">Emplacement bannière 320×50</span>
     </div>
 
     <!-- ============ DEBUG ============ -->
@@ -2269,6 +2269,16 @@ const LANGUES = [
 
 const TEXTES = {
   fr: {
+    'app.title': 'Quiet Puzzle — un casse-tête pour décompresser',
+    'map.next': 'Suivant',
+    'result.drags': 'glissés', 'result.double': 'Doubler les pièces',
+
+    'ad.tag': 'Emplacement publicitaire', 'ad.banner': 'Emplacement bannière 320×50',
+    'ad.title': 'Publicité', 'ad.title.rewarded': 'Publicité récompensée',
+    'ad.note': 'Emplacement simulé — aucun réseau publicitaire n’est branché',
+    'ad.note.rewarded': 'Regardez jusqu’au bout pour recevoir la récompense',
+    'ad.close': 'Fermer', 'ad.claim': 'Récupérer la récompense',
+    'ad.skip': 'Passer (sans récompense)', 'ad.badge': 'Pub',
     'menu.baseline': 'Videz la grille par les portes de couleur',
     'menu.stars': 'étoiles', 'menu.coins': 'pièces', 'menu.level': 'niveaux',
     'menu.play': 'Jouer', 'menu.daily': 'Cadeau du jour',
@@ -2338,6 +2348,16 @@ const TEXTES = {
   },
 
   en: {
+    'app.title': 'Quiet Puzzle — a puzzle to unwind with',
+    'map.next': 'Next',
+    'result.drags': 'drags', 'result.double': 'Double the coins',
+
+    'ad.tag': 'Ad placement', 'ad.banner': '320×50 banner placement',
+    'ad.title': 'Advertisement', 'ad.title.rewarded': 'Rewarded ad',
+    'ad.note': 'Simulated placement — no ad network is wired in',
+    'ad.note.rewarded': 'Watch to the end to claim the reward',
+    'ad.close': 'Close', 'ad.claim': 'Claim the reward',
+    'ad.skip': 'Skip (no reward)', 'ad.badge': 'Ad',
     'menu.baseline': 'Clear the grid through the coloured gates',
     'menu.stars': 'stars', 'menu.coins': 'coins', 'menu.level': 'levels',
     'menu.play': 'Play', 'menu.daily': 'Daily gift',
@@ -2407,6 +2427,16 @@ const TEXTES = {
   },
 
   es: {
+    'app.title': 'Quiet Puzzle — un rompecabezas para desconectar',
+    'map.next': 'Siguiente',
+    'result.drags': 'arrastres', 'result.double': 'Duplicar las monedas',
+
+    'ad.tag': 'Espacio publicitario', 'ad.banner': 'Espacio de banner 320×50',
+    'ad.title': 'Publicidad', 'ad.title.rewarded': 'Anuncio recompensado',
+    'ad.note': 'Espacio simulado — no hay ninguna red publicitaria conectada',
+    'ad.note.rewarded': 'Míralo hasta el final para recibir la recompensa',
+    'ad.close': 'Cerrar', 'ad.claim': 'Recoger la recompensa',
+    'ad.skip': 'Saltar (sin recompensa)', 'ad.badge': 'Anuncio',
     'menu.baseline': 'Vacía la cuadrícula por las puertas de color',
     'menu.stars': 'estrellas', 'menu.coins': 'monedas', 'menu.level': 'niveles',
     'menu.play': 'Jugar', 'menu.daily': 'Regalo del día',
@@ -2476,6 +2506,16 @@ const TEXTES = {
   },
 
   it: {
+    'app.title': 'Quiet Puzzle — un rompicapo per staccare',
+    'map.next': 'Avanti',
+    'result.drags': 'trascinamenti', 'result.double': 'Raddoppia le monete',
+
+    'ad.tag': 'Spazio pubblicitario', 'ad.banner': 'Spazio banner 320×50',
+    'ad.title': 'Pubblicità', 'ad.title.rewarded': 'Annuncio con premio',
+    'ad.note': 'Spazio simulato — nessun circuito pubblicitario è collegato',
+    'ad.note.rewarded': 'Guardalo fino in fondo per ricevere il premio',
+    'ad.close': 'Chiudi', 'ad.claim': 'Ritira il premio',
+    'ad.skip': 'Salta (senza premio)', 'ad.badge': 'Ann.',
     'menu.baseline': 'Svuota la griglia dalle porte colorate',
     'menu.stars': 'stelle', 'menu.coins': 'monete', 'menu.level': 'livelli',
     'menu.play': 'Gioca', 'menu.daily': 'Regalo del giorno',
@@ -2545,6 +2585,16 @@ const TEXTES = {
   },
 
   zh: {
+    'app.title': 'Quiet Puzzle — 放松心情的解谜游戏',
+    'map.next': '下一关',
+    'result.drags': '次拖动', 'result.double': '金币翻倍',
+
+    'ad.tag': '广告位', 'ad.banner': '320×50 横幅广告位',
+    'ad.title': '广告', 'ad.title.rewarded': '奖励广告',
+    'ad.note': '模拟广告位 — 未接入任何广告平台',
+    'ad.note.rewarded': '看完即可领取奖励',
+    'ad.close': '关闭', 'ad.claim': '领取奖励',
+    'ad.skip': '跳过（不领奖励）', 'ad.badge': '广告',
     'menu.baseline': '让方块从同色的门离开棋盘',
     'menu.stars': '星星', 'menu.coins': '金币', 'menu.level': '关卡',
     'menu.play': '开始', 'menu.daily': '每日礼物',
@@ -2671,7 +2721,11 @@ function appliquer(racine = (typeof document === 'undefined' ? null : document))
   for (const el of racine.querySelectorAll('[data-i18n-aria]')) {
     el.setAttribute('aria-label', t(el.dataset.i18nAria));
   }
-  if (typeof document !== 'undefined') document.documentElement.lang = courante;
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = courante;
+    // Le titre de l'onglet ne porte pas d'attribut : il se pose à la main.
+    document.title = t('app.title');
+  }
 }
 
 /** Choix explicite du joueur : enregistré, et appliqué à tout le markup. */
@@ -3257,6 +3311,7 @@ const __m_adManager = (() => {
 
 const { AdPolicy } = __m_adPolicy;
 const { track } = __m_events;
+const { t } = __m_i18n;
 const currency = __m_currency;
 
 /** Emplacements, tels qu'ils remonteront dans les rapports de la régie. */
@@ -3304,7 +3359,7 @@ class AdManager {
 
     this.policy.noterInterstitiel();
     track('ad_started', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU });
-    await this._jouer({ type: 'interstitial', duree: DUREE_INTERSTITIEL, titre: 'Publicité' });
+    await this._jouer({ type: 'interstitial', duree: DUREE_INTERSTITIEL, titre: t('ad.title') });
     track('ad_watched', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU, revenue: 0.012 });
     return { montree: true, raison: 'ok' };
   }
@@ -3323,7 +3378,7 @@ class AdManager {
       return false;
     }
     track('ad_started', { adType: 'rewarded', placement });
-    const termine = await this._jouer({ type: 'rewarded', duree: DUREE_RECOMPENSEE, titre: 'Publicité récompensée' });
+    const termine = await this._jouer({ type: 'rewarded', duree: DUREE_RECOMPENSEE, titre: t('ad.title.rewarded') });
     this.policy.noterRecompensee();
     if (termine) track('ad_watched', { adType: 'rewarded', placement, revenue: 0.045 });
     else track('ad_abandoned', { adType: 'rewarded', placement });
@@ -3356,9 +3411,7 @@ class AdManager {
     const note = this.overlay.querySelector('.ad-note');
 
     titreEl.textContent = titre;
-    note.textContent = type === 'rewarded'
-      ? 'Regardez jusqu’au bout pour recevoir la récompense'
-      : 'Emplacement simulé — aucun réseau publicitaire n’est branché';
+    note.textContent = t(type === 'rewarded' ? 'ad.note.rewarded' : 'ad.note');
     fermer.hidden = true;
     this.overlay.hidden = false;
 
@@ -3377,7 +3430,7 @@ class AdManager {
         compteur.textContent = Math.max(0, reste);
         if (reste <= 0) {
           fermer.hidden = false;
-          fermer.textContent = type === 'rewarded' ? 'Récupérer la récompense' : 'Fermer';
+          fermer.textContent = t(type === 'rewarded' ? 'ad.claim' : 'ad.close');
           fermer.onclick = () => fin(true);
           clearInterval(minuteur);
         }
@@ -3388,7 +3441,7 @@ class AdManager {
         setTimeout(() => {
           if (!this.overlay.hidden && fermer.hidden) {
             fermer.hidden = false;
-            fermer.textContent = 'Passer (sans récompense)';
+            fermer.textContent = t('ad.skip');
             fermer.onclick = () => fin(false);
           }
         }, 2000);
@@ -4744,7 +4797,7 @@ const { totalLevels, levelsPerRealm, realms } = __m_levelStore;
 const store = __m_save;
 const { renderStars } = __m_screens;
 const theme = __m_theme;
-const { texteMonde } = __m_i18n;
+const { texteMonde, t } = __m_i18n;
 
 /** Décalage horizontal du serpentin, en fraction de la largeur disponible. */
 const OFFSETS = [0, 0.62, 0.9, 0.62, 0, -0.62, -0.9, -0.62];
@@ -4779,7 +4832,13 @@ function render(onSelect) {
       node.className = 'map-node';
       node.style.transform = `translateX(${OFFSETS[(n - 1) % OFFSETS.length] * 92}px)`;
       if (locked) node.classList.add('locked');
-      else if (n === unlocked) node.classList.add('current');
+      else if (n === unlocked) {
+        node.classList.add('current');
+        // L'étiquette « Suivant » était écrite dans le CSS (`content: 'Suivant'`),
+        // hors de portée de la traduction. Elle passe par un attribut, que la
+        // feuille de style se contente de rendre.
+        node.dataset.label = t('map.next');
+      }
       if (rec.stars > 0) node.classList.add('done');
 
       const num = document.createElement('b');

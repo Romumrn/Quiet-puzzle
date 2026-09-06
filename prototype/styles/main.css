@@ -293,7 +293,7 @@ body { display: grid; place-items: center; }
 .map-node.current .stars i { color: rgba(255, 255, 255, 0.45); }
 .map-node.current .stars i.on { color: #fff; }
 .map-node.current::after {
-  content: 'Suivant'; position: absolute; top: -9px;
+  content: attr(data-label); position: absolute; top: -9px;
   font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
   background: var(--ink); color: var(--ground); padding: 2px 8px; border-radius: 999px;
 }
