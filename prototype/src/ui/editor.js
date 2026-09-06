@@ -81,16 +81,26 @@ export function init({ onTest, onSubmit, niveau = null, id = null }) {
 // ---------------------------------------------------------------------------
 
 /** Fusionne les cases de mur voisines de même couleur en portes. */
+/** Les couleurs d'une case de bord, toujours sous forme de liste. */
+const couleursPorte = (v) => (v === null || v === undefined ? [] : (Array.isArray(v) ? v : [v]));
+const memePorte = (a, b) => couleursPorte(a).join() === couleursPorte(b).join();
+
 function portesFusionnees() {
   const gates = [];
   for (const side of COTES) {
     const cells = etat.portes[side];
     let i = 0;
     while (i < cells.length) {
-      if (cells[i] === null) { i++; continue; }
+      const couleurs = couleursPorte(cells[i]);
+      if (!couleurs.length) { i++; continue; }
+      // Deux cases voisines ne forment une même porte que si elles acceptent
+      // exactement les mêmes couleurs — une porte bicolore ne se fond pas dans
+      // sa voisine simple, elles n'ouvrent pas sur les mêmes blocs.
       let len = 1;
-      while (i + len < cells.length && cells[i + len] === cells[i]) len++;
-      gates.push({ side, start: i, length: len, color: cells[i] });
+      while (i + len < cells.length && memePorte(cells[i + len], cells[i])) len++;
+      const gate = { side, start: i, length: len, color: couleurs[0] };
+      if (couleurs.length > 1) gate.colors = [...couleurs];
+      gates.push(gate);
       i += len;
     }
   }
@@ -143,6 +153,63 @@ export function retourArriere() {
   return annulerDernier();
 }
 
+/**
+ * Glisser-déposer d'une forme de la palette vers la grille.
+ *
+ * Choisir une pièce puis viser une case demandait de tenir deux idées à la
+ * fois ; on prend maintenant la pièce et on la pose où on la veut. Le simple
+ * appui reste actif — il sélectionne la forme, pour qui préfère taper la grille.
+ *
+ * On passe par les Pointer Events plutôt que par l'API drag-and-drop du HTML :
+ * celle-ci ne fonctionne pas au doigt sur mobile, où ce jeu se joue.
+ */
+function brancherGlisser(vignette, index, forme) {
+  vignette.addEventListener('pointerdown', (depart) => {
+    if (gommeActive) return;
+    choix.shape = index;
+    majPalettes();
+
+    const fantome = vignette.cloneNode(true);
+    fantome.className = 'ed-shape ed-fantome';
+    document.body.appendChild(fantome);
+
+    let cible = null;
+    const suivre = (ev) => {
+      fantome.style.left = `${ev.clientX}px`;
+      fantome.style.top = `${ev.clientY}px`;
+      // La case sous le doigt, et non sous le fantôme : c'est le doigt qui
+      // vise, et le fantôme le suit avec un décalage volontaire pour rester
+      // visible sous la main.
+      const sous = document.elementFromPoint(ev.clientX, ev.clientY);
+      const caseVisee = sous?.classList.contains('ed-cell') ? sous : null;
+      if (caseVisee !== cible) {
+        cible?.classList.remove('vise');
+        cible = caseVisee;
+        cible?.classList.add('vise');
+      }
+    };
+
+    const lacher = (ev) => {
+      vignette.releasePointerCapture?.(depart.pointerId);
+      window.removeEventListener('pointermove', suivre);
+      window.removeEventListener('pointerup', lacher);
+      window.removeEventListener('pointercancel', lacher);
+      fantome.remove();
+      cible?.classList.remove('vise');
+      const sous = document.elementFromPoint(ev.clientX, ev.clientY);
+      if (sous?.classList.contains('ed-cell')) {
+        poser(Number(sous.dataset.x), Number(sous.dataset.y));
+      }
+    };
+
+    vignette.setPointerCapture?.(depart.pointerId);
+    window.addEventListener('pointermove', suivre);
+    window.addEventListener('pointerup', lacher);
+    window.addEventListener('pointercancel', lacher);
+    suivre(depart);
+  });
+}
+
 function construirePalettes() {
   const outils = el('ed-tools');
   if (outils) {
@@ -170,6 +237,7 @@ function construirePalettes() {
   formes.replaceChildren(...SHAPES.map((sh, i) => {
     const b = document.createElement('button');
     b.className = 'ed-shape';
+    brancherGlisser(b, i, sh);
     b.title = sh.key;
     const g = document.createElement('span');
     g.style.gridTemplateColumns = `repeat(${sh.w}, 7px)`;
@@ -234,13 +302,23 @@ function dessiner() {
   // Cases de mur : un appui fait défiler la couleur de la porte.
   for (const side of COTES) {
     etat.portes[side].forEach((color, i) => {
+      const couleurs = couleursPorte(color);
       const m = document.createElement('button');
-      m.className = `ed-wall ed-wall-${side}` + (color !== null ? ` c${color} ouvert` : '');
+      m.className = `ed-wall ed-wall-${side}`
+        + (couleurs.length ? ` c${couleurs[0]} ouvert` : '')
+        + (couleurs.length > 1 ? ' double' : '');
       m.style.setProperty('--i', i);
-      m.textContent = color !== null ? COLORS[color].glyph : '';
+      if (couleurs.length > 1) m.style.setProperty('--c-bis', `var(--c${couleurs[1]})`);
+      m.textContent = couleurs.map((c) => COLORS[c].glyph).join('');
       m.onclick = () => {
-        // Avec la gomme, un mur se referme au lieu de changer de couleur.
-        etat.portes[side][i] = gommeActive ? null : (color === null ? choix.color : null);
+        if (gommeActive) { etat.portes[side][i] = null; dessiner(); return; }
+        // Un appui AJOUTE la couleur choisie ; le même appui sur une couleur
+        // déjà là la retire. Une porte en accepte deux au plus — au-delà, on ne
+        // saurait plus la lire d'un coup d'œil sur le plateau.
+        const suite = couleurs.includes(choix.color)
+          ? couleurs.filter((c) => c !== choix.color)
+          : [...couleurs, choix.color].slice(-2);
+        etat.portes[side][i] = suite.length ? suite : null;
         dessiner();
       };
       grille.appendChild(m);
@@ -254,6 +332,8 @@ function dessiner() {
       c.className = 'ed-cell';
       c.style.setProperty('--x', x);
       c.style.setProperty('--y', y);
+      c.dataset.x = x;
+      c.dataset.y = y;
       if (bloc) {
         c.classList.add('plein', `k-${bloc.kind}`);
         if (bloc.color >= 0 && bloc.kind !== KIND.JOKER) c.classList.add(`c${bloc.color}`);
@@ -297,7 +377,8 @@ function importerDans(n) {
   etat = vide(n.width, n.height);
   etat.blocks = n.blocks.map((b) => ({ ...b }));
   for (const g of n.gates) {
-    for (let k = 0; k < g.length; k++) etat.portes[g.side][g.start + k] = g.color;
+    const couleurs = g.colors?.length ? [...g.colors] : [g.color];
+    for (let k = 0; k < g.length; k++) etat.portes[g.side][g.start + k] = couleurs;
   }
   const w = el('ed-w'), h = el('ed-h');
   if (w) w.value = n.width;

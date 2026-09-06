@@ -313,19 +313,22 @@
       </header>
 
       <div class="ed-scroll">
-        <div class="ed-grid-wrap"><div class="ed-grid" id="ed-grid"></div></div>
+        <!-- La grille et les formes côte à côte : on prend une pièce à droite
+             et on la dépose là où on la veut, plutôt que de la choisir puis de
+             viser. -->
+        <div class="ed-top">
+          <div class="ed-grid-wrap"><div class="ed-grid" id="ed-grid"></div></div>
+          <div class="ed-palette" id="ed-shapes"></div>
+        </div>
         <p class="ed-status" id="ed-status"></p>
 
-        <div class="ed-section">
-          <span class="ed-legend">Forme</span>
-          <div class="ed-row">
-            <div class="ed-tools" id="ed-tools"></div>
-            <div class="ed-row ed-wrap ed-shapes" id="ed-shapes"></div>
-          </div>
-        </div>
+        <!-- Gomme et annulation : des outils, pas des pièces à poser. -->
+        <div class="ed-toolbar" id="ed-tools"></div>
+
         <div class="ed-section">
           <span class="ed-legend">Couleur</span>
           <div class="ed-row" id="ed-colors"></div>
+          <p class="ed-hint" data-i18n="editor.gates.hint">Touchez un bord pour y ouvrir une porte. Touchez-le à nouveau avec une autre couleur pour qu’elle en accepte deux.</p>
         </div>
         <div class="ed-section">
           <span class="ed-legend">Nature</span>

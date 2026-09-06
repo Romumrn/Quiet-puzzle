@@ -23,6 +23,7 @@ export const LANGUES = [
 
 const TEXTES = {
   fr: {
+    'editor.gates.hint': 'Touchez un bord pour y ouvrir une porte. Touchez-le à nouveau avec une autre couleur pour qu’elle en accepte deux.',
     'feedback.legend': 'Nous écrire', 'feedback.open': 'Signaler un bug ou une idée',
     'feedback.title': 'Un bug, une idée ?',
     'feedback.cat.bug': 'Bug', 'feedback.cat.idea': 'Idée', 'feedback.cat.other': 'Autre',
@@ -146,6 +147,7 @@ const TEXTES = {
   },
 
   en: {
+    'editor.gates.hint': 'Tap an edge to open a gate there. Tap it again with another colour so it accepts two.',
     'feedback.legend': 'Contact us', 'feedback.open': 'Report a bug or an idea',
     'feedback.title': 'A bug, an idea?',
     'feedback.cat.bug': 'Bug', 'feedback.cat.idea': 'Idea', 'feedback.cat.other': 'Other',
@@ -269,6 +271,7 @@ const TEXTES = {
   },
 
   es: {
+    'editor.gates.hint': 'Toca un borde para abrir una puerta. Tócalo de nuevo con otro color para que acepte dos.',
     'feedback.legend': 'Escríbenos', 'feedback.open': 'Informar de un fallo o una idea',
     'feedback.title': '¿Un fallo, una idea?',
     'feedback.cat.bug': 'Fallo', 'feedback.cat.idea': 'Idea', 'feedback.cat.other': 'Otro',
@@ -392,6 +395,7 @@ const TEXTES = {
   },
 
   it: {
+    'editor.gates.hint': 'Tocca un bordo per aprirvi una porta. Toccalo di nuovo con un altro colore perché ne accetti due.',
     'feedback.legend': 'Scrivici', 'feedback.open': 'Segnala un bug o un’idea',
     'feedback.title': 'Un bug, un’idea?',
     'feedback.cat.bug': 'Bug', 'feedback.cat.idea': 'Idea', 'feedback.cat.other': 'Altro',
@@ -515,6 +519,7 @@ const TEXTES = {
   },
 
   zh: {
+    'editor.gates.hint': '点击边缘即可开门。用另一种颜色再点一次，这道门就能同时接受两色。',
     'feedback.legend': '联系我们', 'feedback.open': '反馈问题或建议',
     'feedback.title': '有问题或建议？',
     'feedback.cat.bug': '问题', 'feedback.cat.idea': '建议', 'feedback.cat.other': '其他',

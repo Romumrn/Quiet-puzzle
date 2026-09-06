@@ -662,10 +662,35 @@ body { display: grid; place-items: center; }
 .stat-action:hover { border-color: var(--accent); }
 .stat-action:active { transform: scale(0.97); }
 
-/* Outils de l'éditeur : la gomme et l'annulation, posées à côté des formes.
-   Ce ne sont pas des pinceaux — on ne pose pas une gomme — d'où leur place
-   à part, avant la palette. */
-.ed-tools { display: flex; gap: 5px; flex: 0 0 auto; }
+/* La grille et la palette côte à côte : on prend une pièce à droite et on la
+   dépose où on la veut. La palette défile seule quand les formes débordent. */
+.ed-top { display: flex; gap: 8px; align-items: flex-start; }
+.ed-top .ed-grid-wrap { flex: 1; min-width: 0; }
+.ed-palette {
+  flex: 0 0 54px;
+  display: flex; flex-direction: column; gap: 4px;
+  /* Bornée à la hauteur de la grille, et défilante au-delà : laissée libre,
+     elle empilait ses onze formes et repoussait couleurs, natures et boutons
+     hors de l'écran. */
+  max-height: 38vh; overflow-y: auto; overscroll-behavior: contain;
+  padding: 4px; border: 1px solid var(--line); border-radius: 14px;
+  background: var(--surface);
+}
+.ed-palette .ed-shape { width: 100%; padding: 5px; touch-action: none; }
+
+/* La pièce qui suit le doigt. Décalée vers le haut : sous la main, elle serait
+   cachée par elle. */
+.ed-fantome {
+  position: fixed; z-index: 40; pointer-events: none;
+  transform: translate(-50%, -140%);
+  opacity: 0.9;
+  box-shadow: 0 6px 18px rgba(80, 60, 85, 0.24);
+}
+.ed-cell.vise { outline: 2px solid var(--accent-deep); outline-offset: -2px; }
+
+/* Outils : la gomme et l'annulation ont leur propre barre. Ce ne sont pas des
+   pièces à poser, et les ranger parmi les formes le laissait croire. */
+.ed-toolbar { display: flex; gap: 5px; margin: 8px 0; }
 .ed-tool {
   width: 34px; height: 34px;
   display: grid; place-items: center;
@@ -675,7 +700,10 @@ body { display: grid; place-items: center; }
 }
 .ed-tool:hover { border-color: var(--accent); }
 .ed-tool.sel { background: var(--accent-wash); border-color: var(--accent-deep); }
-.ed-shapes { flex: 1; }
+.ed-hint { margin-top: 6px; color: var(--ink-faint); font: 400 12px/1.35 var(--font-ui); }
+
+/* Porte à deux couleurs : moitié-moitié, comme sur le plateau. */
+.ed-wall.double { background-image: linear-gradient(118deg, var(--tile) 0 47%, var(--c-bis) 53% 100%); }
 /* Mode gomme : le curseur le dit aussi sur la grille. */
 .ed-grid.gomme .ed-cell { cursor: crosshair; }
 

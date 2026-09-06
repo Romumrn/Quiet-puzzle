@@ -637,6 +637,8 @@ function ouvrirEditeur(reprise = null) {
     id: reprise?.id || null,
     onTest: (niveau, brouillonId) => {
       essaiEditeur = { niveau, id: brouillonId };
+      // On quitte l'éditeur pour jouer : l'ancre n'a plus lieu d'être.
+      if (ancreEditeur) { ancreEditeur = false; history.back(); }
       level = { ...niveau, number: 0, realm: t('editor.trying'), difficulty: '' };
       startLevel();
     },
@@ -648,34 +650,56 @@ function ouvrirEditeur(reprise = null) {
   });
   screens.show('editor');
   majBanniere('editor');
-  // Le cran d'arrêt du bouton « précédent » : sans lui, rien à intercepter.
-  history.pushState({ ecran: 'editor' }, '');
+  poserAncre();   // le cran d'arrêt du bouton « précédent »
 }
 
 el('btn-editor').onclick = () => ouvrirEditeur();
 
 /**
- * Bouton « précédent » du téléphone.
+ * Bouton « précédent » du téléphone, dans l'éditeur.
  *
- * Sur Android, il ferme l'application quand rien ne l'intercepte — geste
- * malheureux au milieu d'une grille qu'on dessine. On empile donc une entrée
- * d'historique à l'ouverture de l'éditeur, et chaque retour défait le dernier
- * bloc posé au lieu de sortir. L'entrée est aussitôt réempilée : sans cela, le
- * premier retour serait le seul intercepté.
+ * Sur Android il ferme l'application quand rien ne l'intercepte — geste
+ * malheureux au milieu d'une grille. On pose donc UNE ancre d'historique à
+ * l'ouverture de l'éditeur, et chaque retour y défait le dernier bloc.
  *
- * Quand il n'y a plus rien à défaire, le retour reprend son rôle normal et
- * ramène au menu. On ne piège jamais le joueur dans un écran.
+ * L'ancre doit être UNIQUE et RETIRÉE en sortant. Empilée à chaque ouverture
+ * sans jamais l'être, elle laissait derrière elle autant d'entrées mortes que
+ * d'allers-retours : un « précédent » depuis la carte en consommait une et ne
+ * faisait rien, ce qui donnait l'impression d'un bouton cassé.
  */
-window.addEventListener('popstate', () => {
-  if (screens.current() !== 'editor') return;
-  const defait = editor.retourArriere();
-  if (defait) {
-    history.pushState({ ecran: 'editor' }, '');
-    screens.toast(t('editor.undone'));
-  } else {
-    showMenu();
+let ancreEditeur = false;
+
+function poserAncre() {
+  if (ancreEditeur) return;
+  history.pushState({ ecran: 'editor' }, '');
+  ancreEditeur = true;
+}
+
+/** Quitte l'éditeur en rendant au navigateur l'entrée qu'on lui avait prise. */
+function quitterEditeur() {
+  showMenu();                       // l'écran change AVANT le retour d'histoire,
+  if (ancreEditeur) {               // sinon popstate croirait devoir défaire.
+    ancreEditeur = false;
+    history.back();
   }
+}
+
+window.addEventListener('popstate', () => {
+  if (screens.current() !== 'editor') { ancreEditeur = false; return; }
+  if (editor.retourArriere()) {
+    // Réempilée aussitôt : sans cela, le premier retour serait le seul capté.
+    ancreEditeur = false;
+    poserAncre();
+    screens.toast(t('editor.undone'));
+    return;
+  }
+  ancreEditeur = false;
+  showMenu();
 });
+
+// La flèche de l'éditeur passe par la même sortie que le bouton du téléphone.
+document.querySelector('#screen-editor [data-nav="menu"]')
+  ?.addEventListener('click', (ev) => { ev.stopImmediatePropagation(); quitterEditeur(); }, true);
 el('btn-mine-close').onclick = () => { el('overlay-mine').hidden = true; };
 
 // ---------------------------------------------------------------------------

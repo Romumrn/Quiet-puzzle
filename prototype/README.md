@@ -242,15 +242,20 @@ score qu'il choisit. Le vrai serveur devra faire de même.
 
 Trois choses le rendaient pénible, et sont corrigées :
 
-- **une gomme, et une annulation**. Effacer était possible — un appui sur un
-  bloc le retirait — mais rien ne le disait. La gomme est un OUTIL posé à côté
-  des formes, pas une nature de bloc : on ne pose pas une gomme, on choisit
-  d'effacer, et la ranger parmi les natures obligeait à la désélectionner pour
-  reposer quoi que ce soit. À côté d'elle, un bouton défait le dernier bloc — et
-  **le bouton « précédent » du téléphone fait de même** au lieu de fermer
-  l'application au milieu d'une grille. Quand il n'y a plus rien à défaire, il
-  reprend son rôle et ramène au menu : on ne piège jamais le joueur dans un
-  écran.
+- **on prend une pièce et on la pose**. Les formes sont à droite de la grille,
+  et se glissent à leur place au doigt. Choisir puis viser demandait de tenir
+  deux idées à la fois ; le simple appui reste actif pour qui préfère. Le
+  glisser passe par les Pointer Events et non l'API drag-and-drop du HTML,
+  laquelle ne fonctionne pas au doigt — là où ce jeu se joue.
+- **une gomme, et une annulation, dans leur propre barre**. Ce ne sont pas des
+  pièces à poser : les ranger parmi les formes le laissait croire, et obligeait
+  à désélectionner la gomme pour reposer quoi que ce soit. À côté d'elle, un
+  bouton défait le dernier bloc — et **le bouton « précédent » du téléphone fait
+  de même** au lieu de fermer l'application au milieu d'une grille.
+- **une porte peut accepter deux couleurs**. On touche un bord pour l'ouvrir, on
+  le retouche avec une autre couleur pour qu'il en serve deux — la porte
+  partagée que le moteur connaît depuis le douzième monde se dessine enfin à la
+  main.
 - **un essai ne mène plus nulle part**. Tester une grille affichait l'écran de
   fin ordinaire, avec « Suivant » — qui n'a pas de suite — et créditait
   vingt-trois pièces en inscrivant un « niveau 0 » dans la sauvegarde : l'éditeur
