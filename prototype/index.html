@@ -130,6 +130,10 @@
     </section>
 
     <!-- ============ MENU UTILISATEUR ============ -->
+    <!-- Badge de série : visible dès l'accueil, c'est ce qui donne envie de
+         revenir demain. Masqué tant qu'aucune série n'est en cours. -->
+    <div class="streak-badge" id="streak-badge" hidden></div>
+
     <button class="user-btn" id="user-btn" aria-expanded="false" aria-controls="user-panel"
             data-i18n-title="user.title" data-i18n-aria="user.title" title="Profil et réglages">
       <!-- Trois barres : le bouton dit « menu », alors qu'un chiffre de niveau
@@ -199,6 +203,11 @@
         <button class="btn btn-ghost btn-sm user-large" id="btn-editor"
                 data-i18n="user.editor">Éditeur de niveaux</button>
         <p class="user-note" data-i18n="user.editor.note">Dessinez une grille, vérifiez-la, proposez-la comme puzzle du jour.</p>
+      </div>
+
+      <div class="user-section">
+        <span class="user-legend" data-i18n="theme.legend">Thème</span>
+        <div class="theme-grid" id="opt-themes"></div>
       </div>
 
       <div class="user-section">
@@ -361,18 +370,25 @@
     <!-- ============ OFFRE DE CONTINUATION ============ -->
     <div class="overlay" id="overlay-offer" hidden>
       <div class="offer-card">
-        <h2 id="offer-reason" data-i18n="offer.timeout">Le temps est écoulé</h2>
-        <p class="offer-lead"><span data-i18n="offer.lead">Il ne reste que</span>
-          <b id="offer-remaining">0</b> <span data-i18n="offer.lead.end">blocs à sortir.</span></p>
-        <p class="offer-bonus"><span data-i18n="offer.continue">Continuez avec</span>
-          <b id="offer-bonus"></b></p>
-        <div class="offer-actions">
-          <button class="btn btn-reward btn-lg" id="btn-offer-ad"><span>▶</span> Regarder une pub</button>
-          <button class="btn btn-ghost btn-lg" id="btn-offer-coins">
-            Payer <b id="offer-coins-cost">120</b> pièces
-          </button>
-          <button class="btn btn-ghost" id="btn-offer-give-up" data-i18n="action.giveup">Abandonner</button>
-        </div>
+        <h2 class="offer-oups" data-i18n="offer.oups">Oups…</h2>
+        <div class="offer-emoji" aria-hidden="true">😮‍💨</div>
+        <p class="offer-lead" id="offer-lead"></p>
+
+        <!-- UNE grosse offre, une option secondaire, une sortie. Trois offres
+             de même poids ne se choisissent pas : elles se subissent. -->
+        <button class="btn offer-main" id="btn-offer-ad">
+          <span class="offer-main-title" data-i18n="offer.continue.big">Continuer</span>
+          <span class="offer-main-sub" id="offer-bonus"></span>
+          <span class="offer-main-free" data-i18n="offer.free">🎬 Gratuit</span>
+        </button>
+
+        <button class="btn btn-ghost btn-sm offer-second" id="btn-offer-coins">
+          <span data-i18n="offer.continue.small">Continuer</span> — <b id="offer-coins-cost">75</b>
+          <span data-i18n="menu.coins">éclats</span>
+        </button>
+
+        <button class="btn btn-ghost offer-quit" id="btn-offer-give-up"
+                data-i18n="offer.restart">Recommencer</button>
       </div>
     </div>
 

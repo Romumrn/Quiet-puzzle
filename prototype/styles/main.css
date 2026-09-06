@@ -735,6 +735,51 @@ body { display: grid; place-items: center; }
   font-variant-numeric: tabular-nums;
 }
 
+/* Badge de série, sur l'accueil : ce qui donne envie de revenir demain. */
+.streak-badge {
+  position: absolute; top: max(18px, env(safe-area-inset-top)); left: 18px; z-index: 18;
+  padding: 7px 12px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--ink-soft); font: 500 13px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thèmes : les verrouillés restent visibles, avec ce qu'il faut pour les
+   ouvrir — c'est ce qu'on ne peut pas encore avoir qui donne envie. */
+.theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.theme-tuile {
+  display: grid; gap: 2px; justify-items: center; padding: 8px 4px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 14px;
+  color: var(--ink-soft); font: inherit; cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+.theme-tuile small { font-size: 9px; line-height: 1.15; text-align: center; opacity: 0.85; }
+.theme-emoji { font-size: 18px; line-height: 1; }
+.theme-tuile:hover:not([disabled]) { border-color: var(--accent); }
+.theme-tuile.sel { background: var(--accent-wash); border-color: var(--accent-deep); color: var(--accent-deep); }
+.theme-tuile.verrouille { opacity: 0.45; cursor: not-allowed; }
+
+/* Écran de défaite : UNE offre principale, une option discrète, une sortie.
+   Trois boutons de même poids ne se choisissent pas, ils se subissent. */
+.offer-oups { font: 500 26px var(--font-display); margin-bottom: 2px; }
+.offer-emoji { font-size: 40px; line-height: 1.1; margin-bottom: 6px; }
+.offer-lead { color: var(--ink-soft); font: 400 15px var(--font-ui); margin-bottom: 16px; }
+
+.offer-main {
+  width: 100%; display: grid; gap: 2px; padding: 14px 12px;
+  background: linear-gradient(160deg, hsl(150 46% 92%), hsl(150 42% 86%));
+  border: 1px solid hsl(150 38% 74%); border-radius: 20px;
+  color: hsl(150 40% 26%);
+  box-shadow: 0 8px 20px hsl(150 30% 60% / 0.25);
+}
+.offer-main-title { font: 500 18px var(--font-ui); }
+.offer-main-sub { font-size: 13px; opacity: 0.8; }
+.offer-main-free { font: 500 13px var(--font-ui); letter-spacing: 0.02em; }
+
+.offer-second { margin-top: 10px; font-size: 13px; }
+.offer-second b { font-variant-numeric: tabular-nums; }
+.offer-quit { margin-top: 4px; }
+
 /* Signalement. */
 .feedback-card { max-width: 340px; text-align: left; }
 .feedback-card h2 { text-align: center; }

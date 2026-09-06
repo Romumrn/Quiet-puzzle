@@ -8,9 +8,17 @@ import * as store from '../data/save.js';
 import { track } from '../data/events.js';
 
 /** Tarifs. Constantes de tuning, à ajuster après playtest. */
+/**
+ * Tarifs, en éclats. Un seul barème, affiché partout où il s'applique : le
+ * joueur doit pouvoir dire ce que coûte un bonus avant de l'ouvrir.
+ *
+ * Continuer vaut moins cher qu'avant (120), et pour une raison : au moment de
+ * la défaite, la pub est l'offre principale. Le prix en éclats est là pour qui
+ * en a de côté et ne veut pas de pub, pas pour dissuader.
+ */
 export const PRIX = Object.freeze({
   INDICE: 50,
-  CONTINUER: 120,
+  CONTINUER: 75,
 });
 
 export function solde() { return store.load().coins; }

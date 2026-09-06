@@ -746,6 +746,51 @@ body { display: grid; place-items: center; }
   font-variant-numeric: tabular-nums;
 }
 
+/* Badge de série, sur l'accueil : ce qui donne envie de revenir demain. */
+.streak-badge {
+  position: absolute; top: max(18px, env(safe-area-inset-top)); left: 18px; z-index: 18;
+  padding: 7px 12px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--ink-soft); font: 500 13px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thèmes : les verrouillés restent visibles, avec ce qu'il faut pour les
+   ouvrir — c'est ce qu'on ne peut pas encore avoir qui donne envie. */
+.theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.theme-tuile {
+  display: grid; gap: 2px; justify-items: center; padding: 8px 4px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 14px;
+  color: var(--ink-soft); font: inherit; cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+.theme-tuile small { font-size: 9px; line-height: 1.15; text-align: center; opacity: 0.85; }
+.theme-emoji { font-size: 18px; line-height: 1; }
+.theme-tuile:hover:not([disabled]) { border-color: var(--accent); }
+.theme-tuile.sel { background: var(--accent-wash); border-color: var(--accent-deep); color: var(--accent-deep); }
+.theme-tuile.verrouille { opacity: 0.45; cursor: not-allowed; }
+
+/* Écran de défaite : UNE offre principale, une option discrète, une sortie.
+   Trois boutons de même poids ne se choisissent pas, ils se subissent. */
+.offer-oups { font: 500 26px var(--font-display); margin-bottom: 2px; }
+.offer-emoji { font-size: 40px; line-height: 1.1; margin-bottom: 6px; }
+.offer-lead { color: var(--ink-soft); font: 400 15px var(--font-ui); margin-bottom: 16px; }
+
+.offer-main {
+  width: 100%; display: grid; gap: 2px; padding: 14px 12px;
+  background: linear-gradient(160deg, hsl(150 46% 92%), hsl(150 42% 86%));
+  border: 1px solid hsl(150 38% 74%); border-radius: 20px;
+  color: hsl(150 40% 26%);
+  box-shadow: 0 8px 20px hsl(150 30% 60% / 0.25);
+}
+.offer-main-title { font: 500 18px var(--font-ui); }
+.offer-main-sub { font-size: 13px; opacity: 0.8; }
+.offer-main-free { font: 500 13px var(--font-ui); letter-spacing: 0.02em; }
+
+.offer-second { margin-top: 10px; font-size: 13px; }
+.offer-second b { font-variant-numeric: tabular-nums; }
+.offer-quit { margin-top: 4px; }
+
 /* Signalement. */
 .feedback-card { max-width: 340px; text-align: left; }
 .feedback-card h2 { text-align: center; }
@@ -1353,6 +1398,10 @@ body { display: grid; place-items: center; }
     </section>
 
     <!-- ============ MENU UTILISATEUR ============ -->
+    <!-- Badge de série : visible dès l'accueil, c'est ce qui donne envie de
+         revenir demain. Masqué tant qu'aucune série n'est en cours. -->
+    <div class="streak-badge" id="streak-badge" hidden></div>
+
     <button class="user-btn" id="user-btn" aria-expanded="false" aria-controls="user-panel"
             data-i18n-title="user.title" data-i18n-aria="user.title" title="Profil et réglages">
       <!-- Trois barres : le bouton dit « menu », alors qu'un chiffre de niveau
@@ -1422,6 +1471,11 @@ body { display: grid; place-items: center; }
         <button class="btn btn-ghost btn-sm user-large" id="btn-editor"
                 data-i18n="user.editor">Éditeur de niveaux</button>
         <p class="user-note" data-i18n="user.editor.note">Dessinez une grille, vérifiez-la, proposez-la comme puzzle du jour.</p>
+      </div>
+
+      <div class="user-section">
+        <span class="user-legend" data-i18n="theme.legend">Thème</span>
+        <div class="theme-grid" id="opt-themes"></div>
       </div>
 
       <div class="user-section">
@@ -1584,18 +1638,25 @@ body { display: grid; place-items: center; }
     <!-- ============ OFFRE DE CONTINUATION ============ -->
     <div class="overlay" id="overlay-offer" hidden>
       <div class="offer-card">
-        <h2 id="offer-reason" data-i18n="offer.timeout">Le temps est écoulé</h2>
-        <p class="offer-lead"><span data-i18n="offer.lead">Il ne reste que</span>
-          <b id="offer-remaining">0</b> <span data-i18n="offer.lead.end">blocs à sortir.</span></p>
-        <p class="offer-bonus"><span data-i18n="offer.continue">Continuez avec</span>
-          <b id="offer-bonus"></b></p>
-        <div class="offer-actions">
-          <button class="btn btn-reward btn-lg" id="btn-offer-ad"><span>▶</span> Regarder une pub</button>
-          <button class="btn btn-ghost btn-lg" id="btn-offer-coins">
-            Payer <b id="offer-coins-cost">120</b> pièces
-          </button>
-          <button class="btn btn-ghost" id="btn-offer-give-up" data-i18n="action.giveup">Abandonner</button>
-        </div>
+        <h2 class="offer-oups" data-i18n="offer.oups">Oups…</h2>
+        <div class="offer-emoji" aria-hidden="true">😮‍💨</div>
+        <p class="offer-lead" id="offer-lead"></p>
+
+        <!-- UNE grosse offre, une option secondaire, une sortie. Trois offres
+             de même poids ne se choisissent pas : elles se subissent. -->
+        <button class="btn offer-main" id="btn-offer-ad">
+          <span class="offer-main-title" data-i18n="offer.continue.big">Continuer</span>
+          <span class="offer-main-sub" id="offer-bonus"></span>
+          <span class="offer-main-free" data-i18n="offer.free">🎬 Gratuit</span>
+        </button>
+
+        <button class="btn btn-ghost btn-sm offer-second" id="btn-offer-coins">
+          <span data-i18n="offer.continue.small">Continuer</span> — <b id="offer-coins-cost">75</b>
+          <span data-i18n="menu.coins">éclats</span>
+        </button>
+
+        <button class="btn btn-ghost offer-quit" id="btn-offer-give-up"
+                data-i18n="offer.restart">Recommencer</button>
       </div>
     </div>
 
@@ -2479,6 +2540,11 @@ const EMPTY = () => ({
   pubsPiecesJour: null,
   pubsPiecesCompte: 0,
   streak: 0,         // jours consécutifs joués
+  paliersSerie: [],  // paliers de série déjà récompensés
+  themes: [],        // thèmes débloqués, en plus de celui d'origine
+  theme: null,       // thème choisi, ou null pour la teinte du monde
+  badges: [],        // badges obtenus
+  indices: 0,        // indices offerts, dépensés avant les éclats
   lastPlayDay: null, // 'YYYY-MM-DD'
   dailyClaimedOn: null,
   createdAt: new Date().toISOString(),
@@ -2557,6 +2623,17 @@ const LANGUES = [
 
 const TEXTES = {
   fr: {
+    'theme.legend': 'Thème', 'theme.worlds': 'Mondes',
+    'theme.cond.niveaux': '{n} niveaux', 'theme.cond.etoiles': '{n} étoiles',
+    'theme.cond.serie': 'série de {n} jours', 'theme.cond.premium': 'sans-pub',
+    'theme.locked': 'À débloquer : {quoi}',
+    'streak.badge': '{n} j', 'streak.next': 'Encore {n} j pour {quoi}',
+    'streak.reward.eclats': '{n} éclats', 'streak.reward.theme': 'un thème',
+    'streak.reward.indices': '{n} indices', 'streak.reward.badge': 'un badge',
+    'streak.granted': 'Série de {jours} jours — {quoi} !',
+    'offer.oups': 'Oups…', 'offer.left': '{n} bloc restant', 'offer.left.plural': '{n} blocs restants',
+    'offer.continue.big': 'Continuer', 'offer.continue.small': 'Continuer',
+    'offer.free': '🎬 Gratuit', 'offer.restart': 'Recommencer',
     'editor.gates.hint': 'Touchez un bord pour y ouvrir une porte. Touchez-le à nouveau avec une autre couleur pour qu’elle en accepte deux.',
     'feedback.legend': 'Nous écrire', 'feedback.open': 'Signaler un bug ou une idée',
     'feedback.title': 'Un bug, une idée ?',
@@ -2577,16 +2654,16 @@ const TEXTES = {
     'editor.proposed': 'proposé', 'editor.loaded': 'Grille chargée',
     'editor.delete': 'Supprimer', 'editor.edit': 'Modifier',
     'editor.submit.short': 'Proposer',
-    'shop.title': 'Pièces',
-    'shop.ad': 'Regarder une pub · +{n} pièces',
+    'shop.title': 'Éclats',
+    'shop.ad': 'Regarder une pub · +{n} éclats',
     'shop.ad.left': 'Encore {n} sur {total} aujourd’hui',
     'shop.ad.none': 'Revenez demain pour d’autres pubs',
     'shop.ad.failed': 'Pub indisponible pour l’instant',
-    'shop.earned': '+{n} pièces',
+    'shop.earned': '+{n} éclats',
     'shop.pack.bonus': '+{n} % offert',
     'shop.buy': 'Acheter',
     'shop.simulated': 'Achats simulés — aucun système de paiement n’est branché.',
-    'shop.bought': '+{n} pièces créditées (achat simulé)',
+    'shop.bought': '+{n} éclats créditées (achat simulé)',
     'user.create': 'Créer', 'user.editor': 'Éditeur de niveaux',
     'user.editor.note': 'Dessinez une grille, vérifiez-la, proposez-la comme puzzle du jour.',
     'editor.submit': 'Proposer comme puzzle du jour',
@@ -2604,7 +2681,7 @@ const TEXTES = {
     'daily.rank.me': 'vous',
     'app.title': 'Quiet Puzzle — un casse-tête pour décompresser',
     'map.next': 'Suivant',
-    'result.drags': 'glissés', 'result.double': 'Doubler les pièces',
+    'result.drags': 'glissés', 'result.double': 'Doubler les éclats',
 
     'ad.tag': 'Emplacement publicitaire', 'ad.banner': 'Emplacement bannière 320×50',
     'ad.title': 'Publicité', 'ad.title.rewarded': 'Publicité récompensée',
@@ -2613,7 +2690,7 @@ const TEXTES = {
     'ad.close': 'Fermer', 'ad.claim': 'Récupérer la récompense',
     'ad.skip': 'Passer (sans récompense)', 'ad.badge': 'Pub',
     'menu.baseline': 'Videz la grille par les portes de couleur',
-    'menu.stars': 'étoiles', 'menu.coins': 'pièces', 'menu.level': 'niveaux',
+    'menu.stars': 'étoiles', 'menu.coins': 'éclats', 'menu.level': 'niveaux',
     'menu.play': 'Jouer', 'menu.daily': 'Cadeau du jour',
     'menu.streak': 'Série de {n} jour', 'menu.streak.plural': 'Série de {n} jours',
 
@@ -2628,7 +2705,7 @@ const TEXTES = {
 
     'result.won': 'Grille vidée !', 'result.timeout.title': 'Temps écoulé',
     'result.nomoves.title': 'Plus de coups',
-    'result.reward': '+{n} pièces',
+    'result.reward': '+{n} éclats',
     'result.timeout.sub': 'Le chrono est tombé avant la fin',
     'result.nomoves.sub': 'Il ne restait plus de coups',
     'result.near.one': 'Il ne restait qu’un seul bloc !',
@@ -2640,7 +2717,7 @@ const TEXTES = {
 
     'user.title': 'Profil et réglages', 'user.close': 'Fermer',
     'user.level': 'Niveau', 'user.stars': 'Étoiles', 'user.levels': 'Niveaux',
-    'user.coins': 'Pièces',
+    'user.coins': 'Éclats',
     'user.sound': 'Son', 'user.music': 'Musique', 'user.sfx': 'Effets sonores',
     'user.display': 'Affichage', 'user.glyphs': 'Symboles sur les blocs',
     'user.glyphs.note': 'Ajoute un symbole à chaque couleur, pour ne pas avoir à s’y fier.',
@@ -2655,13 +2732,13 @@ const TEXTES = {
 
     'toast.sealed': 'Ce bloc est scellé',
     'toast.locked': 'Verrouillé : {quoi}',
-    'toast.daily': '+{n} pièces — série de {jours} jours',
+    'toast.daily': '+{n} éclats — série de {jours} jours',
     'toast.hammer.pick': 'Touchez le bloc à retirer',
     'toast.hammer.bad': 'Choisissez un bloc déplaçable',
     'toast.time': '+30 secondes',
     'toast.undo': 'Geste annulé',
     'toast.nohint': 'Aucun coup gagnant trouvé',
-    'toast.coins': '{n} pièces',
+    'toast.coins': '{n} éclats',
     'toast.unlocked': 'Tous les niveaux débloqués',
     'toast.ads.off': 'Pubs supprimées (achat simulé)',
     'toast.ads.on': 'Pubs réactivées',
@@ -2681,6 +2758,17 @@ const TEXTES = {
   },
 
   en: {
+    'theme.legend': 'Theme', 'theme.worlds': 'Worlds',
+    'theme.cond.niveaux': '{n} levels', 'theme.cond.etoiles': '{n} stars',
+    'theme.cond.serie': '{n} day streak', 'theme.cond.premium': 'ad-free',
+    'theme.locked': 'Unlock with: {quoi}',
+    'streak.badge': '{n} d', 'streak.next': '{n} more days for {quoi}',
+    'streak.reward.eclats': '{n} shards', 'streak.reward.theme': 'a theme',
+    'streak.reward.indices': '{n} hints', 'streak.reward.badge': 'a badge',
+    'streak.granted': '{jours} day streak — {quoi}!',
+    'offer.oups': 'Oops…', 'offer.left': '{n} block left', 'offer.left.plural': '{n} blocks left',
+    'offer.continue.big': 'Continue', 'offer.continue.small': 'Continue',
+    'offer.free': '🎬 Free', 'offer.restart': 'Restart',
     'editor.gates.hint': 'Tap an edge to open a gate there. Tap it again with another colour so it accepts two.',
     'feedback.legend': 'Contact us', 'feedback.open': 'Report a bug or an idea',
     'feedback.title': 'A bug, an idea?',
@@ -2701,16 +2789,16 @@ const TEXTES = {
     'editor.proposed': 'submitted', 'editor.loaded': 'Grid loaded',
     'editor.delete': 'Delete', 'editor.edit': 'Edit',
     'editor.submit.short': 'Submit',
-    'shop.title': 'Coins',
-    'shop.ad': 'Watch an ad · +{n} coins',
+    'shop.title': 'Shards',
+    'shop.ad': 'Watch an ad · +{n} shards',
     'shop.ad.left': '{n} of {total} left today',
     'shop.ad.none': 'Come back tomorrow for more ads',
     'shop.ad.failed': 'No ad available right now',
-    'shop.earned': '+{n} coins',
+    'shop.earned': '+{n} shards',
     'shop.pack.bonus': '+{n}% free',
     'shop.buy': 'Buy',
     'shop.simulated': 'Simulated purchases — no payment system is wired in.',
-    'shop.bought': '+{n} coins credited (simulated purchase)',
+    'shop.bought': '+{n} shards credited (simulated purchase)',
     'user.create': 'Create', 'user.editor': 'Level editor',
     'user.editor.note': 'Draw a grid, check it, submit it as the daily puzzle.',
     'editor.submit': 'Submit as daily puzzle',
@@ -2728,7 +2816,7 @@ const TEXTES = {
     'daily.rank.me': 'you',
     'app.title': 'Quiet Puzzle — a puzzle to unwind with',
     'map.next': 'Next',
-    'result.drags': 'drags', 'result.double': 'Double the coins',
+    'result.drags': 'drags', 'result.double': 'Double the shards',
 
     'ad.tag': 'Ad placement', 'ad.banner': '320×50 banner placement',
     'ad.title': 'Advertisement', 'ad.title.rewarded': 'Rewarded ad',
@@ -2737,7 +2825,7 @@ const TEXTES = {
     'ad.close': 'Close', 'ad.claim': 'Claim the reward',
     'ad.skip': 'Skip (no reward)', 'ad.badge': 'Ad',
     'menu.baseline': 'Clear the grid through the coloured gates',
-    'menu.stars': 'stars', 'menu.coins': 'coins', 'menu.level': 'levels',
+    'menu.stars': 'stars', 'menu.coins': 'shards', 'menu.level': 'levels',
     'menu.play': 'Play', 'menu.daily': 'Daily gift',
     'menu.streak': '{n} day streak', 'menu.streak.plural': '{n} day streak',
 
@@ -2752,7 +2840,7 @@ const TEXTES = {
 
     'result.won': 'Grid cleared!', 'result.timeout.title': 'Out of time',
     'result.nomoves.title': 'Out of moves',
-    'result.reward': '+{n} coins',
+    'result.reward': '+{n} shards',
     'result.timeout.sub': 'The clock ran out first',
     'result.nomoves.sub': 'No moves left',
     'result.near.one': 'Just one block left!',
@@ -2764,7 +2852,7 @@ const TEXTES = {
 
     'user.title': 'Profile and settings', 'user.close': 'Close',
     'user.level': 'Level', 'user.stars': 'Stars', 'user.levels': 'Levels',
-    'user.coins': 'Coins',
+    'user.coins': 'Shards',
     'user.sound': 'Sound', 'user.music': 'Music', 'user.sfx': 'Sound effects',
     'user.display': 'Display', 'user.glyphs': 'Symbols on blocks',
     'user.glyphs.note': 'Gives every colour its own symbol, so you never have to rely on hue.',
@@ -2779,13 +2867,13 @@ const TEXTES = {
 
     'toast.sealed': 'This block is sealed',
     'toast.locked': 'Locked: {quoi}',
-    'toast.daily': '+{n} coins — {jours} day streak',
+    'toast.daily': '+{n} shards — {jours} day streak',
     'toast.hammer.pick': 'Tap the block to remove',
     'toast.hammer.bad': 'Pick a block that can move',
     'toast.time': '+30 seconds',
     'toast.undo': 'Move undone',
     'toast.nohint': 'No winning move found',
-    'toast.coins': '{n} coins',
+    'toast.coins': '{n} shards',
     'toast.unlocked': 'All levels unlocked',
     'toast.ads.off': 'Ads removed (simulated purchase)',
     'toast.ads.on': 'Ads back on',
@@ -2805,6 +2893,17 @@ const TEXTES = {
   },
 
   es: {
+    'theme.legend': 'Tema', 'theme.worlds': 'Mundos',
+    'theme.cond.niveaux': '{n} niveles', 'theme.cond.etoiles': '{n} estrellas',
+    'theme.cond.serie': 'racha de {n} días', 'theme.cond.premium': 'sin anuncios',
+    'theme.locked': 'Desbloquear con: {quoi}',
+    'streak.badge': '{n} d', 'streak.next': '{n} días más para {quoi}',
+    'streak.reward.eclats': '{n} fragmentos', 'streak.reward.theme': 'un tema',
+    'streak.reward.indices': '{n} pistas', 'streak.reward.badge': 'una insignia',
+    'streak.granted': 'Racha de {jours} días — ¡{quoi}!',
+    'offer.oups': 'Vaya…', 'offer.left': 'Queda {n} bloque', 'offer.left.plural': 'Quedan {n} bloques',
+    'offer.continue.big': 'Continuar', 'offer.continue.small': 'Continuar',
+    'offer.free': '🎬 Gratis', 'offer.restart': 'Reiniciar',
     'editor.gates.hint': 'Toca un borde para abrir una puerta. Tócalo de nuevo con otro color para que acepte dos.',
     'feedback.legend': 'Escríbenos', 'feedback.open': 'Informar de un fallo o una idea',
     'feedback.title': '¿Un fallo, una idea?',
@@ -2825,16 +2924,16 @@ const TEXTES = {
     'editor.proposed': 'propuesto', 'editor.loaded': 'Cuadrícula cargada',
     'editor.delete': 'Eliminar', 'editor.edit': 'Modificar',
     'editor.submit.short': 'Proponer',
-    'shop.title': 'Monedas',
-    'shop.ad': 'Ver un anuncio · +{n} monedas',
+    'shop.title': 'Fragmentos',
+    'shop.ad': 'Ver un anuncio · +{n} fragmentos',
     'shop.ad.left': 'Quedan {n} de {total} hoy',
     'shop.ad.none': 'Vuelve mañana para más anuncios',
     'shop.ad.failed': 'No hay anuncios disponibles ahora mismo',
-    'shop.earned': '+{n} monedas',
+    'shop.earned': '+{n} fragmentos',
     'shop.pack.bonus': '+{n} % de regalo',
     'shop.buy': 'Comprar',
     'shop.simulated': 'Compras simuladas — no hay ningún sistema de pago conectado.',
-    'shop.bought': '+{n} monedas acreditadas (compra simulada)',
+    'shop.bought': '+{n} fragmentos acreditadas (compra simulada)',
     'user.create': 'Crear', 'user.editor': 'Editor de niveles',
     'user.editor.note': 'Dibuja una cuadrícula, compruébala y propónla como puzle del día.',
     'editor.submit': 'Proponer como puzle del día',
@@ -2852,7 +2951,7 @@ const TEXTES = {
     'daily.rank.me': 'tú',
     'app.title': 'Quiet Puzzle — un rompecabezas para desconectar',
     'map.next': 'Siguiente',
-    'result.drags': 'arrastres', 'result.double': 'Duplicar las monedas',
+    'result.drags': 'arrastres', 'result.double': 'Duplicar las fragmentos',
 
     'ad.tag': 'Espacio publicitario', 'ad.banner': 'Espacio de banner 320×50',
     'ad.title': 'Publicidad', 'ad.title.rewarded': 'Anuncio recompensado',
@@ -2861,7 +2960,7 @@ const TEXTES = {
     'ad.close': 'Cerrar', 'ad.claim': 'Recoger la recompensa',
     'ad.skip': 'Saltar (sin recompensa)', 'ad.badge': 'Anuncio',
     'menu.baseline': 'Vacía la cuadrícula por las puertas de color',
-    'menu.stars': 'estrellas', 'menu.coins': 'monedas', 'menu.level': 'niveles',
+    'menu.stars': 'estrellas', 'menu.coins': 'fragmentos', 'menu.level': 'niveles',
     'menu.play': 'Jugar', 'menu.daily': 'Regalo del día',
     'menu.streak': 'Racha de {n} día', 'menu.streak.plural': 'Racha de {n} días',
 
@@ -2876,7 +2975,7 @@ const TEXTES = {
 
     'result.won': '¡Cuadrícula vacía!', 'result.timeout.title': 'Se acabó el tiempo',
     'result.nomoves.title': 'Sin movimientos',
-    'result.reward': '+{n} monedas',
+    'result.reward': '+{n} fragmentos',
     'result.timeout.sub': 'El cronómetro llegó antes que tú',
     'result.nomoves.sub': 'No quedaban movimientos',
     'result.near.one': '¡Quedaba un solo bloque!',
@@ -2888,7 +2987,7 @@ const TEXTES = {
 
     'user.title': 'Perfil y ajustes', 'user.close': 'Cerrar',
     'user.level': 'Nivel', 'user.stars': 'Estrellas', 'user.levels': 'Niveles',
-    'user.coins': 'Monedas',
+    'user.coins': 'Fragmentos',
     'user.sound': 'Sonido', 'user.music': 'Música', 'user.sfx': 'Efectos de sonido',
     'user.display': 'Pantalla', 'user.glyphs': 'Símbolos en los bloques',
     'user.glyphs.note': 'Da un símbolo propio a cada color, para no depender del tono.',
@@ -2903,13 +3002,13 @@ const TEXTES = {
 
     'toast.sealed': 'Este bloque está sellado',
     'toast.locked': 'Bloqueado: {quoi}',
-    'toast.daily': '+{n} monedas — racha de {jours} días',
+    'toast.daily': '+{n} fragmentos — racha de {jours} días',
     'toast.hammer.pick': 'Toca el bloque que quieras quitar',
     'toast.hammer.bad': 'Elige un bloque que pueda moverse',
     'toast.time': '+30 segundos',
     'toast.undo': 'Movimiento deshecho',
     'toast.nohint': 'No se encontró ninguna jugada ganadora',
-    'toast.coins': '{n} monedas',
+    'toast.coins': '{n} fragmentos',
     'toast.unlocked': 'Todos los niveles desbloqueados',
     'toast.ads.off': 'Anuncios quitados (compra simulada)',
     'toast.ads.on': 'Anuncios reactivados',
@@ -2929,6 +3028,17 @@ const TEXTES = {
   },
 
   it: {
+    'theme.legend': 'Tema', 'theme.worlds': 'Mondi',
+    'theme.cond.niveaux': '{n} livelli', 'theme.cond.etoiles': '{n} stelle',
+    'theme.cond.serie': 'serie di {n} giorni', 'theme.cond.premium': 'senza pubblicità',
+    'theme.locked': 'Da sbloccare: {quoi}',
+    'streak.badge': '{n} g', 'streak.next': 'Ancora {n} g per {quoi}',
+    'streak.reward.eclats': '{n} schegge', 'streak.reward.theme': 'un tema',
+    'streak.reward.indices': '{n} indizi', 'streak.reward.badge': 'un distintivo',
+    'streak.granted': 'Serie di {jours} giorni — {quoi}!',
+    'offer.oups': 'Ops…', 'offer.left': 'Resta {n} blocco', 'offer.left.plural': 'Restano {n} blocchi',
+    'offer.continue.big': 'Continua', 'offer.continue.small': 'Continua',
+    'offer.free': '🎬 Gratis', 'offer.restart': 'Ricomincia',
     'editor.gates.hint': 'Tocca un bordo per aprirvi una porta. Toccalo di nuovo con un altro colore perché ne accetti due.',
     'feedback.legend': 'Scrivici', 'feedback.open': 'Segnala un bug o un’idea',
     'feedback.title': 'Un bug, un’idea?',
@@ -2949,16 +3059,16 @@ const TEXTES = {
     'editor.proposed': 'proposto', 'editor.loaded': 'Griglia caricata',
     'editor.delete': 'Elimina', 'editor.edit': 'Modifica',
     'editor.submit.short': 'Proponi',
-    'shop.title': 'Monete',
-    'shop.ad': 'Guarda un annuncio · +{n} monete',
+    'shop.title': 'Schegge',
+    'shop.ad': 'Guarda un annuncio · +{n} schegge',
     'shop.ad.left': 'Ne restano {n} su {total} oggi',
     'shop.ad.none': 'Torna domani per altri annunci',
     'shop.ad.failed': 'Nessun annuncio disponibile al momento',
-    'shop.earned': '+{n} monete',
+    'shop.earned': '+{n} schegge',
     'shop.pack.bonus': '+{n}% in regalo',
     'shop.buy': 'Acquista',
     'shop.simulated': 'Acquisti simulati — nessun sistema di pagamento è collegato.',
-    'shop.bought': '+{n} monete accreditate (acquisto simulato)',
+    'shop.bought': '+{n} schegge accreditate (acquisto simulato)',
     'user.create': 'Creare', 'user.editor': 'Editor di livelli',
     'user.editor.note': 'Disegna una griglia, verificala, proponila come rompicapo del giorno.',
     'editor.submit': 'Proponi come rompicapo del giorno',
@@ -2976,7 +3086,7 @@ const TEXTES = {
     'daily.rank.me': 'tu',
     'app.title': 'Quiet Puzzle — un rompicapo per staccare',
     'map.next': 'Avanti',
-    'result.drags': 'trascinamenti', 'result.double': 'Raddoppia le monete',
+    'result.drags': 'trascinamenti', 'result.double': 'Raddoppia le schegge',
 
     'ad.tag': 'Spazio pubblicitario', 'ad.banner': 'Spazio banner 320×50',
     'ad.title': 'Pubblicità', 'ad.title.rewarded': 'Annuncio con premio',
@@ -2985,7 +3095,7 @@ const TEXTES = {
     'ad.close': 'Chiudi', 'ad.claim': 'Ritira il premio',
     'ad.skip': 'Salta (senza premio)', 'ad.badge': 'Ann.',
     'menu.baseline': 'Svuota la griglia dalle porte colorate',
-    'menu.stars': 'stelle', 'menu.coins': 'monete', 'menu.level': 'livelli',
+    'menu.stars': 'stelle', 'menu.coins': 'schegge', 'menu.level': 'livelli',
     'menu.play': 'Gioca', 'menu.daily': 'Regalo del giorno',
     'menu.streak': 'Serie di {n} giorno', 'menu.streak.plural': 'Serie di {n} giorni',
 
@@ -3000,7 +3110,7 @@ const TEXTES = {
 
     'result.won': 'Griglia svuotata!', 'result.timeout.title': 'Tempo scaduto',
     'result.nomoves.title': 'Mosse finite',
-    'result.reward': '+{n} monete',
+    'result.reward': '+{n} schegge',
     'result.timeout.sub': 'Il cronometro è arrivato prima',
     'result.nomoves.sub': 'Non restavano mosse',
     'result.near.one': 'Restava un solo blocco!',
@@ -3012,7 +3122,7 @@ const TEXTES = {
 
     'user.title': 'Profilo e impostazioni', 'user.close': 'Chiudi',
     'user.level': 'Livello', 'user.stars': 'Stelle', 'user.levels': 'Livelli',
-    'user.coins': 'Monete',
+    'user.coins': 'Schegge',
     'user.sound': 'Audio', 'user.music': 'Musica', 'user.sfx': 'Effetti sonori',
     'user.display': 'Schermo', 'user.glyphs': 'Simboli sui blocchi',
     'user.glyphs.note': 'Dà a ogni colore il suo simbolo, per non doversi fidare della tinta.',
@@ -3027,13 +3137,13 @@ const TEXTES = {
 
     'toast.sealed': 'Questo blocco è sigillato',
     'toast.locked': 'Bloccato: {quoi}',
-    'toast.daily': '+{n} monete — serie di {jours} giorni',
+    'toast.daily': '+{n} schegge — serie di {jours} giorni',
     'toast.hammer.pick': 'Tocca il blocco da togliere',
     'toast.hammer.bad': 'Scegli un blocco che possa muoversi',
     'toast.time': '+30 secondi',
     'toast.undo': 'Mossa annullata',
     'toast.nohint': 'Nessuna mossa vincente trovata',
-    'toast.coins': '{n} monete',
+    'toast.coins': '{n} schegge',
     'toast.unlocked': 'Tutti i livelli sbloccati',
     'toast.ads.off': 'Pubblicità tolta (acquisto simulato)',
     'toast.ads.on': 'Pubblicità riattivata',
@@ -3053,6 +3163,17 @@ const TEXTES = {
   },
 
   zh: {
+    'theme.legend': '主题', 'theme.worlds': '随世界变化',
+    'theme.cond.niveaux': '{n} 关', 'theme.cond.etoiles': '{n} 颗星',
+    'theme.cond.serie': '连续 {n} 天', 'theme.cond.premium': '去广告',
+    'theme.locked': '解锁条件：{quoi}',
+    'streak.badge': '{n} 天', 'streak.next': '再过 {n} 天可得{quoi}',
+    'streak.reward.eclats': '{n} 碎片', 'streak.reward.theme': '一个主题',
+    'streak.reward.indices': '{n} 次提示', 'streak.reward.badge': '一枚徽章',
+    'streak.granted': '连续 {jours} 天 — {quoi}！',
+    'offer.oups': '哎呀…', 'offer.left': '还剩 {n} 个方块', 'offer.left.plural': '还剩 {n} 个方块',
+    'offer.continue.big': '继续', 'offer.continue.small': '继续',
+    'offer.free': '🎬 免费', 'offer.restart': '重新开始',
     'editor.gates.hint': '点击边缘即可开门。用另一种颜色再点一次，这道门就能同时接受两色。',
     'feedback.legend': '联系我们', 'feedback.open': '反馈问题或建议',
     'feedback.title': '有问题或建议？',
@@ -3073,16 +3194,16 @@ const TEXTES = {
     'editor.proposed': '已投稿', 'editor.loaded': '棋盘已载入',
     'editor.delete': '删除', 'editor.edit': '修改',
     'editor.submit.short': '投稿',
-    'shop.title': '金币',
-    'shop.ad': '观看广告 · +{n} 金币',
+    'shop.title': '碎片',
+    'shop.ad': '观看广告 · +{n} 碎片',
     'shop.ad.left': '今天还剩 {n}/{total} 次',
     'shop.ad.none': '明天再来看广告吧',
     'shop.ad.failed': '暂时没有可看的广告',
-    'shop.earned': '+{n} 金币',
+    'shop.earned': '+{n} 碎片',
     'shop.pack.bonus': '额外赠送 {n}%',
     'shop.buy': '购买',
     'shop.simulated': '模拟购买 — 未接入任何支付系统。',
-    'shop.bought': '已到账 +{n} 金币（模拟购买）',
+    'shop.bought': '已到账 +{n} 碎片（模拟购买）',
     'user.create': '创作', 'user.editor': '关卡编辑器',
     'user.editor.note': '画一张棋盘，验证它，然后投稿为每日谜题。',
     'editor.submit': '投稿为每日谜题',
@@ -3100,7 +3221,7 @@ const TEXTES = {
     'daily.rank.me': '你',
     'app.title': 'Quiet Puzzle — 放松心情的解谜游戏',
     'map.next': '下一关',
-    'result.drags': '次拖动', 'result.double': '金币翻倍',
+    'result.drags': '次拖动', 'result.double': '碎片翻倍',
 
     'ad.tag': '广告位', 'ad.banner': '320×50 横幅广告位',
     'ad.title': '广告', 'ad.title.rewarded': '奖励广告',
@@ -3109,7 +3230,7 @@ const TEXTES = {
     'ad.close': '关闭', 'ad.claim': '领取奖励',
     'ad.skip': '跳过（不领奖励）', 'ad.badge': '广告',
     'menu.baseline': '让方块从同色的门离开棋盘',
-    'menu.stars': '星星', 'menu.coins': '金币', 'menu.level': '关卡',
+    'menu.stars': '星星', 'menu.coins': '碎片', 'menu.level': '关卡',
     'menu.play': '开始', 'menu.daily': '每日礼物',
     'menu.streak': '连续 {n} 天', 'menu.streak.plural': '连续 {n} 天',
 
@@ -3124,7 +3245,7 @@ const TEXTES = {
 
     'result.won': '棋盘已清空！', 'result.timeout.title': '时间到',
     'result.nomoves.title': '步数用尽',
-    'result.reward': '+{n} 金币',
+    'result.reward': '+{n} 碎片',
     'result.timeout.sub': '时间先一步走完了',
     'result.nomoves.sub': '没有步数了',
     'result.near.one': '只差一个方块！',
@@ -3136,7 +3257,7 @@ const TEXTES = {
 
     'user.title': '个人资料与设置', 'user.close': '关闭',
     'user.level': '等级', 'user.stars': '星星', 'user.levels': '关卡',
-    'user.coins': '金币',
+    'user.coins': '碎片',
     'user.sound': '声音', 'user.music': '音乐', 'user.sfx': '音效',
     'user.display': '显示', 'user.glyphs': '方块上显示符号',
     'user.glyphs.note': '为每种颜色配一个符号，不必只靠颜色分辨。',
@@ -3151,13 +3272,13 @@ const TEXTES = {
 
     'toast.sealed': '这个方块被封住了',
     'toast.locked': '已锁定：{quoi}',
-    'toast.daily': '+{n} 金币 — 连续 {jours} 天',
+    'toast.daily': '+{n} 碎片 — 连续 {jours} 天',
     'toast.hammer.pick': '点击要移除的方块',
     'toast.hammer.bad': '请选择可以移动的方块',
     'toast.time': '+30 秒',
     'toast.undo': '已撤销一步',
     'toast.nohint': '没有找到可行的一步',
-    'toast.coins': '{n} 金币',
+    'toast.coins': '{n} 碎片',
     'toast.unlocked': '已解锁全部关卡',
     'toast.ads.off': '已去除广告（模拟购买）',
     'toast.ads.on': '已恢复广告',
@@ -3434,6 +3555,80 @@ function count(eventName) {
 const SESSION_ID = sessionId;
 
 return { track, recent, subscribe, count, SESSION_ID };
+})();
+
+const __m_analytics = (() => {
+/**
+ * Nomenclature des évènements.
+ *
+ * Un seul endroit décide des NOMS et des PARAMÈTRES. Éparpillés dans le code,
+ * ils dérivent : deux graphies pour le même geste, un paramètre présent ici et
+ * absent là, et l'entonnoir devient illisible au moment précis où l'on en a
+ * besoin. Les noms suivent la convention des plateformes d'analyse (minuscules,
+ * verbe au passé, `objet_action`).
+ *
+ * Les paramètres de gameplay sont fixés une fois pour toutes par `contexteNiveau` :
+ * c'est ce qui permet de comparer un abandon et une réussite sans se demander
+ * si l'un des deux compte les coups autrement.
+ */
+
+const { track } = __m_events;
+
+const EVENEMENTS = Object.freeze({
+  // Acquisition
+  APP_OPEN: 'app_open',
+  FIRST_OPEN: 'first_open',
+  TUTORIAL_STARTED: 'tutorial_started',
+  TUTORIAL_COMPLETED: 'tutorial_completed',
+
+  // Gameplay
+  LEVEL_STARTED: 'level_started',
+  LEVEL_COMPLETED: 'level_completed',
+  LEVEL_FAILED: 'level_failed',
+  LEVEL_RESTARTED: 'level_restarted',
+  LEVEL_ABANDONED: 'level_abandoned',
+
+  // Monétisation
+  REWARDED_OFFER_SHOWN: 'rewarded_offer_shown',
+  REWARDED_STARTED: 'rewarded_started',
+  REWARDED_COMPLETED: 'rewarded_completed',
+  REWARD_GRANTED: 'reward_granted',
+  INTERSTITIAL_SHOWN: 'interstitial_shown',
+  INTERSTITIAL_SKIPPED: 'interstitial_skipped',
+  IAP_VIEWED: 'iap_viewed',
+  IAP_STARTED: 'iap_started',
+  IAP_COMPLETED: 'iap_completed',
+  REMOVE_ADS_PURCHASED: 'remove_ads_purchased',
+
+  // Rétention
+  DAILY_OPEN: 'daily_open',
+  DAILY_COMPLETED: 'daily_completed',
+  STREAK_STARTED: 'streak_started',
+  STREAK_CONTINUED: 'streak_continued',
+});
+
+/**
+ * Paramètres communs à tout évènement de niveau.
+ *
+ * `attempt` compte les essais de CE niveau depuis la dernière réussite : c'est
+ * lui qui dit si un niveau bloque, là où le seul taux d'échec confond « raté
+ * une fois » et « raté dix fois ».
+ */
+function contexteNiveau(level, { essai = 1, board = null, duree = null } = {}) {
+  return {
+    level_id: level?.levelId ?? null,
+    level: level?.number ?? 0,
+    world: level?.realm ?? null,
+    attempt: essai,
+    duration: duree,
+    moves: board ? board.dragsUsed() : null,
+    stars: board ? board.stars() : null,
+  };
+}
+
+const emettre = (nom, params = {}) => track(nom, params);
+
+return { contexteNiveau, EVENEMENTS, emettre };
 })();
 
 const __m_manifest = (() => {
@@ -3746,9 +3941,17 @@ const store = __m_save;
 const { track } = __m_events;
 
 /** Tarifs. Constantes de tuning, à ajuster après playtest. */
+/**
+ * Tarifs, en éclats. Un seul barème, affiché partout où il s'applique : le
+ * joueur doit pouvoir dire ce que coûte un bonus avant de l'ouvrir.
+ *
+ * Continuer vaut moins cher qu'avant (120), et pour une raison : au moment de
+ * la défaite, la pub est l'offre principale. Le prix en éclats est là pour qui
+ * en a de côté et ne veut pas de pub, pas pour dissuader.
+ */
 const PRIX = Object.freeze({
   INDICE: 50,
-  CONTINUER: 120,
+  CONTINUER: 75,
 });
 
 function solde() { return store.load().coins; }
@@ -3954,6 +4157,7 @@ const __m_adManager = (() => {
 
 const { AdPolicy } = __m_adPolicy;
 const { track } = __m_events;
+const { EVENEMENTS: EV } = __m_analytics;
 const { t } = __m_i18n;
 const currency = __m_currency;
 
@@ -3993,7 +4197,7 @@ class AdManager {
   async montrerInterstitiel(ctx) {
     const verdict = this.policy.peutAfficherInterstitiel(ctx);
     if (!verdict.ok) {
-      track('ad_skipped', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU, raison: verdict.raison });
+      track(EV.INTERSTITIAL_SKIPPED, { placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU, raison: verdict.raison });
       return { montree: false, raison: verdict.raison };
     }
     if (Math.random() > this.tauxRemplissage) {
@@ -4002,7 +4206,7 @@ class AdManager {
     }
 
     this.policy.noterInterstitiel();
-    track('ad_started', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU });
+    track(EV.INTERSTITIAL_SHOWN, { placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU });
     await this._jouer({ type: 'interstitial', duree: DUREE_INTERSTITIEL, titre: t('ad.title') });
     track('ad_watched', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU, revenue: 0.012 });
     return { montree: true, raison: 'ok' };
@@ -4021,10 +4225,10 @@ class AdManager {
       track('ad_no_fill', { adType: 'rewarded', placement });
       return false;
     }
-    track('ad_started', { adType: 'rewarded', placement });
+    track(EV.REWARDED_STARTED, { placement });
     const termine = await this._jouer({ type: 'rewarded', duree: DUREE_RECOMPENSEE, titre: t('ad.title.rewarded') });
     this.policy.noterRecompensee();
-    if (termine) track('ad_watched', { adType: 'rewarded', placement, revenue: 0.045 });
+    if (termine) track(EV.REWARDED_COMPLETED, { placement, revenue: 0.015 });
     else track('ad_abandoned', { adType: 'rewarded', placement });
     return termine;
   }
@@ -4132,7 +4336,12 @@ function ouvrirSession() {
     track('session_started', { streak: d.streak, nouveauJour: false });
     return { streak: d.streak, nouveauJour: false };
   }
-  d.streak = d.lastPlayDay === jour(-1) ? d.streak + 1 : 1;
+  const continue_ = d.lastPlayDay === jour(-1);
+  d.streak = continue_ ? d.streak + 1 : 1;
+  // Une série repartie de zéro n'a plus rien versé : sans cette remise, un
+  // joueur qui revient après un mois toucherait tous les paliers d'un coup.
+  if (!continue_) d.paliersSerie = [];
+  track(continue_ ? 'streak_continued' : 'streak_started', { streak: d.streak });
   d.lastPlayDay = aujourdhui;
   store.save(d);
   track('session_started', { streak: d.streak, nouveauJour: true });
@@ -4161,12 +4370,176 @@ function reclamer() {
   return montant;
 }
 
+/**
+ * Paliers de série : le badge affiché, et ce qu'on touche en l'atteignant.
+ *
+ * Les récompenses sont de NATURES différentes — éclats, thème, indices, badge —
+ * et c'est voulu : une série qui ne verse que de la monnaie se compare à la
+ * monnaie qu'on gagne en jouant, et perd toujours. Un thème ne se gagne nulle
+ * part ailleurs.
+ */
+const PALIERS_SERIE = Object.freeze([
+  { jours: 1, badge: '🔥' },
+  { jours: 2, badge: '🔥' },
+  { jours: 3, badge: '🔥', recompense: { type: 'eclats', montant: 50 } },
+  { jours: 7, badge: '🔥', recompense: { type: 'theme', id: 'sakura' } },
+  { jours: 14, badge: '🔥', recompense: { type: 'indices', montant: 3 } },
+  { jours: 30, badge: '🏅', recompense: { type: 'badge', id: 'fidele' } },
+]);
+
+/** Le palier atteint par une série de `n` jours. */
+function palierDe(n = serie()) {
+  let atteint = PALIERS_SERIE[0];
+  for (const p of PALIERS_SERIE) if (n >= p.jours) atteint = p;
+  return atteint;
+}
+
+/** Le prochain palier à viser, ou null quand tout est atteint. */
+function palierSuivant(n = serie()) {
+  return PALIERS_SERIE.find((p) => p.jours > n) || null;
+}
+
+/**
+ * Récompenses de série encore dues.
+ *
+ * On note ce qui a été versé plutôt que de se fier au seul compteur du jour :
+ * une série interrompue puis reprise ne doit pas reverser ce qui l'a déjà été,
+ * et un joueur qui manque le jour exact d'un palier ne doit pas le perdre.
+ */
+function recompensesDues() {
+  const d = store.load();
+  const versees = d.paliersSerie || [];
+  return PALIERS_SERIE.filter((p) => p.recompense && d.streak >= p.jours && !versees.includes(p.jours));
+}
+
+/** Marque un palier comme versé. */
+function noterPalierVerse(jours) {
+  const d = store.load();
+  d.paliersSerie = [...new Set([...(d.paliersSerie || []), jours])];
+  store.save(d);
+  track('streak_reward_granted', { jours, streak: d.streak });
+}
+
 /** Récompense qu'aurait le joueur demain — sert à donner envie de revenir. */
 function recompenseDeDemain() {
   return PALIERS[Math.min(serie(), PALIERS.length - 1)];
 }
 
-return { ouvrirSession, serie, recompenseDuJour, peutReclamer, reclamer, recompenseDeDemain };
+return { ouvrirSession, serie, recompenseDuJour, peutReclamer, reclamer, palierDe, palierSuivant, recompensesDues, noterPalierVerse, recompenseDeDemain, PALIERS_SERIE };
+})();
+
+const __m_themes = (() => {
+/**
+ * Thèmes : les habillages que le joueur débloque et choisit.
+ *
+ * Jusqu'ici, la teinte de l'interface était imposée par le monde en cours, et
+ * changeait sous les pieds du joueur au fil de la progression. Un thème est
+ * l'inverse : un choix qui reste. Les deux coexistent — sans thème choisi, on
+ * garde la teinte du monde, qui reste le comportement d'origine.
+ *
+ * Chaque thème pose une teinte d'interface et une palette de blocs, exactement
+ * comme un monde : c'est le même mécanisme, appliqué à la demande du joueur
+ * plutôt qu'à l'avancement.
+ *
+ * Les conditions de déblocage sont de natures DIFFÉRENTES à dessein — niveaux,
+ * étoiles, série, achat. Un thème qui ne dépendrait que de la progression
+ * n'apprendrait rien sur le joueur qui le porte.
+ */
+
+const store = __m_save;
+const { track } = __m_events;
+
+const THEMES = Object.freeze([
+  {
+    id: 'sakura', emoji: '🌸', teinte: 345,
+    palette: ['#eb9aad', '#93bde4', '#97cfb6', '#e9cd8c', '#bdaadd', '#f0b18b'],
+    // Le thème d'origine : acquis d'emblée, il sert de repli et de repère.
+    condition: { type: 'toujours' },
+  },
+  {
+    id: 'ocean', emoji: '🌊', teinte: 202,
+    palette: ['#e0919f', '#7fb6dd', '#7fc9c4', '#dcc98a', '#a3aade', '#e2a487'],
+    condition: { type: 'niveaux', valeur: 20 },
+  },
+  {
+    id: 'forest', emoji: '🌲', teinte: 138,
+    palette: ['#d99aa0', '#8bb6c4', '#84c48f', '#d3c586', '#aaa1cf', '#dba983'],
+    condition: { type: 'niveaux', valeur: 60 },
+  },
+  {
+    id: 'sunset', emoji: '🌅', teinte: 22,
+    palette: ['#ef9a86', '#8fb0cf', '#a6c894', '#f0c579', '#c2a0cc', '#eda775'],
+    condition: { type: 'etoiles', valeur: 150 },
+  },
+  {
+    id: 'night', emoji: '🌙', teinte: 258,
+    palette: ['#cf90b4', '#8ea3dd', '#84c3b4', '#d9c184', '#ab97dc', '#cf9a92'],
+    condition: { type: 'etoiles', valeur: 400 },
+  },
+  {
+    id: 'zen', emoji: '🍵', teinte: 96,
+    palette: ['#d29aa2', '#95b8c8', '#a8c894', '#d8c98d', '#b3a6cd', '#d9a98d'],
+    condition: { type: 'serie', valeur: 7 },
+  },
+  {
+    id: 'snow', emoji: '❄️', teinte: 210,
+    palette: ['#dda3ae', '#9cc3e2', '#96cfcc', '#dfd39b', '#b3b6e0', '#d9b8a6'],
+    condition: { type: 'premium' },
+  },
+]);
+
+const parId = (id) => THEMES.find((t) => t.id === id) || null;
+
+/**
+ * Ce thème est-il acquis ? Les conditions sont évaluées CHAQUE FOIS plutôt que
+ * notées une bonne fois : un joueur qui remet sa progression à zéro doit
+ * reperdre ce qu'elle lui avait ouvert, et un thème offert par une série reste
+ * acquis parce qu'il est, lui, enregistré.
+ */
+function estDebloque(theme, profil = null) {
+  const d = store.load();
+  if ((d.themes || []).includes(theme.id)) return true;
+  const c = theme.condition;
+  if (c.type === 'toujours') return true;
+  if (c.type === 'premium') return d.noAds === true;
+  if (c.type === 'niveaux') return (d.unlockedLevel - 1) >= c.valeur;
+  if (c.type === 'serie') return (d.streak || 0) >= c.valeur;
+  if (c.type === 'etoiles') return (profil?.totalStars ?? etoilesTotales(d)) >= c.valeur;
+  return false;
+}
+
+const etoilesTotales = (d) =>
+  Object.values(d.levels || {}).reduce((somme, l) => somme + (l.stars || 0), 0);
+
+/** Ouvre un thème sans condition — récompense de série, achat. */
+function debloquer(id, source) {
+  const d = store.load();
+  if ((d.themes || []).includes(id)) return false;
+  d.themes = [...(d.themes || []), id];
+  store.save(d);
+  track('theme_unlocked', { theme: id, source });
+  return true;
+}
+
+/** Le thème choisi, ou null quand le joueur suit la teinte des mondes. */
+const choisi = () => store.load().theme || null;
+
+function choisir(id) {
+  const d = store.load();
+  d.theme = id;
+  store.save(d);
+  track('theme_selected', { theme: id || 'mondes' });
+}
+
+/** Ce qu'il manque pour ouvrir ce thème, en clair. */
+function conditionLisible(theme, t) {
+  const c = theme.condition;
+  if (c.type === 'toujours') return '';
+  if (c.type === 'premium') return t('theme.cond.premium');
+  return t(`theme.cond.${c.type}`, { n: c.valeur });
+}
+
+return { estDebloque, debloquer, choisir, conditionLisible, THEMES, parId, choisi };
 })();
 
 const __m_dailyPuzzle = (() => {
@@ -5423,6 +5796,7 @@ const __m_theme = (() => {
  */
 
 const { realms, levelsPerRealm, realmDe } = __m_levelStore;
+const themes = __m_themes;
 
 /**
  * Interpolation sur le plus court arc de la roue chromatique. Sans elle, passer
@@ -5448,10 +5822,19 @@ function palettePour(niveau) {
   return realmDe(Math.min(Math.max(1, niveau), realms().length * levelsPerRealm())).palette;
 }
 
-/** Applique teinte et palette à un élément. */
+/**
+ * Applique teinte et palette à un élément.
+ *
+ * Un thème CHOISI l'emporte sur la teinte du monde : c'est une préférence, et
+ * une préférence qui se ferait écraser à chaque changement de monde n'en serait
+ * pas une. Sans thème choisi, on garde la progression chromatique d'origine.
+ */
 function appliquerA(element, niveau) {
-  element.style.setProperty('--h', teintePour(niveau));
-  palettePour(niveau).forEach((couleur, i) => element.style.setProperty(`--c${i}`, couleur));
+  const choisi = themes.parId(themes.choisi());
+  const teinte = choisi ? choisi.teinte : teintePour(niveau);
+  const palette = choisi ? choisi.palette : palettePour(niveau);
+  element.style.setProperty('--h', teinte);
+  palette.forEach((couleur, i) => element.style.setProperty(`--c${i}`, couleur));
 }
 
 /** Applique l'habillage d'un niveau à toute l'application. */
@@ -6047,6 +6430,7 @@ const __m_failOffer = (() => {
 const currency = __m_currency;
 const { PLACEMENT } = __m_adManager;
 const { track } = __m_events;
+const { EVENEMENTS: EV } = __m_analytics;
 const { t } = __m_i18n;
 
 /** Ce que rend une continuation acceptée. */
@@ -6055,20 +6439,24 @@ const BONUS = Object.freeze({ SECONDES: 30, COUPS: 3 });
 const el = (id) => document.getElementById(id);
 
 /**
- * @returns {Promise<'ad'|'coins'|null>} le moyen choisi, ou null si refus.
+ * @returns {Promise<'ad'|'coins'|'retry'|null>} le moyen choisi, ou null.
  */
 function proposer({ board, ads }) {
   const panneau = el('overlay-offer');
-  const raison = t(board.failReason === 'temps' ? 'offer.timeout' : 'offer.nomoves');
-  el('offer-reason').textContent = raison;
-  el('offer-remaining').textContent = board.remaining();
+  const restants = board.remaining();
+  el('offer-lead').textContent = t(restants > 1 ? 'offer.left.plural' : 'offer.left', { n: restants });
   el('offer-coins-cost').textContent = currency.PRIX.CONTINUER;
   el('offer-bonus').textContent = t('offer.bonus', { s: BONUS.SECONDES, c: BONUS.COUPS });
 
+  // L'option payante s'efface quand le joueur n'a pas de quoi : un bouton grisé
+  // ne fait que rappeler ce qui manque, au pire moment pour le lui dire.
   const boutonPieces = el('btn-offer-coins');
-  boutonPieces.disabled = !currency.peutPayer(currency.PRIX.CONTINUER);
+  boutonPieces.hidden = !currency.peutPayer(currency.PRIX.CONTINUER);
 
-  track('fail_offer_shown', { level: board.level.number, raison: board.failReason, restants: board.remaining() });
+  track(EV.REWARDED_OFFER_SHOWN, {
+    placement: PLACEMENT.RECOMPENSE_CONTINUER, level: board.level.number,
+    raison: board.failReason, restants,
+  });
   panneau.hidden = false;
 
   return new Promise((resolve) => {
@@ -6084,7 +6472,10 @@ function proposer({ board, ads }) {
       panneau.hidden = true;
       const recompense = await ads.montrerRecompensee(PLACEMENT.RECOMPENSE_CONTINUER);
       if (recompense) {
-        track('fail_offer_accepted', { level: board.level.number, moyen: 'ad' });
+        track(EV.REWARD_GRANTED, {
+          placement: PLACEMENT.RECOMPENSE_CONTINUER, recompense: 'continue',
+          secondes: BONUS.SECONDES, coups: BONUS.COUPS,
+        });
         fermer('ad');
       } else {
         panneau.hidden = false; // pub abandonnée : on repropose le choix
@@ -6097,9 +6488,14 @@ function proposer({ board, ads }) {
       fermer('coins');
     };
 
+    /**
+     * « Recommencer » plutôt qu'« Abandonner » : après un refus, l'écran de
+     * défaite n'apprend plus rien au joueur, qui veut surtout reprendre la
+     * grille. On le renvoie donc directement en partie.
+     */
     el('btn-offer-give-up').onclick = () => {
       track('fail_offer_declined', { level: board.level.number });
-      fermer(null);
+      fermer('retry');
     };
   });
 }
@@ -6389,6 +6785,8 @@ const currency = __m_currency;
 const failOffer = __m_failOffer;
 const daily = __m_daily;
 const dailyPuzzle = __m_dailyPuzzle;
+const themes = __m_themes;
+const { EVENEMENTS: EV, contexteNiveau } = __m_analytics;
 const feedback = __m_feedback;
 const { track, recent, subscribe } = __m_events;
 const { AudioManager } = __m_audioManager;
@@ -6446,12 +6844,61 @@ async function showMenu() {
   // est — il se lisait comme un score, alors qu'il mesure un avancement.
   el('menu-progress').textContent = `${p.currentLevel}/${levels.totalLevels()}`;
   await majMenuPuzzleDuJour();
+  majBadgeSerie();
   majCadeauDuJour();
   majPastilleSon();
   theme.appliquer(p.currentLevel); // le menu prend la couleur d'où en est le joueur
   screens.show('menu');
   audio.lancerMusique();
   majBanniere('menu');
+}
+
+/**
+ * Badge de série, sur l'accueil. Il ne s'affiche qu'à partir du deuxième jour :
+ * « série de 1 jour » ne récompense rien, elle constate qu'on est là.
+ */
+function majBadgeSerie() {
+  const badge = el('streak-badge');
+  const jours = daily.serie();
+  badge.hidden = jours < 2;
+  if (badge.hidden) return;
+  const palier = daily.palierDe(jours);
+  const suivant = daily.palierSuivant(jours);
+  badge.textContent = `${palier.badge} ${t('streak.badge', { n: jours })}`;
+  badge.title = suivant
+    ? t('streak.next', { n: suivant.jours - jours, quoi: libelleRecompense(suivant.recompense) })
+    : '';
+}
+
+const libelleRecompense = (r) => (r
+  ? t(`streak.reward.${r.type}`, { n: r.montant ?? '' })
+  : '');
+
+/**
+ * Verse les récompenses de série encore dues.
+ *
+ * Elles sont versées à l'ouverture de session et non au moment exact du palier :
+ * un joueur qui ouvre le jeu le huitième jour sans l'avoir ouvert le septième
+ * doit toucher ce qu'il a mérité, sinon la série punit ce qu'elle prétend
+ * récompenser.
+ */
+function verserRecompensesSerie() {
+  for (const palier of daily.recompensesDues()) {
+    const r = palier.recompense;
+    if (r.type === 'eclats') currency.crediter(r.montant, 'streak_reward');
+    else if (r.type === 'theme') themes.debloquer(r.id, 'streak');
+    else if (r.type === 'indices') {
+      const d = store.load();
+      d.indices = (d.indices || 0) + r.montant;
+      store.save(d);
+    } else if (r.type === 'badge') {
+      const d = store.load();
+      d.badges = [...new Set([...(d.badges || []), r.id])];
+      store.save(d);
+    }
+    daily.noterPalierVerse(palier.jours);
+    screens.toast(t('streak.granted', { jours: palier.jours, quoi: libelleRecompense(r) }));
+  }
 }
 
 /** Cadeau du jour : visible seulement s'il est réclamable. */
@@ -6538,7 +6985,12 @@ async function startLevel() {
   audio.reinitialiserSerie();
   offreUtilisee = false;
   debutNiveau = Date.now();
-  track('level_started', { level: level.number, essai: echecsDuNiveau + 1 });
+  const reprise = echecsDuNiveau > 0;
+  track(reprise ? EV.LEVEL_RESTARTED : EV.LEVEL_STARTED,
+    contexteNiveau(level, { essai: echecsDuNiveau + 1 }));
+  // Le premier niveau tient lieu de tutoriel : ce jeu n'en a pas d'autre, et
+  // l'entonnoir d'acquisition a besoin de ce repère.
+  if (level.number === 1 && !reprise) track(EV.TUTORIAL_STARTED, contexteNiveau(level));
   board = new Board(level);
   board._solveur = { resoudre }; // niveaux de l'éditeur : pas de solution de référence
   hud.mount(level);
@@ -6660,6 +7112,14 @@ async function finishLevel() {
   if (!won && !offreUtilisee) {
     offreUtilisee = true;
     const choix = await failOffer.proposer({ board, ads });
+    // « Recommencer » relance la grille sans passer par l'écran de résultat :
+    // le joueur a déjà vu qu'il avait perdu, le lui redire ne sert à rien.
+    if (choix === 'retry') {
+      busy = false;
+      input.locked = false;
+      startLevel();
+      return;
+    }
     if (choix) {
       failOffer.appliquer(board);
       hud.update(board);
@@ -6672,10 +7132,14 @@ async function finishLevel() {
 
   if (won) {
     echecsDuNiveau = 0;
-    track('level_completed', { level: level.number, glisses: board.dragsUsed(), etoiles: board.stars(), duree });
+    track(EV.LEVEL_COMPLETED, contexteNiveau(level, { essai: echecsDuNiveau + 1, board, duree }));
+    if (level.number === 1) track(EV.TUTORIAL_COMPLETED, contexteNiveau(level, { board, duree }));
   } else {
     echecsDuNiveau++;
-    track('level_failed', { level: level.number, raison: board.failReason, restants: board.remaining(), duree });
+    track(EV.LEVEL_FAILED, {
+      ...contexteNiveau(level, { essai: echecsDuNiveau, board, duree }),
+      raison: board.failReason, restants: board.remaining(),
+    });
   }
 
   const stars = board.stars();
@@ -6719,7 +7183,9 @@ async function finishLevel() {
         secondes: duree,
       });
       track('daily_puzzle_completed', { id: propose.id, score, duree });
+      track(EV.DAILY_COMPLETED, { id: propose.id, score, duree });
       await majMenuPuzzleDuJour();
+  majBadgeSerie();
       showMenu();
       montrerClassement(score);
     } else {
@@ -6897,6 +7363,7 @@ async function majPanneau() {
   el('opt-glyphs').checked = d.glyphes === true;
   el('opt-noads').checked = currency.aSupprimeLesPubs();
   construireChoixLangue();
+  majThemes();
   majPastilleSon();
 }
 
@@ -7257,7 +7724,9 @@ function majBoutique() {
 
     carte.append(montant, bonus, prix);
     carte.onclick = () => {
+      track(EV.IAP_STARTED, { productId: pack.id, prix: pack.prix });
       const verse = currency.acheterPack(pack.id);
+      track(EV.IAP_COMPLETED, { productId: pack.id, prix: pack.prix, eclats: verse });
       majBoutique();
       majMenu();
       screens.toast(t('shop.bought', { n: verse }));
@@ -7274,7 +7743,7 @@ function majMenu() {
 el('btn-shop').onclick = () => {
   majBoutique();
   el('overlay-shop').hidden = false;
-  track('shop_opened', { solde: currency.solde() });
+  track(EV.IAP_VIEWED, { solde: currency.solde() });
 };
 
 el('btn-shop-close').onclick = () => { el('overlay-shop').hidden = true; };
@@ -7286,6 +7755,7 @@ el('btn-shop-ad').onclick = async () => {
   // Le crédit passe par `currency` : c'est lui qui tient le compteur du jour,
   // et le verser ici le contournerait.
   const gagne = currency.crediterPub();
+  track(EV.REWARD_GRANTED, { placement: PLACEMENT.RECOMPENSE_PIECES, recompense: 'eclats', montant: gagne });
   majBoutique();
   majMenu();
   screens.toast(t('shop.earned', { n: gagne }));
@@ -7312,8 +7782,46 @@ function montrerClassement(monScore) {
   el('overlay-rank').hidden = false;
 }
 
+/**
+ * Grille des thèmes. Un thème verrouillé reste VISIBLE, avec sa condition : ce
+ * qu'on ne peut pas encore avoir est ce qui donne envie de continuer, à
+ * condition de savoir ce qu'il faut faire pour l'obtenir.
+ */
+async function majThemes() {
+  const hote = el('opt-themes');
+  const profil = await api.getProfile();
+  const courant = themes.choisi();
+
+  const suivreMondes = document.createElement('button');
+  suivreMondes.className = 'theme-tuile' + (courant ? '' : ' sel');
+  suivreMondes.innerHTML = '<span class="theme-emoji">🎨</span>';
+  const nom = document.createElement('small');
+  nom.textContent = t('theme.worlds');
+  suivreMondes.append(nom);
+  suivreMondes.onclick = () => { themes.choisir(null); theme.appliquer(profil.currentLevel); majThemes(); };
+
+  hote.replaceChildren(suivreMondes, ...themes.THEMES.map((th) => {
+    const ouvert = themes.estDebloque(th, profil);
+    const tuile = document.createElement('button');
+    tuile.className = 'theme-tuile' + (courant === th.id ? ' sel' : '') + (ouvert ? '' : ' verrouille');
+    tuile.style.setProperty('--apercu', th.palette[0]);
+    tuile.innerHTML = `<span class="theme-emoji">${th.emoji}</span>`;
+    const etiquette = document.createElement('small');
+    etiquette.textContent = ouvert ? th.id : themes.conditionLisible(th, t);
+    tuile.append(etiquette);
+    if (!ouvert) {
+      tuile.disabled = true;
+      tuile.title = t('theme.locked', { quoi: themes.conditionLisible(th, t) });
+    } else {
+      tuile.onclick = () => { themes.choisir(th.id); theme.appliquer(profil.currentLevel); majThemes(); };
+    }
+    return tuile;
+  }));
+}
+
 el('opt-noads').onchange = (ev) => {
   currency.definirSuppressionPubs(ev.target.checked);
+  if (ev.target.checked) track(EV.REMOVE_ADS_PURCHASED, { simule: true });
   majBanniere(screens.current());
   screens.toast(t(ev.target.checked ? 'toast.ads.off' : 'toast.ads.on'));
 };
@@ -7332,7 +7840,17 @@ el('btn-reset').onclick = () => {
   showMenu();
 };
 document.querySelectorAll('[data-nav]').forEach((b) => {
-  b.onclick = () => (b.dataset.nav === 'menu' ? showMenu() : showMap());
+  b.onclick = () => {
+    // Quitter une grille en cours est un abandon : c'est le signal qui manque
+    // le plus souvent, et celui qui dit quel niveau décourage.
+    if (screens.current() === 'game' && board?.gameState === GameState.PLAYING) {
+      track(EV.LEVEL_ABANDONED, contexteNiveau(level, {
+        essai: echecsDuNiveau + 1, board,
+        duree: Math.round((Date.now() - debutNiveau) / 1000),
+      }));
+    }
+    return b.dataset.nav === 'menu' ? showMenu() : showMap();
+  };
 });
 
 // Le chrono ne doit pas continuer de tourner pendant que l'app est en fond.
@@ -7504,7 +8022,12 @@ function refreshDebug() {
   }
 
   // Série quotidienne, puis menu.
-  daily.ouvrirSession();
+  const premiereFois = !store.load().lastPlayedAt && !store.load().lastPlayDay;
+  track(EV.APP_OPEN, {});
+  if (premiereFois) track(EV.FIRST_OPEN, {});
+  const session = daily.ouvrirSession();
+  if (session.nouveauJour) track(EV.DAILY_OPEN, { streak: session.streak });
+  verserRecompensesSerie();
   window.addEventListener('pagehide', () => track('session_ended', {}));
   showMenu();
 })();

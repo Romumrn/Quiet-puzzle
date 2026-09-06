@@ -452,6 +452,46 @@ console.log('\n== Traduction ==');
   check('aucun texte n\'est écrit depuis le CSS', contenus.length === 0, contenus.join(', '));
 }
 
+console.log('\n== Nomenclature des évènements ==');
+{
+  const { EVENEMENTS, contexteNiveau } = await import('../src/data/analytics.js');
+  const { readFileSync, readdirSync, statSync } = await import('node:fs');
+  const { join } = await import('node:path');
+
+  const noms = Object.values(EVENEMENTS);
+  check('aucun nom d\'évènement n\'est employé deux fois',
+    new Set(noms).size === noms.length, noms.length + ' évènements');
+  check('tous suivent la convention objet_action',
+    noms.every((n) => /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(n)),
+    noms.filter((n) => !/^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(n)).join(', '));
+
+  // Le contexte de niveau doit toujours porter les mêmes clés : c'est ce qui
+  // permet de comparer un abandon et une réussite sans arithmétique cachée.
+  const attendues = ['level_id', 'level', 'world', 'attempt', 'duration', 'moves', 'stars'];
+  const ctx = contexteNiveau({ levelId: 'lvl_001', number: 1, realm: 'Test' });
+  check('le contexte de niveau porte toutes ses clés',
+    attendues.every((k) => k in ctx), Object.keys(ctx).join(', '));
+
+  // Chaque évènement déclaré doit être réellement émis quelque part : une
+  // nomenclature qui décrit des évènements que personne n'envoie donne une
+  // fausse impression de couverture.
+  const sources = [];
+  const parcourir = (dir) => {
+    for (const e of readdirSync(dir)) {
+      const chemin = join(dir, e);
+      if (statSync(chemin).isDirectory()) parcourir(chemin);
+      else if (e.endsWith('.js')) sources.push(readFileSync(chemin, 'utf8'));
+    }
+  };
+  parcourir(new URL('../src', import.meta.url).pathname);
+  const code = sources.join('\n');
+  const parNom = Object.entries(EVENEMENTS)
+    .filter(([cle, nom]) => !code.includes(`EV.${cle}`) && !code.includes(`'${nom}'`))
+    .map(([, nom]) => nom);
+  check('chaque évènement déclaré est émis quelque part',
+    parNom.length === 0, parNom.join(', '));
+}
+
 console.log('\n== Cadencement publicitaire ==');
 {
   const { AdPolicy, REGLES } = await import('../src/monetization/adPolicy.js');

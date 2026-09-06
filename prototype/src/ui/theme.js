@@ -16,6 +16,7 @@
  */
 
 import { realms, levelsPerRealm, realmDe } from '../data/levelStore.js';
+import * as themes from '../meta/themes.js';
 
 /**
  * Interpolation sur le plus court arc de la roue chromatique. Sans elle, passer
@@ -41,10 +42,19 @@ export function palettePour(niveau) {
   return realmDe(Math.min(Math.max(1, niveau), realms().length * levelsPerRealm())).palette;
 }
 
-/** Applique teinte et palette à un élément. */
+/**
+ * Applique teinte et palette à un élément.
+ *
+ * Un thème CHOISI l'emporte sur la teinte du monde : c'est une préférence, et
+ * une préférence qui se ferait écraser à chaque changement de monde n'en serait
+ * pas une. Sans thème choisi, on garde la progression chromatique d'origine.
+ */
 export function appliquerA(element, niveau) {
-  element.style.setProperty('--h', teintePour(niveau));
-  palettePour(niveau).forEach((couleur, i) => element.style.setProperty(`--c${i}`, couleur));
+  const choisi = themes.parId(themes.choisi());
+  const teinte = choisi ? choisi.teinte : teintePour(niveau);
+  const palette = choisi ? choisi.palette : palettePour(niveau);
+  element.style.setProperty('--h', teinte);
+  palette.forEach((couleur, i) => element.style.setProperty(`--c${i}`, couleur));
 }
 
 /** Applique l'habillage d'un niveau à toute l'application. */

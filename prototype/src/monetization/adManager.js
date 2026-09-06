@@ -14,6 +14,7 @@
 
 import { AdPolicy } from './adPolicy.js';
 import { track } from '../data/events.js';
+import { EVENEMENTS as EV } from '../data/analytics.js';
 import { t } from '../ui/i18n.js';
 import * as currency from './currency.js';
 
@@ -53,7 +54,7 @@ export class AdManager {
   async montrerInterstitiel(ctx) {
     const verdict = this.policy.peutAfficherInterstitiel(ctx);
     if (!verdict.ok) {
-      track('ad_skipped', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU, raison: verdict.raison });
+      track(EV.INTERSTITIAL_SKIPPED, { placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU, raison: verdict.raison });
       return { montree: false, raison: verdict.raison };
     }
     if (Math.random() > this.tauxRemplissage) {
@@ -62,7 +63,7 @@ export class AdManager {
     }
 
     this.policy.noterInterstitiel();
-    track('ad_started', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU });
+    track(EV.INTERSTITIAL_SHOWN, { placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU });
     await this._jouer({ type: 'interstitial', duree: DUREE_INTERSTITIEL, titre: t('ad.title') });
     track('ad_watched', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIEL_FIN_NIVEAU, revenue: 0.012 });
     return { montree: true, raison: 'ok' };
@@ -81,10 +82,10 @@ export class AdManager {
       track('ad_no_fill', { adType: 'rewarded', placement });
       return false;
     }
-    track('ad_started', { adType: 'rewarded', placement });
+    track(EV.REWARDED_STARTED, { placement });
     const termine = await this._jouer({ type: 'rewarded', duree: DUREE_RECOMPENSEE, titre: t('ad.title.rewarded') });
     this.policy.noterRecompensee();
-    if (termine) track('ad_watched', { adType: 'rewarded', placement, revenue: 0.045 });
+    if (termine) track(EV.REWARDED_COMPLETED, { placement, revenue: 0.015 });
     else track('ad_abandoned', { adType: 'rewarded', placement });
     return termine;
   }

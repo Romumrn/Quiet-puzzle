@@ -29,6 +29,8 @@ import * as currency from './monetization/currency.js';
 import * as failOffer from './monetization/failOffer.js';
 import * as daily from './meta/daily.js';
 import * as dailyPuzzle from './meta/dailyPuzzle.js';
+import * as themes from './meta/themes.js';
+import { EVENEMENTS as EV, contexteNiveau } from './data/analytics.js';
 import * as feedback from './meta/feedback.js';
 import { track, recent, subscribe } from './data/events.js';
 import { AudioManager } from './audio/audioManager.js';
@@ -86,12 +88,61 @@ async function showMenu() {
   // est — il se lisait comme un score, alors qu'il mesure un avancement.
   el('menu-progress').textContent = `${p.currentLevel}/${levels.totalLevels()}`;
   await majMenuPuzzleDuJour();
+  majBadgeSerie();
   majCadeauDuJour();
   majPastilleSon();
   theme.appliquer(p.currentLevel); // le menu prend la couleur d'où en est le joueur
   screens.show('menu');
   audio.lancerMusique();
   majBanniere('menu');
+}
+
+/**
+ * Badge de série, sur l'accueil. Il ne s'affiche qu'à partir du deuxième jour :
+ * « série de 1 jour » ne récompense rien, elle constate qu'on est là.
+ */
+function majBadgeSerie() {
+  const badge = el('streak-badge');
+  const jours = daily.serie();
+  badge.hidden = jours < 2;
+  if (badge.hidden) return;
+  const palier = daily.palierDe(jours);
+  const suivant = daily.palierSuivant(jours);
+  badge.textContent = `${palier.badge} ${t('streak.badge', { n: jours })}`;
+  badge.title = suivant
+    ? t('streak.next', { n: suivant.jours - jours, quoi: libelleRecompense(suivant.recompense) })
+    : '';
+}
+
+const libelleRecompense = (r) => (r
+  ? t(`streak.reward.${r.type}`, { n: r.montant ?? '' })
+  : '');
+
+/**
+ * Verse les récompenses de série encore dues.
+ *
+ * Elles sont versées à l'ouverture de session et non au moment exact du palier :
+ * un joueur qui ouvre le jeu le huitième jour sans l'avoir ouvert le septième
+ * doit toucher ce qu'il a mérité, sinon la série punit ce qu'elle prétend
+ * récompenser.
+ */
+function verserRecompensesSerie() {
+  for (const palier of daily.recompensesDues()) {
+    const r = palier.recompense;
+    if (r.type === 'eclats') currency.crediter(r.montant, 'streak_reward');
+    else if (r.type === 'theme') themes.debloquer(r.id, 'streak');
+    else if (r.type === 'indices') {
+      const d = store.load();
+      d.indices = (d.indices || 0) + r.montant;
+      store.save(d);
+    } else if (r.type === 'badge') {
+      const d = store.load();
+      d.badges = [...new Set([...(d.badges || []), r.id])];
+      store.save(d);
+    }
+    daily.noterPalierVerse(palier.jours);
+    screens.toast(t('streak.granted', { jours: palier.jours, quoi: libelleRecompense(r) }));
+  }
 }
 
 /** Cadeau du jour : visible seulement s'il est réclamable. */
@@ -178,7 +229,12 @@ async function startLevel() {
   audio.reinitialiserSerie();
   offreUtilisee = false;
   debutNiveau = Date.now();
-  track('level_started', { level: level.number, essai: echecsDuNiveau + 1 });
+  const reprise = echecsDuNiveau > 0;
+  track(reprise ? EV.LEVEL_RESTARTED : EV.LEVEL_STARTED,
+    contexteNiveau(level, { essai: echecsDuNiveau + 1 }));
+  // Le premier niveau tient lieu de tutoriel : ce jeu n'en a pas d'autre, et
+  // l'entonnoir d'acquisition a besoin de ce repère.
+  if (level.number === 1 && !reprise) track(EV.TUTORIAL_STARTED, contexteNiveau(level));
   board = new Board(level);
   board._solveur = { resoudre }; // niveaux de l'éditeur : pas de solution de référence
   hud.mount(level);
@@ -300,6 +356,14 @@ async function finishLevel() {
   if (!won && !offreUtilisee) {
     offreUtilisee = true;
     const choix = await failOffer.proposer({ board, ads });
+    // « Recommencer » relance la grille sans passer par l'écran de résultat :
+    // le joueur a déjà vu qu'il avait perdu, le lui redire ne sert à rien.
+    if (choix === 'retry') {
+      busy = false;
+      input.locked = false;
+      startLevel();
+      return;
+    }
     if (choix) {
       failOffer.appliquer(board);
       hud.update(board);
@@ -312,10 +376,14 @@ async function finishLevel() {
 
   if (won) {
     echecsDuNiveau = 0;
-    track('level_completed', { level: level.number, glisses: board.dragsUsed(), etoiles: board.stars(), duree });
+    track(EV.LEVEL_COMPLETED, contexteNiveau(level, { essai: echecsDuNiveau + 1, board, duree }));
+    if (level.number === 1) track(EV.TUTORIAL_COMPLETED, contexteNiveau(level, { board, duree }));
   } else {
     echecsDuNiveau++;
-    track('level_failed', { level: level.number, raison: board.failReason, restants: board.remaining(), duree });
+    track(EV.LEVEL_FAILED, {
+      ...contexteNiveau(level, { essai: echecsDuNiveau, board, duree }),
+      raison: board.failReason, restants: board.remaining(),
+    });
   }
 
   const stars = board.stars();
@@ -359,7 +427,9 @@ async function finishLevel() {
         secondes: duree,
       });
       track('daily_puzzle_completed', { id: propose.id, score, duree });
+      track(EV.DAILY_COMPLETED, { id: propose.id, score, duree });
       await majMenuPuzzleDuJour();
+  majBadgeSerie();
       showMenu();
       montrerClassement(score);
     } else {
@@ -537,6 +607,7 @@ async function majPanneau() {
   el('opt-glyphs').checked = d.glyphes === true;
   el('opt-noads').checked = currency.aSupprimeLesPubs();
   construireChoixLangue();
+  majThemes();
   majPastilleSon();
 }
 
@@ -897,7 +968,9 @@ function majBoutique() {
 
     carte.append(montant, bonus, prix);
     carte.onclick = () => {
+      track(EV.IAP_STARTED, { productId: pack.id, prix: pack.prix });
       const verse = currency.acheterPack(pack.id);
+      track(EV.IAP_COMPLETED, { productId: pack.id, prix: pack.prix, eclats: verse });
       majBoutique();
       majMenu();
       screens.toast(t('shop.bought', { n: verse }));
@@ -914,7 +987,7 @@ function majMenu() {
 el('btn-shop').onclick = () => {
   majBoutique();
   el('overlay-shop').hidden = false;
-  track('shop_opened', { solde: currency.solde() });
+  track(EV.IAP_VIEWED, { solde: currency.solde() });
 };
 
 el('btn-shop-close').onclick = () => { el('overlay-shop').hidden = true; };
@@ -926,6 +999,7 @@ el('btn-shop-ad').onclick = async () => {
   // Le crédit passe par `currency` : c'est lui qui tient le compteur du jour,
   // et le verser ici le contournerait.
   const gagne = currency.crediterPub();
+  track(EV.REWARD_GRANTED, { placement: PLACEMENT.RECOMPENSE_PIECES, recompense: 'eclats', montant: gagne });
   majBoutique();
   majMenu();
   screens.toast(t('shop.earned', { n: gagne }));
@@ -952,8 +1026,46 @@ function montrerClassement(monScore) {
   el('overlay-rank').hidden = false;
 }
 
+/**
+ * Grille des thèmes. Un thème verrouillé reste VISIBLE, avec sa condition : ce
+ * qu'on ne peut pas encore avoir est ce qui donne envie de continuer, à
+ * condition de savoir ce qu'il faut faire pour l'obtenir.
+ */
+async function majThemes() {
+  const hote = el('opt-themes');
+  const profil = await api.getProfile();
+  const courant = themes.choisi();
+
+  const suivreMondes = document.createElement('button');
+  suivreMondes.className = 'theme-tuile' + (courant ? '' : ' sel');
+  suivreMondes.innerHTML = '<span class="theme-emoji">🎨</span>';
+  const nom = document.createElement('small');
+  nom.textContent = t('theme.worlds');
+  suivreMondes.append(nom);
+  suivreMondes.onclick = () => { themes.choisir(null); theme.appliquer(profil.currentLevel); majThemes(); };
+
+  hote.replaceChildren(suivreMondes, ...themes.THEMES.map((th) => {
+    const ouvert = themes.estDebloque(th, profil);
+    const tuile = document.createElement('button');
+    tuile.className = 'theme-tuile' + (courant === th.id ? ' sel' : '') + (ouvert ? '' : ' verrouille');
+    tuile.style.setProperty('--apercu', th.palette[0]);
+    tuile.innerHTML = `<span class="theme-emoji">${th.emoji}</span>`;
+    const etiquette = document.createElement('small');
+    etiquette.textContent = ouvert ? th.id : themes.conditionLisible(th, t);
+    tuile.append(etiquette);
+    if (!ouvert) {
+      tuile.disabled = true;
+      tuile.title = t('theme.locked', { quoi: themes.conditionLisible(th, t) });
+    } else {
+      tuile.onclick = () => { themes.choisir(th.id); theme.appliquer(profil.currentLevel); majThemes(); };
+    }
+    return tuile;
+  }));
+}
+
 el('opt-noads').onchange = (ev) => {
   currency.definirSuppressionPubs(ev.target.checked);
+  if (ev.target.checked) track(EV.REMOVE_ADS_PURCHASED, { simule: true });
   majBanniere(screens.current());
   screens.toast(t(ev.target.checked ? 'toast.ads.off' : 'toast.ads.on'));
 };
@@ -972,7 +1084,17 @@ el('btn-reset').onclick = () => {
   showMenu();
 };
 document.querySelectorAll('[data-nav]').forEach((b) => {
-  b.onclick = () => (b.dataset.nav === 'menu' ? showMenu() : showMap());
+  b.onclick = () => {
+    // Quitter une grille en cours est un abandon : c'est le signal qui manque
+    // le plus souvent, et celui qui dit quel niveau décourage.
+    if (screens.current() === 'game' && board?.gameState === GameState.PLAYING) {
+      track(EV.LEVEL_ABANDONED, contexteNiveau(level, {
+        essai: echecsDuNiveau + 1, board,
+        duree: Math.round((Date.now() - debutNiveau) / 1000),
+      }));
+    }
+    return b.dataset.nav === 'menu' ? showMenu() : showMap();
+  };
 });
 
 // Le chrono ne doit pas continuer de tourner pendant que l'app est en fond.
@@ -1144,7 +1266,12 @@ function refreshDebug() {
   }
 
   // Série quotidienne, puis menu.
-  daily.ouvrirSession();
+  const premiereFois = !store.load().lastPlayedAt && !store.load().lastPlayDay;
+  track(EV.APP_OPEN, {});
+  if (premiereFois) track(EV.FIRST_OPEN, {});
+  const session = daily.ouvrirSession();
+  if (session.nouveauJour) track(EV.DAILY_OPEN, { streak: session.streak });
+  verserRecompensesSerie();
   window.addEventListener('pagehide', () => track('session_ended', {}));
   showMenu();
 })();

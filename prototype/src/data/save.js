@@ -36,6 +36,11 @@ const EMPTY = () => ({
   pubsPiecesJour: null,
   pubsPiecesCompte: 0,
   streak: 0,         // jours consécutifs joués
+  paliersSerie: [],  // paliers de série déjà récompensés
+  themes: [],        // thèmes débloqués, en plus de celui d'origine
+  theme: null,       // thème choisi, ou null pour la teinte du monde
+  badges: [],        // badges obtenus
+  indices: 0,        // indices offerts, dépensés avant les éclats
   lastPlayDay: null, // 'YYYY-MM-DD'
   dailyClaimedOn: null,
   createdAt: new Date().toISOString(),

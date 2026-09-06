@@ -17,6 +17,7 @@
 import * as currency from './currency.js';
 import { PLACEMENT } from './adManager.js';
 import { track } from '../data/events.js';
+import { EVENEMENTS as EV } from '../data/analytics.js';
 import { t } from '../ui/i18n.js';
 
 /** Ce que rend une continuation acceptée. */
@@ -25,20 +26,24 @@ export const BONUS = Object.freeze({ SECONDES: 30, COUPS: 3 });
 const el = (id) => document.getElementById(id);
 
 /**
- * @returns {Promise<'ad'|'coins'|null>} le moyen choisi, ou null si refus.
+ * @returns {Promise<'ad'|'coins'|'retry'|null>} le moyen choisi, ou null.
  */
 export function proposer({ board, ads }) {
   const panneau = el('overlay-offer');
-  const raison = t(board.failReason === 'temps' ? 'offer.timeout' : 'offer.nomoves');
-  el('offer-reason').textContent = raison;
-  el('offer-remaining').textContent = board.remaining();
+  const restants = board.remaining();
+  el('offer-lead').textContent = t(restants > 1 ? 'offer.left.plural' : 'offer.left', { n: restants });
   el('offer-coins-cost').textContent = currency.PRIX.CONTINUER;
   el('offer-bonus').textContent = t('offer.bonus', { s: BONUS.SECONDES, c: BONUS.COUPS });
 
+  // L'option payante s'efface quand le joueur n'a pas de quoi : un bouton grisé
+  // ne fait que rappeler ce qui manque, au pire moment pour le lui dire.
   const boutonPieces = el('btn-offer-coins');
-  boutonPieces.disabled = !currency.peutPayer(currency.PRIX.CONTINUER);
+  boutonPieces.hidden = !currency.peutPayer(currency.PRIX.CONTINUER);
 
-  track('fail_offer_shown', { level: board.level.number, raison: board.failReason, restants: board.remaining() });
+  track(EV.REWARDED_OFFER_SHOWN, {
+    placement: PLACEMENT.RECOMPENSE_CONTINUER, level: board.level.number,
+    raison: board.failReason, restants,
+  });
   panneau.hidden = false;
 
   return new Promise((resolve) => {
@@ -54,7 +59,10 @@ export function proposer({ board, ads }) {
       panneau.hidden = true;
       const recompense = await ads.montrerRecompensee(PLACEMENT.RECOMPENSE_CONTINUER);
       if (recompense) {
-        track('fail_offer_accepted', { level: board.level.number, moyen: 'ad' });
+        track(EV.REWARD_GRANTED, {
+          placement: PLACEMENT.RECOMPENSE_CONTINUER, recompense: 'continue',
+          secondes: BONUS.SECONDES, coups: BONUS.COUPS,
+        });
         fermer('ad');
       } else {
         panneau.hidden = false; // pub abandonnée : on repropose le choix
@@ -67,9 +75,14 @@ export function proposer({ board, ads }) {
       fermer('coins');
     };
 
+    /**
+     * « Recommencer » plutôt qu'« Abandonner » : après un refus, l'écran de
+     * défaite n'apprend plus rien au joueur, qui veut surtout reprendre la
+     * grille. On le renvoie donc directement en partie.
+     */
     el('btn-offer-give-up').onclick = () => {
       track('fail_offer_declined', { level: board.level.number });
-      fermer(null);
+      fermer('retry');
     };
   });
 }

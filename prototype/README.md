@@ -115,6 +115,19 @@ meilleur indicateur de difficulté disponible.
 
 ## Économie
 
+La monnaie s'appelle les **éclats** — un seul nom, cohérent avec l'univers du
+verre. Le circuit tient en trois lignes :
+
+| | |
+|---|---|
+| **On en gagne** | en jouant (10 / 5 / 2 selon les étoiles), par le cadeau du jour, par les paliers de série |
+| **On en achète** | packs de la boutique, ou 25 éclats contre une pub, cinq fois par jour |
+| **On en dépense** | indice 50, continuer 75 |
+
+La pub reste **l'alternative gratuite à tout paiement** : partout où un bonus se
+paie, on peut le regarder à la place. C'est la règle qui rend le système lisible
+sans rien retirer à personne.
+
 Un niveau réussi rapporte selon ses étoiles : **10 pièces pour 3★, 5 pour 2★,
 2 pour 1★**. Le barème est plat et lisible — le joueur sait ce qu'il gagne avant
 de jouer, et vise trois étoiles pour cinq fois plus qu'une seule.
@@ -131,9 +144,38 @@ un indice vaut désormais cinq niveaux parfaits, et la boutique — 25 pièces p
 pub, cinq fois par jour — devient la source d'appoint principale. C'est un
 réglage à éprouver en playtest.
 
-## Boutique de pièces
+## Série, badges et thèmes
 
-La tuile « pièces » du menu ouvre la boutique. Deux façons d'en obtenir, et
+La série quotidienne porte un **badge** dès le deuxième jour, visible sur
+l'accueil, avec ce qu'il reste à tenir pour le palier suivant. Les récompenses
+sont de natures différentes à dessein — une série qui ne verserait que de la
+monnaie se comparerait à la monnaie qu'on gagne en jouant, et perdrait toujours :
+
+| Palier | Récompense |
+|---|---|
+| 3 jours | 50 éclats |
+| 7 jours | le thème 🌸 Sakura |
+| 14 jours | 3 indices |
+| 30 jours | un badge |
+
+Elles sont versées **à l'ouverture de session**, pas au jour exact du palier :
+un joueur qui ouvre le jeu le huitième jour sans l'avoir ouvert le septième doit
+toucher ce qu'il a mérité, sinon la série punit ce qu'elle prétend récompenser.
+Une série repartie de zéro remet le compteur des paliers, faute de quoi un
+retour après un mois d'absence les reverserait tous d'un coup.
+
+**Sept thèmes** — 🌸 Sakura, 🌊 Ocean, 🌲 Forest, 🌅 Sunset, 🌙 Night, 🍵 Zen,
+❄️ Snow — se débloquent par des voies volontairement différentes : niveaux
+franchis, étoiles amassées, série tenue, achat sans-pub. Un thème qui ne
+dépendrait que de la progression n'apprendrait rien sur le joueur qui le porte.
+
+Un thème choisi **l'emporte sur la teinte du monde**, et c'est le point : une
+préférence qui se ferait écraser à chaque changement de monde n'en serait pas
+une. Sans thème choisi, on garde la progression chromatique d'origine.
+
+## Boutique d'éclats
+
+La tuile « éclats » du menu ouvre la boutique. Deux façons d'en obtenir, et
 l'ordre compte : **la gratuite d'abord**. Mettre les packs en tête ferait passer
 la pub récompensée pour un lot de consolation, alors que c'est elle qui dépanne
 le joueur au moment où il en a besoin.
@@ -170,6 +212,36 @@ sa route — copier, télécharger, ou ouvrir son courrielleur sur un brouillon 
 Les images ne sont **pas** conservées dans le stockage local : quelques captures
 de téléphone en base64 dépassent à elles seules le quota d'un navigateur, et
 l'historique deviendrait la raison pour laquelle le jeu ne sauvegarde plus.
+
+## Mesure
+
+`src/data/analytics.js` tient la nomenclature : un seul endroit décide des noms
+et des paramètres. Éparpillés dans le code, ils dérivent — deux graphies pour le
+même geste, un paramètre présent ici et absent là — et l'entonnoir devient
+illisible au moment précis où l'on en a besoin.
+
+Vingt-trois évènements couvrent l'acquisition (`app_open`, `first_open`,
+`tutorial_started`, `tutorial_completed`), le jeu (`level_started`,
+`level_completed`, `level_failed`, `level_restarted`, `level_abandoned`), la
+monétisation (`rewarded_offer_shown` → `rewarded_started` →
+`rewarded_completed` → `reward_granted`, `interstitial_shown`,
+`interstitial_skipped`, `iap_viewed` → `iap_started` → `iap_completed`,
+`remove_ads_purchased`) et la rétention (`daily_open`, `daily_completed`,
+`streak_started`, `streak_continued`).
+
+Tout évènement de niveau porte le même contexte — `level_id`, `world`,
+`attempt`, `duration`, `moves`, `stars` — ce qui permet de comparer un abandon
+et une réussite sans se demander si l'un des deux compte les coups autrement.
+`attempt` est la clé du diagnostic : le seul taux d'échec confond « raté une
+fois » et « raté dix fois ».
+
+Deux choses à savoir :
+
+- **il n'y a pas de tutoriel** dans ce jeu. `tutorial_started` et
+  `tutorial_completed` sont émis sur le premier niveau, qui en tient lieu.
+- `tools/test.mjs` vérifie que chaque évènement déclaré est **réellement émis
+  quelque part** : une nomenclature qui décrit des évènements que personne
+  n'envoie donne une fausse impression de couverture.
 
 ## Monétisation
 
