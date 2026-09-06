@@ -211,6 +211,7 @@
         <h2 id="result-title" data-i18n="result.done">Niveau terminé</h2>
         <div class="stars stars-lg" id="result-stars"></div>
         <p class="result-score"><span id="result-score">0</span><small data-i18n="result.drags">glissés</small></p>
+        <p class="result-time" id="result-time" hidden></p>
         <p class="result-near" id="result-near" hidden></p>
         <p class="result-reward" id="result-reward"></p>
         <button class="btn btn-reward" id="btn-double" hidden>
@@ -220,6 +221,17 @@
           <button class="btn btn-ghost" id="btn-result-map" data-i18n="result.map">Carte</button>
           <button class="btn btn-ghost" id="btn-result-retry" data-i18n="result.retry">Rejouer</button>
           <button class="btn btn-primary" id="btn-result-next" data-i18n="result.next">Suivant</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ MES NIVEAUX ============ -->
+    <div class="overlay" id="overlay-mine" hidden>
+      <div class="result-card">
+        <h2 data-i18n="editor.mine">Mes niveaux</h2>
+        <ul class="mine-list" id="mine-list"></ul>
+        <div class="result-actions">
+          <button class="btn btn-primary" id="btn-mine-close" data-i18n="ad.close">Fermer</button>
         </div>
       </div>
     </div>
@@ -295,6 +307,7 @@
           <button class="btn btn-ghost btn-sm" id="ed-export">Exporter</button>
           <button class="btn btn-ghost btn-sm" id="ed-import">Importer</button>
           <button class="btn btn-ghost btn-sm" id="ed-clear">Vider</button>
+          <button class="btn btn-ghost btn-sm" id="ed-mine" data-i18n="editor.mine">Mes niveaux</button>
         </div>
         <div class="ed-actions">
           <button class="btn btn-primary btn-sm ed-submit" id="ed-submit"

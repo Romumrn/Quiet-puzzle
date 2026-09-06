@@ -662,6 +662,34 @@ body { display: grid; place-items: center; }
 .stat-action:hover { border-color: var(--accent); }
 .stat-action:active { transform: scale(0.97); }
 
+/* Le temps mis, sous le nombre de glissés : présent sans concurrencer les
+   étoiles, qui restent la note du niveau. */
+.result-time {
+  margin: -8px 0 10px;
+  color: var(--ink-faint); font: 400 13px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Historique des grilles créées. */
+.mine-list { list-style: none; display: grid; gap: 6px; margin: 10px 0 14px; text-align: left; }
+.mine-list li { display: flex; gap: 6px; align-items: stretch; }
+.mine-open {
+  flex: 1; display: grid; gap: 1px; padding: 9px 12px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 12px;
+  color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+  transition: border-color 0.16s ease;
+}
+.mine-open:hover { border-color: var(--accent); }
+.mine-open b { font: 500 14px var(--font-ui); }
+.mine-open small { color: var(--ink-faint); font-size: 12px; }
+.mine-del {
+  width: 36px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--ground); color: var(--ink-faint);
+  font-size: 17px; line-height: 1; cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+.mine-del:hover { border-color: var(--alert); color: var(--alert); }
+
 /* Boutique. */
 .shop-card { max-width: 340px; }
 .shop-solde { margin: 4px 0 14px; color: var(--ink-soft); font: 400 15px var(--font-ui); }

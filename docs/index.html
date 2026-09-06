@@ -673,6 +673,34 @@ body { display: grid; place-items: center; }
 .stat-action:hover { border-color: var(--accent); }
 .stat-action:active { transform: scale(0.97); }
 
+/* Le temps mis, sous le nombre de glissés : présent sans concurrencer les
+   étoiles, qui restent la note du niveau. */
+.result-time {
+  margin: -8px 0 10px;
+  color: var(--ink-faint); font: 400 13px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Historique des grilles créées. */
+.mine-list { list-style: none; display: grid; gap: 6px; margin: 10px 0 14px; text-align: left; }
+.mine-list li { display: flex; gap: 6px; align-items: stretch; }
+.mine-open {
+  flex: 1; display: grid; gap: 1px; padding: 9px 12px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 12px;
+  color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+  transition: border-color 0.16s ease;
+}
+.mine-open:hover { border-color: var(--accent); }
+.mine-open b { font: 500 14px var(--font-ui); }
+.mine-open small { color: var(--ink-faint); font-size: 12px; }
+.mine-del {
+  width: 36px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--ground); color: var(--ink-faint);
+  font-size: 17px; line-height: 1; cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+.mine-del:hover { border-color: var(--alert); color: var(--alert); }
+
 /* Boutique. */
 .shop-card { max-width: 340px; }
 .shop-solde { margin: 4px 0 14px; color: var(--ink-soft); font: 400 15px var(--font-ui); }
@@ -1306,6 +1334,7 @@ body { display: grid; place-items: center; }
         <h2 id="result-title" data-i18n="result.done">Niveau terminé</h2>
         <div class="stars stars-lg" id="result-stars"></div>
         <p class="result-score"><span id="result-score">0</span><small data-i18n="result.drags">glissés</small></p>
+        <p class="result-time" id="result-time" hidden></p>
         <p class="result-near" id="result-near" hidden></p>
         <p class="result-reward" id="result-reward"></p>
         <button class="btn btn-reward" id="btn-double" hidden>
@@ -1315,6 +1344,17 @@ body { display: grid; place-items: center; }
           <button class="btn btn-ghost" id="btn-result-map" data-i18n="result.map">Carte</button>
           <button class="btn btn-ghost" id="btn-result-retry" data-i18n="result.retry">Rejouer</button>
           <button class="btn btn-primary" id="btn-result-next" data-i18n="result.next">Suivant</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ MES NIVEAUX ============ -->
+    <div class="overlay" id="overlay-mine" hidden>
+      <div class="result-card">
+        <h2 data-i18n="editor.mine">Mes niveaux</h2>
+        <ul class="mine-list" id="mine-list"></ul>
+        <div class="result-actions">
+          <button class="btn btn-primary" id="btn-mine-close" data-i18n="ad.close">Fermer</button>
         </div>
       </div>
     </div>
@@ -1390,6 +1430,7 @@ body { display: grid; place-items: center; }
           <button class="btn btn-ghost btn-sm" id="ed-export">Exporter</button>
           <button class="btn btn-ghost btn-sm" id="ed-import">Importer</button>
           <button class="btn btn-ghost btn-sm" id="ed-clear">Vider</button>
+          <button class="btn btn-ghost btn-sm" id="ed-mine" data-i18n="editor.mine">Mes niveaux</button>
         </div>
         <div class="ed-actions">
           <button class="btn btn-primary btn-sm ed-submit" id="ed-submit"
@@ -2375,6 +2416,13 @@ const LANGUES = [
 
 const TEXTES = {
   fr: {
+    'editor.trying': 'Essai',
+    'result.time': 'en {temps}',
+    'editor.mine': 'Mes niveaux', 'editor.mine.empty': 'Aucune grille enregistrée pour l’instant',
+    'editor.untitled': 'Sans titre', 'editor.blocks': '{n} blocs',
+    'editor.proposed': 'proposé', 'editor.loaded': 'Grille chargée',
+    'editor.delete': 'Supprimer', 'editor.edit': 'Modifier',
+    'editor.submit.short': 'Proposer',
     'shop.title': 'Pièces',
     'shop.ad': 'Regarder une pub · +{n} pièces',
     'shop.ad.left': 'Encore {n} sur {total} aujourd’hui',
@@ -2479,6 +2527,13 @@ const TEXTES = {
   },
 
   en: {
+    'editor.trying': 'Test run',
+    'result.time': 'in {temps}',
+    'editor.mine': 'My levels', 'editor.mine.empty': 'No grid saved yet',
+    'editor.untitled': 'Untitled', 'editor.blocks': '{n} blocks',
+    'editor.proposed': 'submitted', 'editor.loaded': 'Grid loaded',
+    'editor.delete': 'Delete', 'editor.edit': 'Edit',
+    'editor.submit.short': 'Submit',
     'shop.title': 'Coins',
     'shop.ad': 'Watch an ad · +{n} coins',
     'shop.ad.left': '{n} of {total} left today',
@@ -2583,6 +2638,13 @@ const TEXTES = {
   },
 
   es: {
+    'editor.trying': 'Prueba',
+    'result.time': 'en {temps}',
+    'editor.mine': 'Mis niveles', 'editor.mine.empty': 'Aún no hay cuadrículas guardadas',
+    'editor.untitled': 'Sin título', 'editor.blocks': '{n} bloques',
+    'editor.proposed': 'propuesto', 'editor.loaded': 'Cuadrícula cargada',
+    'editor.delete': 'Eliminar', 'editor.edit': 'Modificar',
+    'editor.submit.short': 'Proponer',
     'shop.title': 'Monedas',
     'shop.ad': 'Ver un anuncio · +{n} monedas',
     'shop.ad.left': 'Quedan {n} de {total} hoy',
@@ -2687,6 +2749,13 @@ const TEXTES = {
   },
 
   it: {
+    'editor.trying': 'Prova',
+    'result.time': 'in {temps}',
+    'editor.mine': 'I miei livelli', 'editor.mine.empty': 'Nessuna griglia salvata per ora',
+    'editor.untitled': 'Senza titolo', 'editor.blocks': '{n} blocchi',
+    'editor.proposed': 'proposto', 'editor.loaded': 'Griglia caricata',
+    'editor.delete': 'Elimina', 'editor.edit': 'Modifica',
+    'editor.submit.short': 'Proponi',
     'shop.title': 'Monete',
     'shop.ad': 'Guarda un annuncio · +{n} monete',
     'shop.ad.left': 'Ne restano {n} su {total} oggi',
@@ -2791,6 +2860,13 @@ const TEXTES = {
   },
 
   zh: {
+    'editor.trying': '试玩',
+    'result.time': '用时 {temps}',
+    'editor.mine': '我的关卡', 'editor.mine.empty': '还没有保存任何棋盘',
+    'editor.untitled': '未命名', 'editor.blocks': '{n} 个方块',
+    'editor.proposed': '已投稿', 'editor.loaded': '棋盘已载入',
+    'editor.delete': '删除', 'editor.edit': '修改',
+    'editor.submit.short': '投稿',
     'shop.title': '金币',
     'shop.ad': '观看广告 · +{n} 金币',
     'shop.ad.left': '今天还剩 {n}/{total} 次',
@@ -4010,6 +4086,95 @@ function reinitialiser() {
 return { auteur, proposer, duJour, calculerScore, enregistrerScore, classement, dejaJoue, reinitialiser, propositions, BAREME };
 })();
 
+const __m_mesNiveaux = (() => {
+/**
+ * Historique des grilles créées dans l'éditeur.
+ *
+ * Un niveau dessiné se perdait à la fermeture de l'éditeur : rien ne le gardait,
+ * et une grille sur laquelle on a passé dix minutes ne survivait pas à un aller
+ * au menu. On enregistre donc chaque essai — au moment de le tester comme de le
+ * proposer — pour pouvoir le reprendre.
+ *
+ * Stockage local, comme le reste du prototype. La liste est bornée : au-delà,
+ * les plus anciens brouillons tombent. Un historique qui grossit sans fin finit
+ * par saturer le stockage du navigateur, et personne ne relit son vingtième
+ * brouillon.
+ */
+
+const { track } = __m_events;
+
+const CLE = 'puzzlequest.mesniveaux.v1';
+const MAX = 12;
+
+const lire = () => {
+  try {
+    const brut = localStorage.getItem(CLE);
+    const liste = brut ? JSON.parse(brut) : [];
+    return Array.isArray(liste) ? liste : [];
+  } catch {
+    return [];
+  }
+};
+
+const ecrire = (liste) => {
+  try {
+    localStorage.setItem(CLE, JSON.stringify(liste.slice(0, MAX)));
+  } catch { /* stockage plein ou bloqué : l'éditeur continue sans historique */ }
+};
+
+const liste = () => lire();
+
+/**
+ * Enregistre une grille, ou met à jour celle qui porte déjà cet identifiant.
+ *
+ * Deux essais successifs sur la même grille ne doivent pas produire deux
+ * entrées : l'éditeur garde l'identifiant de ce qu'il a chargé, et le repasse
+ * ici. Sans cela, tester cinq fois de suite remplissait l'historique de cinq
+ * copies presque identiques.
+ *
+ * @returns {string} l'identifiant, à conserver côté éditeur
+ */
+function enregistrer(niveau, { id = null, titre = '', propose = false } = {}) {
+  const l = lire();
+  const existant = id ? l.find((e) => e.id === id) : null;
+  const entree = existant || { id: `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}` };
+
+  Object.assign(entree, {
+    titre: (titre || entree.titre || '').slice(0, 40),
+    modifieLe: new Date().toISOString(),
+    largeur: niveau.width,
+    hauteur: niveau.height,
+    blocs: niveau.blocks.filter((b) => b.kind !== 'wall').length,
+    propose: propose || entree.propose === true,
+    niveau,
+  });
+
+  if (!existant) l.unshift(entree);
+  else {
+    // Le plus récemment touché remonte en tête : c'est celui qu'on reprendra.
+    l.splice(l.indexOf(existant), 1);
+    l.unshift(existant);
+  }
+  ecrire(l);
+  track('editor_draft_saved', { id: entree.id, blocs: entree.blocs });
+  return entree.id;
+}
+
+function charger(id) {
+  return lire().find((e) => e.id === id) || null;
+}
+
+function supprimer(id) {
+  ecrire(lire().filter((e) => e.id !== id));
+}
+
+function vider() {
+  ecrire([]);
+}
+
+return { enregistrer, charger, supprimer, vider, liste };
+})();
+
 const __m_api = (() => {
 /**
  * APIClient — équivalent de Scripts/Backend/APIClient.cs (doc §4)
@@ -4053,6 +4218,25 @@ async function getProfile() {
     totalStars: store.totalStars(),
     maxStars: levels.totalLevels() * 3,
   };
+}
+
+/**
+ * Ce que rapporte un niveau réussi, selon les étoiles décrochées.
+ *
+ * Le barème est plat et lisible : le joueur sait ce qu'il gagne avant de jouer,
+ * et vise trois étoiles pour cinq fois plus qu'une seule.
+ *
+ * Rejouer un niveau sans faire mieux ne rapporte qu'une pièce. Ce n'est pas une
+ * punition : sans ce garde-fou, le premier niveau du jeu — quelques secondes,
+ * trois étoiles les yeux fermés — devient la façon la plus rapide de s'enrichir,
+ * et tout le reste de l'économie perd son sens.
+ */
+const PIECES_PAR_ETOILE = Object.freeze({ 1: 2, 2: 5, 3: 10 });
+const PIECES_REJEU = 1;
+
+function piecesPour(stars, progres = true) {
+  if (!stars) return 0;
+  return progres ? (PIECES_PAR_ETOILE[stars] ?? 0) : PIECES_REJEU;
 }
 
 /**
@@ -4125,15 +4309,7 @@ async function completeLevel(n, { score, stars, failed }) {
     bestScore: prev.bestScore ? Math.min(prev.bestScore, score) : score,
   };
 
-  // Les pièces ne sont versées que sur les étoiles NOUVELLES : rejouer un
-  // niveau déjà 3★ ne doit pas être une machine à monnaie.
-  //
-  // Les montants ont été divisés par quatre : à 25 pièces l'étoile, un joueur
-  // ordinaire amassait de quoi payer un indice tous les deux niveaux, et les
-  // bonus perdaient tout poids — on ne choisit pas ce qu'on peut s'offrir en
-  // permanence. Les TARIFS n'ont pas bougé (currency.PRIX) : c'est le rapport
-  // entre les deux qui fait l'économie.
-  const coinsEarned = isNewStars ? (stars - prev.stars) * 6 + 5 : 3;
+  const coinsEarned = piecesPour(stars, isNewStars);
   const xpEarned = stars * 10;
   d.coins += coinsEarned;
   d.xp += xpEarned;
@@ -4145,7 +4321,7 @@ async function completeLevel(n, { score, stars, failed }) {
   return { stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems: [] };
 }
 
-return { niveauJoueur, getProfile, getLevel, submitDailyPuzzle, getDailyPuzzle, submitDailyScore, getDailyLeaderboard, completeLevel, XP_PAR_NIVEAU };
+return { niveauJoueur, getProfile, piecesPour, getLevel, submitDailyPuzzle, getDailyPuzzle, submitDailyScore, getDailyLeaderboard, completeLevel, XP_PAR_NIVEAU, PIECES_PAR_ETOILE };
 })();
 
 const __m_boardView = (() => {
@@ -4910,6 +5086,7 @@ const { SHAPES, COLORS, KIND } = __m_block;
 const { Board } = __m_board;
 const { resoudre } = __m_solver;
 const { t } = __m_i18n;
+const mesNiveaux = __m_mesNiveaux;
 
 const COTES = ['top', 'right', 'bottom', 'left'];
 /**
@@ -4917,6 +5094,10 @@ const COTES = ['top', 'right', 'bottom', 'left'];
  * direction qui la définit, comme l'axe définit une glissière.
  */
 const NATURES = [
+  // La gomme d'abord : effacer était possible — un appui sur un bloc le
+  // retirait — mais rien ne le disait, et une action qu'aucun outil ne
+  // représente n'existe pas pour qui ne l'a pas devinée.
+  { gomme: true, label: 'Gomme ⌫' },
   { kind: KIND.NORMAL, label: 'Normal' },
   { kind: KIND.RAIL, label: 'Glissière', axis: 'h' },
   { kind: KIND.RAIL, label: 'Glissière ↕', axis: 'v' },
@@ -4933,9 +5114,10 @@ const NATURES = [
 const el = (id) => document.getElementById(id);
 
 let etat = null;
-let choix = { shape: 0, color: 0, nature: 0, verrouCount: 2 };
+let choix = { shape: 0, color: 0, nature: 1, verrouCount: 2 };
 let onTester = null;
 let onSoumettre = null;
+let brouillonId = null;
 
 const vide = (W, H) => ({
   W, H,
@@ -4948,10 +5130,14 @@ const vide = (W, H) => ({
   },
 });
 
-function init({ onTest, onSubmit }) {
+function init({ onTest, onSubmit, niveau = null, id = null }) {
   onTester = onTest;
   onSoumettre = onSubmit;
+  // Reprise d'un brouillon : l'éditeur rouvre sur la grille qu'on lui donne,
+  // et retient son identifiant pour ne pas en créer un doublon à chaque essai.
+  brouillonId = id;
   etat = vide(6, 7);
+  if (niveau) importerDans(niveau);
   construirePalettes();
   brancherBoutons();
   dessiner();
@@ -5077,8 +5263,10 @@ function dessiner() {
       m.style.setProperty('--i', i);
       m.textContent = color !== null ? COLORS[color].glyph : '';
       m.onclick = () => {
-        const suite = color === null ? choix.color : null;
-        etat.portes[side][i] = suite;
+        // Avec la gomme, un mur se referme au lieu de changer de couleur.
+        etat.portes[side][i] = NATURES[choix.nature].gomme
+          ? null
+          : (color === null ? choix.color : null);
         dessiner();
       };
       grille.appendChild(m);
@@ -5100,7 +5288,10 @@ function dessiner() {
           : bloc.kind === KIND.ANCRE ? { top: '▲', right: '▶', bottom: '▼', left: '◀' }[bloc.dir]
           : COLORS[bloc.color].glyph;
       }
-      c.onclick = () => (bloc ? retirer(bloc) : poser(x, y));
+      c.onclick = () => {
+        if (NATURES[choix.nature].gomme) { if (bloc) retirer(bloc); return; }
+        if (bloc) retirer(bloc); else poser(x, y);
+      };
       grille.appendChild(c);
     }
   }
@@ -5110,6 +5301,7 @@ function dessiner() {
 function poser(x, y) {
   const forme = SHAPES[choix.shape];
   const nature = NATURES[choix.nature];
+  if (nature.gomme) return;
   if (x + forme.w > etat.W || y + forme.h > etat.H) { majEtat('La forme dépasse de la grille'); return; }
   if (forme.cells.some(([dx, dy]) => occupe(x + dx, y + dy))) { majEtat('Emplacement déjà occupé'); return; }
 
@@ -5124,6 +5316,63 @@ function poser(x, y) {
     condition: nature.kind === KIND.LOCKED ? { type: 'exits', count: choix.verrouCount } : null,
   });
   dessiner();
+}
+
+/** Charge une grille au format `GET /api/level/{n}` dans l'état de l'éditeur. */
+function importerDans(n) {
+  etat = vide(n.width, n.height);
+  etat.blocks = n.blocks.map((b) => ({ ...b }));
+  for (const g of n.gates) {
+    for (let k = 0; k < g.length; k++) etat.portes[g.side][g.start + k] = g.color;
+  }
+  const w = el('ed-w'), h = el('ed-h');
+  if (w) w.value = n.width;
+  if (h) h.value = n.height;
+}
+
+/**
+ * Enregistre l'état courant dans l'historique. Appelé quand on teste et quand
+ * on propose : ce sont les deux moments où le joueur montre qu'il tient à sa
+ * grille, et les seuls où la perdre serait vexant.
+ */
+function garder(niveau, { titre = '', propose = false } = {}) {
+  brouillonId = mesNiveaux.enregistrer(niveau, { id: brouillonId, titre, propose });
+  return brouillonId;
+}
+
+function ouvrirMesNiveaux() {
+  const hote = el('mine-list');
+  const entrees = mesNiveaux.liste();
+  hote.replaceChildren(...entrees.map((e) => {
+    const li = document.createElement('li');
+
+    const info = document.createElement('button');
+    info.className = 'mine-open';
+    const titre = document.createElement('b');
+    titre.textContent = e.titre || t('editor.untitled');
+    const detail = document.createElement('small');
+    detail.textContent = `${e.largeur}×${e.hauteur} · ${t('editor.blocks', { n: e.blocs })}`
+      + `${e.propose ? ' · ' + t('editor.proposed') : ''}`;
+    info.append(titre, detail);
+    info.onclick = () => {
+      importerDans(e.niveau);
+      brouillonId = e.id;
+      dessiner();
+      el('overlay-mine').hidden = true;
+      majEtat(t('editor.loaded'), 'ok');
+    };
+
+    const jeter = document.createElement('button');
+    jeter.className = 'mine-del';
+    jeter.setAttribute('aria-label', t('editor.delete'));
+    jeter.textContent = '×';
+    jeter.onclick = () => { mesNiveaux.supprimer(e.id); ouvrirMesNiveaux(); };
+
+    li.append(info, jeter);
+    return li;
+  }));
+  if (!entrees.length) hote.textContent = t('editor.mine.empty');
+  el('overlay-mine').hidden = false;
 }
 
 function retirer(bloc) {
@@ -5169,7 +5418,8 @@ function brancherBoutons() {
       majEtat('Il faut au moins une porte et un bloc', 'ko');
       return;
     }
-    onTester?.(niveau);
+    garder(niveau);
+    onTester?.(niveau, brouillonId);
   };
 
   /**
@@ -5194,7 +5444,9 @@ function brancherBoutons() {
     if (titre === null) return;
     // Le nombre de sorties de la solution trouvée sert de repère de gestes :
     // sans solution de référence, c'est la seule mesure honnête dont on dispose.
-    onSoumettre?.({ ...niveau, minDrags: Math.max(1, r.ordre.length) }, titre.trim());
+    const complet = { ...niveau, minDrags: Math.max(1, r.ordre.length) };
+    garder(complet, { titre: titre.trim(), propose: true });
+    onSoumettre?.(complet, titre.trim());
     majEtat(t('editor.submit.ok'), 'ok');
   };
 
@@ -5209,6 +5461,8 @@ function brancherBoutons() {
       majEtat('JSON affiché ci-dessous (copie manuelle)', 'ok');
     }
   };
+
+  el('ed-mine').onclick = () => ouvrirMesNiveaux();
 
   el('ed-import').onclick = () => {
     const zone = el('ed-json');
@@ -5499,6 +5753,18 @@ function show(r) {
     : r.raison === 'temps' ? 'result.timeout.title' : 'result.nomoves.title');
   renderStars(el('result-stars'), r.won ? r.stars : 0);
   el('result-score').textContent = r.score;
+
+  // Le temps mis, en petit sous le nombre de glissés. Le chronomètre disparaît
+  // au moment où la grille se vide, et c'est justement là qu'on veut savoir
+  // combien on a mis — sans que ce chiffre vienne concurrencer les étoiles.
+  const chrono = el('result-time');
+  const duree = Number(r.duree);
+  chrono.hidden = !r.won || !Number.isFinite(duree) || duree <= 0;
+  if (!chrono.hidden) {
+    const min = Math.floor(duree / 60);
+    const sec = String(duree % 60).padStart(2, '0');
+    chrono.textContent = t('result.time', { temps: min ? `${min}:${sec}` : `${duree} s` });
+  }
   el('result-reward').textContent = r.won
     ? t('result.reward', { n: r.coinsEarned })
     : t(r.raison === 'temps' ? 'result.timeout.sub' : 'result.nomoves.sub');
@@ -5527,6 +5793,31 @@ function show(r) {
       doubler.disabled = false;
     }
   };
+
+  /**
+   * Un niveau essayé depuis l'éditeur ne mène nulle part : « Suivant » n'a pas
+   * de suite, et « Carte » renverrait le joueur loin de ce qu'il est en train
+   * de faire. Les trois boutons gardent leur place et changent de rôle —
+   * retoucher la grille, la rejouer, la proposer.
+   */
+  if (r.mode === 'editeur') {
+    const [gauche, milieu, droite] = [el('btn-result-map'), el('btn-result-retry'), el('btn-result-next')];
+    gauche.textContent = t('editor.edit');
+    milieu.textContent = t('result.retry');
+    droite.textContent = t('editor.submit.short');
+    droite.hidden = false;
+    gauche.onclick = () => { hide(); r.onEdit?.(); };
+    milieu.onclick = () => { hide(); r.onRetry?.(); };
+    droite.onclick = () => { hide(); r.onSubmit?.(); };
+    el('overlay-result').hidden = false;
+    return;
+  }
+
+  // Retour au libellé courant : l'écran est partagé avec le mode éditeur, qui
+  // réécrit les trois boutons.
+  el('btn-result-map').textContent = t('result.map');
+  el('btn-result-retry').textContent = t('result.retry');
+  el('btn-result-next').textContent = t('result.next');
 
   const isLast = r.level >= totalLevels();
   const next = el('btn-result-next');
@@ -5589,6 +5880,8 @@ let board = null;
 let level = null;
 /** Proposition en cours quand on joue le puzzle du jour, sinon null. */
 let puzzleDuJour = null;
+/** Brouillon en cours quand on essaie une grille de l'éditeur, sinon null. */
+let essaiEditeur = null;
 let chrono = null;
 let busy = false;
 let offreUtilisee = false;   // l'offre de continuation ne vaut qu'une fois par tentative
@@ -5848,6 +6141,29 @@ async function finishLevel() {
    * mélanger au reste ferait avancer la carte au gré de grilles que le joueur
    * a dessinées lui-même.
    */
+  /**
+   * Une grille essayée depuis l'éditeur ne compte pas comme un niveau : elle
+   * n'a pas de numéro, ne débloque rien et ne rapporte rien. Elle en rapportait
+   * pourtant — `completeLevel(0)` créditait vingt-trois pièces et inscrivait un
+   * « niveau 0 » dans la sauvegarde, ce qui faisait de l'éditeur la façon la
+   * plus rapide de s'enrichir.
+   */
+  if (essaiEditeur) {
+    const essai = essaiEditeur;
+    essaiEditeur = null;
+    result.show({
+      won, stars, score: board.dragsUsed(), level: 0, duree,
+      coinsEarned: 0, raison: board.failReason, restants: board.remaining(),
+      mode: 'editeur',
+      onEdit: () => ouvrirEditeur(essai),
+      onRetry: () => { essaiEditeur = essai; startLevel(); },
+      onSubmit: () => ouvrirEditeur(essai),
+    });
+    busy = false;
+    input.locked = false;
+    return;
+  }
+
   if (puzzleDuJour) {
     const propose = puzzleDuJour;
     puzzleDuJour = null;
@@ -5884,6 +6200,7 @@ async function finishLevel() {
     won,
     stars,
     score: board.dragsUsed(),
+    duree,
     level: level.number,
     coinsEarned: res.coinsEarned,
     raison: board.failReason,
@@ -6132,10 +6449,16 @@ function construireChoixLangue() {
  * utilisateur, à côté des réglages, où l'on va quand on cherche à faire quelque
  * chose plutôt qu'à jouer.
  */
-el('btn-editor').onclick = () => {
+function ouvrirEditeur(reprise = null) {
   ouvrirPanneau(false);
   editor.init({
-    onTest: (niveau) => { level = niveau; startLevel(); },
+    niveau: reprise?.niveau || null,
+    id: reprise?.id || null,
+    onTest: (niveau, brouillonId) => {
+      essaiEditeur = { niveau, id: brouillonId };
+      level = { ...niveau, number: 0, realm: t('editor.trying'), difficulty: '' };
+      startLevel();
+    },
     onSubmit: async (niveau, titre) => {
       const { id } = await api.submitDailyPuzzle(niveau, titre);
       track('daily_puzzle_submitted_ui', { id });
@@ -6144,7 +6467,10 @@ el('btn-editor').onclick = () => {
   });
   screens.show('editor');
   majBanniere('editor');
-};
+}
+
+el('btn-editor').onclick = () => ouvrirEditeur();
+el('btn-mine-close').onclick = () => { el('overlay-mine').hidden = true; };
 
 // ---------------------------------------------------------------------------
 // Puzzle du jour

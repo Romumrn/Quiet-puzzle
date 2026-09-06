@@ -106,12 +106,21 @@ meilleur indicateur de difficulté disponible.
 
 ## Économie
 
-Les gains ont été divisés par quatre après playtest : un premier 3★ rapporte 23
-pièces, un 1★ onze, un niveau rejoué trois. Les **tarifs n'ont pas bougé**
-(indice 50, continuer 120) — c'est le rapport entre les deux qui fait
-l'économie. À l'ancien barème, un joueur ordinaire payait un indice tous les
-deux niveaux sans y penser, et un bonus qu'on peut toujours s'offrir ne se
-choisit plus.
+Un niveau réussi rapporte selon ses étoiles : **10 pièces pour 3★, 5 pour 2★,
+2 pour 1★**. Le barème est plat et lisible — le joueur sait ce qu'il gagne avant
+de jouer, et vise trois étoiles pour cinq fois plus qu'une seule.
+
+Rejouer un niveau **sans faire mieux** ne rapporte qu'une pièce. Ce n'est pas
+une punition : sans ce garde-fou, le premier niveau du jeu — quelques secondes,
+trois étoiles les yeux fermés — devient la façon la plus rapide de s'enrichir,
+et tout le reste de l'économie perd son sens. Progresser de 1★ à 3★ paie le
+barème de 3★, et non la différence : ce que le tableau promet est ce qu'on
+touche.
+
+Les tarifs (indice 50, continuer 120) n'ont pas été retouchés avec ce barème :
+un indice vaut désormais cinq niveaux parfaits, et la boutique — 25 pièces par
+pub, cinq fois par jour — devient la source d'appoint principale. C'est un
+réglage à éprouver en playtest.
 
 ## Boutique de pièces
 
@@ -204,6 +213,23 @@ repris de ce que l'appelant annonce — un score que le client fournit est un
 score qu'il choisit. Le vrai serveur devra faire de même.
 
 ## Éditeur de niveaux
+
+Trois choses le rendaient pénible, et sont corrigées :
+
+- **une gomme**. Effacer était possible — un appui sur un bloc le retirait —
+  mais rien ne le disait, et une action qu'aucun outil ne représente n'existe
+  pas pour qui ne l'a pas devinée. La gomme ouvre la palette des natures, et
+  referme aussi les portes.
+- **un essai ne mène plus nulle part**. Tester une grille affichait l'écran de
+  fin ordinaire, avec « Suivant » — qui n'a pas de suite — et créditait
+  vingt-trois pièces en inscrivant un « niveau 0 » dans la sauvegarde : l'éditeur
+  était la façon la plus rapide de s'enrichir. Les trois boutons gardent leur
+  place et changent de rôle : **Modifier**, **Rejouer**, **Proposer**.
+- **un historique**. Une grille se perdait à la fermeture de l'éditeur.
+  `src/meta/mesNiveaux.js` garde les douze dernières, enregistrées au moment où
+  on les teste ou les propose — les deux moments où le joueur montre qu'il y
+  tient. « Mes niveaux » les rouvre.
+
 
 Accessible depuis le panneau QA. On dépose des formes, on choisit couleur et
 nature, on ouvre des portes en touchant les murs, puis **Vérifier** interroge le

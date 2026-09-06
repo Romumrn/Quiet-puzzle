@@ -43,6 +43,25 @@ export async function getProfile() {
 }
 
 /**
+ * Ce que rapporte un niveau réussi, selon les étoiles décrochées.
+ *
+ * Le barème est plat et lisible : le joueur sait ce qu'il gagne avant de jouer,
+ * et vise trois étoiles pour cinq fois plus qu'une seule.
+ *
+ * Rejouer un niveau sans faire mieux ne rapporte qu'une pièce. Ce n'est pas une
+ * punition : sans ce garde-fou, le premier niveau du jeu — quelques secondes,
+ * trois étoiles les yeux fermés — devient la façon la plus rapide de s'enrichir,
+ * et tout le reste de l'économie perd son sens.
+ */
+export const PIECES_PAR_ETOILE = Object.freeze({ 1: 2, 2: 5, 3: 10 });
+const PIECES_REJEU = 1;
+
+export function piecesPour(stars, progres = true) {
+  if (!stars) return 0;
+  return progres ? (PIECES_PAR_ETOILE[stars] ?? 0) : PIECES_REJEU;
+}
+
+/**
  * GET /api/level/{levelNumber}
  *
  * Lit la base de niveaux. Le jour où un vrai serveur sert les niveaux, seul le
@@ -112,15 +131,7 @@ export async function completeLevel(n, { score, stars, failed }) {
     bestScore: prev.bestScore ? Math.min(prev.bestScore, score) : score,
   };
 
-  // Les pièces ne sont versées que sur les étoiles NOUVELLES : rejouer un
-  // niveau déjà 3★ ne doit pas être une machine à monnaie.
-  //
-  // Les montants ont été divisés par quatre : à 25 pièces l'étoile, un joueur
-  // ordinaire amassait de quoi payer un indice tous les deux niveaux, et les
-  // bonus perdaient tout poids — on ne choisit pas ce qu'on peut s'offrir en
-  // permanence. Les TARIFS n'ont pas bougé (currency.PRIX) : c'est le rapport
-  // entre les deux qui fait l'économie.
-  const coinsEarned = isNewStars ? (stars - prev.stars) * 6 + 5 : 3;
+  const coinsEarned = piecesPour(stars, isNewStars);
   const xpEarned = stars * 10;
   d.coins += coinsEarned;
   d.xp += xpEarned;

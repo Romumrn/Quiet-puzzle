@@ -35,6 +35,7 @@ const MODULES = [
   'src/monetization/adManager.js',
   'src/meta/daily.js',
   'src/meta/dailyPuzzle.js',
+  'src/meta/mesNiveaux.js',
   'src/data/api.js',
   'src/render/boardView.js',
   'src/input/input.js',

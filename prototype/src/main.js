@@ -40,6 +40,8 @@ let board = null;
 let level = null;
 /** Proposition en cours quand on joue le puzzle du jour, sinon null. */
 let puzzleDuJour = null;
+/** Brouillon en cours quand on essaie une grille de l'éditeur, sinon null. */
+let essaiEditeur = null;
 let chrono = null;
 let busy = false;
 let offreUtilisee = false;   // l'offre de continuation ne vaut qu'une fois par tentative
@@ -299,6 +301,29 @@ async function finishLevel() {
    * mélanger au reste ferait avancer la carte au gré de grilles que le joueur
    * a dessinées lui-même.
    */
+  /**
+   * Une grille essayée depuis l'éditeur ne compte pas comme un niveau : elle
+   * n'a pas de numéro, ne débloque rien et ne rapporte rien. Elle en rapportait
+   * pourtant — `completeLevel(0)` créditait vingt-trois pièces et inscrivait un
+   * « niveau 0 » dans la sauvegarde, ce qui faisait de l'éditeur la façon la
+   * plus rapide de s'enrichir.
+   */
+  if (essaiEditeur) {
+    const essai = essaiEditeur;
+    essaiEditeur = null;
+    result.show({
+      won, stars, score: board.dragsUsed(), level: 0, duree,
+      coinsEarned: 0, raison: board.failReason, restants: board.remaining(),
+      mode: 'editeur',
+      onEdit: () => ouvrirEditeur(essai),
+      onRetry: () => { essaiEditeur = essai; startLevel(); },
+      onSubmit: () => ouvrirEditeur(essai),
+    });
+    busy = false;
+    input.locked = false;
+    return;
+  }
+
   if (puzzleDuJour) {
     const propose = puzzleDuJour;
     puzzleDuJour = null;
@@ -335,6 +360,7 @@ async function finishLevel() {
     won,
     stars,
     score: board.dragsUsed(),
+    duree,
     level: level.number,
     coinsEarned: res.coinsEarned,
     raison: board.failReason,
@@ -583,10 +609,16 @@ function construireChoixLangue() {
  * utilisateur, à côté des réglages, où l'on va quand on cherche à faire quelque
  * chose plutôt qu'à jouer.
  */
-el('btn-editor').onclick = () => {
+function ouvrirEditeur(reprise = null) {
   ouvrirPanneau(false);
   editor.init({
-    onTest: (niveau) => { level = niveau; startLevel(); },
+    niveau: reprise?.niveau || null,
+    id: reprise?.id || null,
+    onTest: (niveau, brouillonId) => {
+      essaiEditeur = { niveau, id: brouillonId };
+      level = { ...niveau, number: 0, realm: t('editor.trying'), difficulty: '' };
+      startLevel();
+    },
     onSubmit: async (niveau, titre) => {
       const { id } = await api.submitDailyPuzzle(niveau, titre);
       track('daily_puzzle_submitted_ui', { id });
@@ -595,7 +627,10 @@ el('btn-editor').onclick = () => {
   });
   screens.show('editor');
   majBanniere('editor');
-};
+}
+
+el('btn-editor').onclick = () => ouvrirEditeur();
+el('btn-mine-close').onclick = () => { el('overlay-mine').hidden = true; };
 
 // ---------------------------------------------------------------------------
 // Puzzle du jour

@@ -16,6 +16,7 @@ import { SHAPES, COLORS, KIND } from '../core/block.js';
 import { Board } from '../core/board.js';
 import { resoudre } from '../core/solver.js';
 import { t } from './i18n.js';
+import * as mesNiveaux from '../meta/mesNiveaux.js';
 
 const COTES = ['top', 'right', 'bottom', 'left'];
 /**
@@ -23,6 +24,10 @@ const COTES = ['top', 'right', 'bottom', 'left'];
  * direction qui la définit, comme l'axe définit une glissière.
  */
 const NATURES = [
+  // La gomme d'abord : effacer était possible — un appui sur un bloc le
+  // retirait — mais rien ne le disait, et une action qu'aucun outil ne
+  // représente n'existe pas pour qui ne l'a pas devinée.
+  { gomme: true, label: 'Gomme ⌫' },
   { kind: KIND.NORMAL, label: 'Normal' },
   { kind: KIND.RAIL, label: 'Glissière', axis: 'h' },
   { kind: KIND.RAIL, label: 'Glissière ↕', axis: 'v' },
@@ -39,9 +44,10 @@ const NATURES = [
 const el = (id) => document.getElementById(id);
 
 let etat = null;
-let choix = { shape: 0, color: 0, nature: 0, verrouCount: 2 };
+let choix = { shape: 0, color: 0, nature: 1, verrouCount: 2 };
 let onTester = null;
 let onSoumettre = null;
+let brouillonId = null;
 
 const vide = (W, H) => ({
   W, H,
@@ -54,10 +60,14 @@ const vide = (W, H) => ({
   },
 });
 
-export function init({ onTest, onSubmit }) {
+export function init({ onTest, onSubmit, niveau = null, id = null }) {
   onTester = onTest;
   onSoumettre = onSubmit;
+  // Reprise d'un brouillon : l'éditeur rouvre sur la grille qu'on lui donne,
+  // et retient son identifiant pour ne pas en créer un doublon à chaque essai.
+  brouillonId = id;
   etat = vide(6, 7);
+  if (niveau) importerDans(niveau);
   construirePalettes();
   brancherBoutons();
   dessiner();
@@ -183,8 +193,10 @@ function dessiner() {
       m.style.setProperty('--i', i);
       m.textContent = color !== null ? COLORS[color].glyph : '';
       m.onclick = () => {
-        const suite = color === null ? choix.color : null;
-        etat.portes[side][i] = suite;
+        // Avec la gomme, un mur se referme au lieu de changer de couleur.
+        etat.portes[side][i] = NATURES[choix.nature].gomme
+          ? null
+          : (color === null ? choix.color : null);
         dessiner();
       };
       grille.appendChild(m);
@@ -206,7 +218,10 @@ function dessiner() {
           : bloc.kind === KIND.ANCRE ? { top: '▲', right: '▶', bottom: '▼', left: '◀' }[bloc.dir]
           : COLORS[bloc.color].glyph;
       }
-      c.onclick = () => (bloc ? retirer(bloc) : poser(x, y));
+      c.onclick = () => {
+        if (NATURES[choix.nature].gomme) { if (bloc) retirer(bloc); return; }
+        if (bloc) retirer(bloc); else poser(x, y);
+      };
       grille.appendChild(c);
     }
   }
@@ -216,6 +231,7 @@ function dessiner() {
 function poser(x, y) {
   const forme = SHAPES[choix.shape];
   const nature = NATURES[choix.nature];
+  if (nature.gomme) return;
   if (x + forme.w > etat.W || y + forme.h > etat.H) { majEtat('La forme dépasse de la grille'); return; }
   if (forme.cells.some(([dx, dy]) => occupe(x + dx, y + dy))) { majEtat('Emplacement déjà occupé'); return; }
 
@@ -230,6 +246,63 @@ function poser(x, y) {
     condition: nature.kind === KIND.LOCKED ? { type: 'exits', count: choix.verrouCount } : null,
   });
   dessiner();
+}
+
+/** Charge une grille au format `GET /api/level/{n}` dans l'état de l'éditeur. */
+function importerDans(n) {
+  etat = vide(n.width, n.height);
+  etat.blocks = n.blocks.map((b) => ({ ...b }));
+  for (const g of n.gates) {
+    for (let k = 0; k < g.length; k++) etat.portes[g.side][g.start + k] = g.color;
+  }
+  const w = el('ed-w'), h = el('ed-h');
+  if (w) w.value = n.width;
+  if (h) h.value = n.height;
+}
+
+/**
+ * Enregistre l'état courant dans l'historique. Appelé quand on teste et quand
+ * on propose : ce sont les deux moments où le joueur montre qu'il tient à sa
+ * grille, et les seuls où la perdre serait vexant.
+ */
+function garder(niveau, { titre = '', propose = false } = {}) {
+  brouillonId = mesNiveaux.enregistrer(niveau, { id: brouillonId, titre, propose });
+  return brouillonId;
+}
+
+function ouvrirMesNiveaux() {
+  const hote = el('mine-list');
+  const entrees = mesNiveaux.liste();
+  hote.replaceChildren(...entrees.map((e) => {
+    const li = document.createElement('li');
+
+    const info = document.createElement('button');
+    info.className = 'mine-open';
+    const titre = document.createElement('b');
+    titre.textContent = e.titre || t('editor.untitled');
+    const detail = document.createElement('small');
+    detail.textContent = `${e.largeur}×${e.hauteur} · ${t('editor.blocks', { n: e.blocs })}`
+      + `${e.propose ? ' · ' + t('editor.proposed') : ''}`;
+    info.append(titre, detail);
+    info.onclick = () => {
+      importerDans(e.niveau);
+      brouillonId = e.id;
+      dessiner();
+      el('overlay-mine').hidden = true;
+      majEtat(t('editor.loaded'), 'ok');
+    };
+
+    const jeter = document.createElement('button');
+    jeter.className = 'mine-del';
+    jeter.setAttribute('aria-label', t('editor.delete'));
+    jeter.textContent = '×';
+    jeter.onclick = () => { mesNiveaux.supprimer(e.id); ouvrirMesNiveaux(); };
+
+    li.append(info, jeter);
+    return li;
+  }));
+  if (!entrees.length) hote.textContent = t('editor.mine.empty');
+  el('overlay-mine').hidden = false;
 }
 
 function retirer(bloc) {
@@ -275,7 +348,8 @@ function brancherBoutons() {
       majEtat('Il faut au moins une porte et un bloc', 'ko');
       return;
     }
-    onTester?.(niveau);
+    garder(niveau);
+    onTester?.(niveau, brouillonId);
   };
 
   /**
@@ -300,7 +374,9 @@ function brancherBoutons() {
     if (titre === null) return;
     // Le nombre de sorties de la solution trouvée sert de repère de gestes :
     // sans solution de référence, c'est la seule mesure honnête dont on dispose.
-    onSoumettre?.({ ...niveau, minDrags: Math.max(1, r.ordre.length) }, titre.trim());
+    const complet = { ...niveau, minDrags: Math.max(1, r.ordre.length) };
+    garder(complet, { titre: titre.trim(), propose: true });
+    onSoumettre?.(complet, titre.trim());
     majEtat(t('editor.submit.ok'), 'ok');
   };
 
@@ -315,6 +391,8 @@ function brancherBoutons() {
       majEtat('JSON affiché ci-dessous (copie manuelle)', 'ok');
     }
   };
+
+  el('ed-mine').onclick = () => ouvrirMesNiveaux();
 
   el('ed-import').onclick = () => {
     const zone = el('ed-json');

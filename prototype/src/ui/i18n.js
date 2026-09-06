@@ -23,6 +23,13 @@ export const LANGUES = [
 
 const TEXTES = {
   fr: {
+    'editor.trying': 'Essai',
+    'result.time': 'en {temps}',
+    'editor.mine': 'Mes niveaux', 'editor.mine.empty': 'Aucune grille enregistrée pour l’instant',
+    'editor.untitled': 'Sans titre', 'editor.blocks': '{n} blocs',
+    'editor.proposed': 'proposé', 'editor.loaded': 'Grille chargée',
+    'editor.delete': 'Supprimer', 'editor.edit': 'Modifier',
+    'editor.submit.short': 'Proposer',
     'shop.title': 'Pièces',
     'shop.ad': 'Regarder une pub · +{n} pièces',
     'shop.ad.left': 'Encore {n} sur {total} aujourd’hui',
@@ -127,6 +134,13 @@ const TEXTES = {
   },
 
   en: {
+    'editor.trying': 'Test run',
+    'result.time': 'in {temps}',
+    'editor.mine': 'My levels', 'editor.mine.empty': 'No grid saved yet',
+    'editor.untitled': 'Untitled', 'editor.blocks': '{n} blocks',
+    'editor.proposed': 'submitted', 'editor.loaded': 'Grid loaded',
+    'editor.delete': 'Delete', 'editor.edit': 'Edit',
+    'editor.submit.short': 'Submit',
     'shop.title': 'Coins',
     'shop.ad': 'Watch an ad · +{n} coins',
     'shop.ad.left': '{n} of {total} left today',
@@ -231,6 +245,13 @@ const TEXTES = {
   },
 
   es: {
+    'editor.trying': 'Prueba',
+    'result.time': 'en {temps}',
+    'editor.mine': 'Mis niveles', 'editor.mine.empty': 'Aún no hay cuadrículas guardadas',
+    'editor.untitled': 'Sin título', 'editor.blocks': '{n} bloques',
+    'editor.proposed': 'propuesto', 'editor.loaded': 'Cuadrícula cargada',
+    'editor.delete': 'Eliminar', 'editor.edit': 'Modificar',
+    'editor.submit.short': 'Proponer',
     'shop.title': 'Monedas',
     'shop.ad': 'Ver un anuncio · +{n} monedas',
     'shop.ad.left': 'Quedan {n} de {total} hoy',
@@ -335,6 +356,13 @@ const TEXTES = {
   },
 
   it: {
+    'editor.trying': 'Prova',
+    'result.time': 'in {temps}',
+    'editor.mine': 'I miei livelli', 'editor.mine.empty': 'Nessuna griglia salvata per ora',
+    'editor.untitled': 'Senza titolo', 'editor.blocks': '{n} blocchi',
+    'editor.proposed': 'proposto', 'editor.loaded': 'Griglia caricata',
+    'editor.delete': 'Elimina', 'editor.edit': 'Modifica',
+    'editor.submit.short': 'Proponi',
     'shop.title': 'Monete',
     'shop.ad': 'Guarda un annuncio · +{n} monete',
     'shop.ad.left': 'Ne restano {n} su {total} oggi',
@@ -439,6 +467,13 @@ const TEXTES = {
   },
 
   zh: {
+    'editor.trying': '试玩',
+    'result.time': '用时 {temps}',
+    'editor.mine': '我的关卡', 'editor.mine.empty': '还没有保存任何棋盘',
+    'editor.untitled': '未命名', 'editor.blocks': '{n} 个方块',
+    'editor.proposed': '已投稿', 'editor.loaded': '棋盘已载入',
+    'editor.delete': '删除', 'editor.edit': '修改',
+    'editor.submit.short': '投稿',
     'shop.title': '金币',
     'shop.ad': '观看广告 · +{n} 金币',
     'shop.ad.left': '今天还剩 {n}/{total} 次',

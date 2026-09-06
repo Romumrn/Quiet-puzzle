@@ -18,6 +18,18 @@ export function show(r) {
     : r.raison === 'temps' ? 'result.timeout.title' : 'result.nomoves.title');
   renderStars(el('result-stars'), r.won ? r.stars : 0);
   el('result-score').textContent = r.score;
+
+  // Le temps mis, en petit sous le nombre de glissés. Le chronomètre disparaît
+  // au moment où la grille se vide, et c'est justement là qu'on veut savoir
+  // combien on a mis — sans que ce chiffre vienne concurrencer les étoiles.
+  const chrono = el('result-time');
+  const duree = Number(r.duree);
+  chrono.hidden = !r.won || !Number.isFinite(duree) || duree <= 0;
+  if (!chrono.hidden) {
+    const min = Math.floor(duree / 60);
+    const sec = String(duree % 60).padStart(2, '0');
+    chrono.textContent = t('result.time', { temps: min ? `${min}:${sec}` : `${duree} s` });
+  }
   el('result-reward').textContent = r.won
     ? t('result.reward', { n: r.coinsEarned })
     : t(r.raison === 'temps' ? 'result.timeout.sub' : 'result.nomoves.sub');
@@ -46,6 +58,31 @@ export function show(r) {
       doubler.disabled = false;
     }
   };
+
+  /**
+   * Un niveau essayé depuis l'éditeur ne mène nulle part : « Suivant » n'a pas
+   * de suite, et « Carte » renverrait le joueur loin de ce qu'il est en train
+   * de faire. Les trois boutons gardent leur place et changent de rôle —
+   * retoucher la grille, la rejouer, la proposer.
+   */
+  if (r.mode === 'editeur') {
+    const [gauche, milieu, droite] = [el('btn-result-map'), el('btn-result-retry'), el('btn-result-next')];
+    gauche.textContent = t('editor.edit');
+    milieu.textContent = t('result.retry');
+    droite.textContent = t('editor.submit.short');
+    droite.hidden = false;
+    gauche.onclick = () => { hide(); r.onEdit?.(); };
+    milieu.onclick = () => { hide(); r.onRetry?.(); };
+    droite.onclick = () => { hide(); r.onSubmit?.(); };
+    el('overlay-result').hidden = false;
+    return;
+  }
+
+  // Retour au libellé courant : l'écran est partagé avec le mode éditeur, qui
+  // réécrit les trois boutons.
+  el('btn-result-map').textContent = t('result.map');
+  el('btn-result-retry').textContent = t('result.retry');
+  el('btn-result-next').textContent = t('result.next');
 
   const isLast = r.level >= totalLevels();
   const next = el('btn-result-next');

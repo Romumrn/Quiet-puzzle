@@ -492,6 +492,41 @@ console.log('\n== Cadencement publicitaire ==');
   check('bannière interdite avec l\'achat sans-pub', p.peutAfficherBanniere('menu', true) === false);
 }
 
+console.log('\n== Récompense des niveaux ==');
+{
+  const api = await import('../src/data/api.js');
+  const store = await import('../src/data/save.js');
+  store.reset();
+
+  check('trois étoiles rapportent dix pièces', api.piecesPour(3) === 10);
+  check('deux étoiles en rapportent cinq', api.piecesPour(2) === 5);
+  check('une étoile en rapporte deux', api.piecesPour(1) === 2);
+  check('un niveau perdu ne rapporte rien', api.piecesPour(0) === 0);
+
+  // Le garde-fou anti-farm : sans lui, le premier niveau du jeu — trois
+  // étoiles en quelques secondes — devient la meilleure source de revenus.
+  check('rejouer sans faire mieux ne rapporte qu\'une pièce',
+    [1, 2, 3].every((s) => api.piecesPour(s, false) === 1));
+
+  const premier = await api.completeLevel(1, { score: 8, stars: 3, failed: false });
+  const rejeu = await api.completeLevel(1, { score: 8, stars: 3, failed: false });
+  check('la première réussite paie le barème, le rejeu non',
+    premier.coinsEarned === 10 && rejeu.coinsEarned === 1,
+    `${premier.coinsEarned} puis ${rejeu.coinsEarned}`);
+
+  // Progresser de 1★ à 3★ paie le barème de 3★, et non la différence : le
+  // joueur touche ce que le tableau lui promet, sans arithmétique cachée.
+  store.reset();
+  await api.completeLevel(2, { score: 30, stars: 1, failed: false });
+  const mieux = await api.completeLevel(2, { score: 9, stars: 3, failed: false });
+  check('progresser paie le barème du nouveau score',
+    mieux.coinsEarned === 10, mieux.coinsEarned + ' pièces');
+
+  const perdu = await api.completeLevel(3, { score: 0, stars: 0, failed: true });
+  check('un échec ne verse rien', perdu.coinsEarned === 0);
+  store.reset();
+}
+
 console.log('\n== Boutique de pièces ==');
 {
   const currency = await import('../src/monetization/currency.js');
