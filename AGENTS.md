@@ -11,7 +11,7 @@ modules ES.
 ```
 prototype/          les sources — c'est ici qu'on travaille
 prototype/levels/   la base de niveaux en JSON — ce que le jeu lit vraiment
-docs/index.html     fichier unique publié, produit par tools/bundle.mjs
+docs/               le site publié — sources modulaires, produit par tools/publier.mjs
 media/              captures du README
 ```
 
@@ -135,7 +135,8 @@ node tools/build-levels.mjs      # régénérer levels/ (~1 min pour 400 niveaux
 node tools/test.mjs              # tests — long, lance-le en arrière-plan
 node tools/balance.mjs           # équilibrage : tableau + alertes
 node tools/check.mjs             # syntaxe des modules (rapide)
-node tools/bundle.mjs && cp dist/standalone.html ../docs/index.html   # publier
+node tools/publier.mjs           # publier : écrit docs/ (388 Ko à l'ouverture)
+node tools/bundle.mjs            # fichier unique, pour le partage hors ligne
 ```
 
 **Après toute modification :** `check.mjs` (2 s) pendant le travail,
@@ -170,9 +171,17 @@ Chacun a coûté une session de débogage. Les relire évite de les repayer.
   portes** : sans elle, tout ordre de sortie glouton gagne.
 - Le nombre d'états explorés par le solveur est la seule mesure de « il faut
   réfléchir ». Un niveau à ~1 état par bloc se résout sans jamais se tromper.
-  Les mondes 19-20 sont sélectionnés là-dessus (`exigeant: true`).
+- **C'est le seul levier qui passe encore à l'échelle.** Grille (9×11 max sur
+  mobile), couleurs (6), portes, types de blocs : tout est au maximum jouable.
+  Un monde se durcit désormais par `exigenceCible` — les états par bloc exigés
+  avant que le générateur cesse de chercher. Elle monte de 12 à 64 sur les
+  douze derniers mondes.
 - Allonger les chemins ne sert à rien : un bloc isolé rejoint sa porte d'un seul
   glissé, quelle que soit la distance.
+- **Un monde exigeant a besoin d'un vivier.** Si la densité demandée est
+  irréaliste — beaucoup de murs, pièces de deux cases minimum — le générateur ne
+  retient qu'une ou deux grilles valides, et le départage au solveur ne
+  départage plus rien. Symptôme : une exigence retombée à ~1×.
 
 ---
 

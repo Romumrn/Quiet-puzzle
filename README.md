@@ -115,14 +115,14 @@ part d'une sauvegarde fabriquée et d'un niveau donné, jamais d'une partie jou�
 ## Publier
 
 ```bash
-cd prototype && node tools/bundle.mjs && cp dist/standalone.html ../docs/index.html
+cd prototype && node tools/publier.mjs   # écrit docs/ : sources + base + audio
 ```
 
-Puis commiter `docs/index.html`. Le workflow `.github/workflows/pages.yml` fait
-la même chose automatiquement à chaque push sur `main`.
+Le site publié sert les **sources modulaires**, pas un fichier unique. La raison
+est arithmétique : à six cents niveaux, la base pèse quatre méga-octets et le
+fichier unique six — quinze secondes d'attente en 4G avant de voir quoi que ce
+soit, et un jeu qu'on attend est un jeu qu'on ferme. Servi en modules, il ouvre
+sur **388 Ko** et ne charge un monde qu'au moment de le jouer (~150 Ko).
 
-Toute la documentation de conception — règles, génération des niveaux,
-équilibrage, monétisation, correspondance avec l'architecture Unity visée — est
-dans [prototype/README.md](prototype/README.md), et la marche à suivre pour
-allonger la progression dans
-[prototype/docs/creation-de-niveaux.md](prototype/docs/creation-de-niveaux.md).
+`node tools/bundle.mjs` fabrique toujours le fichier unique, pour le partage
+hors ligne et l'ouverture par double-clic.

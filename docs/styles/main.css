@@ -1,0 +1,1267 @@
+/* ==========================================================================
+   Quiet Puzzle — prototype
+   Identité : rose pastel, sobre, épuré. Toute la chromie de l'habillage dérive
+   d'une seule teinte `--h`, qui glisse du rose au vert d'eau à mesure que le
+   joueur descend dans les niveaux (voir src/ui/theme.js).
+   ========================================================================== */
+
+:root {
+  /* Teinte de départ. src/ui/theme.js la remplace à chaque niveau, sur #app et
+     sur chaque section de la carte. */
+  --h: 345;
+
+  /* Blocs : repli avant le premier niveau chargé. src/ui/theme.js pose ensuite
+     la palette du monde. Les glyphes (●◆▲★■⬢), eux, ne changent jamais : ce
+     sont eux qui portent la règle du jeu. */
+  --c0: #eb9aad;  /* ● */
+  --c1: #93bde4;  /* ◆ */
+  --c2: #97cfb6;  /* ▲ */
+  --c3: #e9cd8c;  /* ★ */
+  --c4: #bdaadd;  /* ■ */
+  --c5: #f0b18b;  /* ⬢ */
+  --sealed: #bdb6c4;
+
+  --award: #d9a441;   /* étoiles : un ambre discret, stable quelle que soit --h */
+  --alert: #d4697e;
+
+  --font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+  --font-ui: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --radius: 18px;
+  --cell: 40px;
+}
+
+/* Tokens dérivés de la teinte.
+   Ils sont redéclarés sur CHAQUE élément susceptible de porter un `--h` propre,
+   et pas seulement sur :root — c'est indispensable, et la raison n'est pas
+   évidente : une propriété personnalisée substitue ses `var()` là où elle est
+   DÉCLARÉE, pas là où elle est employée. Un `--ground` défini sur :root fige
+   donc le `--h` de :root, et les descendants héritent d'une couleur déjà
+   calculée. Le fond de l'application restait ainsi rose à tous les niveaux,
+   alors que le plateau, qui écrit `hsl(var(--h) …)` en direct, virait bien. */
+:root, .app, .realm {
+  /* Surfaces — un blanc très légèrement teinté, jamais un blanc pur : sur un
+     fond pastel, le blanc pur fait un trou. */
+  --ground: hsl(var(--h) 62% 96.5%);
+  --ground-deep: hsl(var(--h) 56% 89%);
+  --surface: hsl(var(--h) 60% 99.2%);
+  --line: hsl(var(--h) 28% 88%);
+  --line-soft: hsl(var(--h) 30% 92%);
+
+  /* Encre — un gris profond teinté, pas du noir : le noir durcit le pastel. */
+  --ink: hsl(var(--h) 22% 24%);
+  --ink-soft: hsl(var(--h) 14% 46%);
+  --ink-faint: hsl(var(--h) 16% 66%);
+
+  --accent: hsl(var(--h) 58% 66%);
+  --accent-deep: hsl(var(--h) 52% 54%);
+  --accent-wash: hsl(var(--h) 72% 94%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* `hidden` doit gagner contre les display: grid/flex des composants. */
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  background: #ece7ec;
+  color: var(--ink);
+  font: 400 15px/1.5 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+body { display: grid; place-items: center; }
+
+/* Cadre 9:16. La largeur est aussi bornée par la hauteur disponible : fixer
+   largeur ET hauteur annulerait l'aspect-ratio et rognerait le plateau. */
+.device {
+  position: relative;
+  width: min(100vw, 430px, calc(100vh * 9 / 16));
+  aspect-ratio: 9 / 16;
+  max-height: 100vh;
+  overflow: hidden;
+  border-radius: clamp(0px, calc((100vw - 430px) * 999), 26px);
+  box-shadow: 0 24px 60px rgba(60, 40, 55, 0.16);
+}
+
+.app {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--ground) 0%, var(--ground-deep) 100%);
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  /* La teinte glisse doucement d'un niveau à l'autre plutôt que de sauter. */
+  transition: background 700ms ease;
+}
+
+/* ---------- Écrans ---------- */
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  padding: max(18px, env(safe-area-inset-top)) 20px 20px;
+}
+.screen.active { display: flex; animation: screen-in 0.34s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.topbar {
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.topbar-title {
+  text-align: center;
+  font: 400 15px var(--font-ui);
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+.topbar-title b { color: var(--ink); font-weight: 500; }
+
+.icon-btn {
+  width: 38px; height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 19px; line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.icon-btn:hover { border-color: var(--accent); }
+.icon-btn:active { transform: scale(0.95); }
+
+.pill {
+  justify-self: end;
+  white-space: nowrap;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Boutons ---------- */
+
+.btn {
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 15px var(--font-ui);
+  padding: 13px 20px;
+  cursor: pointer;
+  transition: transform 0.14s ease, background 0.16s ease, border-color 0.16s ease;
+}
+.btn:active { transform: scale(0.975); }
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.btn-primary:hover { background: var(--accent-deep); }
+.btn-ghost { background: var(--surface); border: 1px solid var(--line); color: var(--ink-soft); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--ink); }
+.btn-lg { width: 100%; padding: 16px; font-size: 16px; }
+.btn-sm { padding: 8px 12px; font-size: 12px; }
+.btn[disabled] { opacity: 0.42; pointer-events: none; }
+
+/* ---------- Menu ---------- */
+
+#screen-menu { justify-content: center; align-items: center; gap: 14px; text-align: center; }
+
+/* Formes de fond : à peine perceptibles, elles donnent de la profondeur sans
+   charger la page. */
+.menu-art { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.menu-art span {
+  position: absolute; width: 260px; height: 260px; border-radius: 50%;
+  filter: blur(48px); opacity: 0.4;
+}
+.menu-art span:nth-child(1) { background: hsl(var(--h) 70% 84%); top: -6%; left: -22%; }
+.menu-art span:nth-child(2) { background: hsl(calc(var(--h) - 40) 62% 86%); top: 18%; right: -26%; }
+.menu-art span:nth-child(3) { background: hsl(calc(var(--h) + 30) 60% 88%); bottom: 6%; left: -18%; }
+.menu-art span:nth-child(4) { background: hsl(var(--h) 55% 90%); bottom: -8%; right: -14%; }
+
+.logo {
+  font: 300 46px/1.05 var(--font-display);
+  font-variation-settings: 'SOFT' 40, 'WONK' 1;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.logo em { display: block; font-style: normal; font-weight: 500; color: var(--accent-deep); }
+.tagline { color: var(--ink-soft); font-size: 14px; margin-bottom: 12px; }
+
+.menu-stats { display: flex; gap: 10px; margin: 6px 0 20px; }
+.stat {
+  min-width: 88px; padding: 14px 10px;
+  background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius);
+}
+.stat b {
+  display: block; font: 400 24px var(--font-ui); color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  /* « 121/160 » est deux fois plus long qu'un nombre seul : la tuile rétrécit
+     le texte plutôt que de déborder ou de couper. */
+  white-space: nowrap;
+}
+.stat b:has(+ small) { font-size: clamp(17px, 5.4vw, 24px); }
+.stat small { color: var(--ink-faint); font-size: 11px; letter-spacing: 0.04em; }
+
+#screen-menu .btn-lg, #screen-menu .btn-daily { max-width: 268px; }
+.menu-liens { display: flex; gap: 8px; }
+#btn-sound.muet { opacity: 0.5; }
+
+/* ---------- Étoiles ---------- */
+
+.stars { display: flex; gap: 3px; }
+.stars i { font-style: normal; color: var(--line); font-size: 14px; }
+.stars i.on { color: var(--award); }
+.stars-lg { justify-content: center; gap: 10px; }
+.stars-lg i { font-size: 30px; }
+.stars-lg i.on { animation: star-pop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+.stars-lg i.on:nth-child(2) { animation-delay: 0.12s; }
+.stars-lg i.on:nth-child(3) { animation-delay: 0.24s; }
+@keyframes star-pop { from { transform: scale(0.3); opacity: 0; } }
+
+/* ---------- Cadeau du jour ---------- */
+
+.btn-daily {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  text-align: left;
+}
+.btn-daily:hover { border-color: var(--accent); }
+.daily-flame { font-size: 18px; }
+.daily-text { flex: 1; display: flex; flex-direction: column; }
+.daily-text b { font-size: 14px; font-weight: 500; }
+.daily-text small { color: var(--ink-faint); font-size: 11px; }
+.daily-amount { font: 400 17px var(--font-ui); color: var(--award); font-variant-numeric: tabular-nums; }
+
+/* ---------- Carte des niveaux ---------- */
+
+.map-scroll { flex: 1; overflow-y: auto; padding: 4px 0 24px; scrollbar-width: none; }
+.map-scroll::-webkit-scrollbar { display: none; }
+
+/* Chaque monde porte sa propre teinte : en faisant défiler, on voit la
+   gradation chromatique de la progression. */
+.realm {
+  padding: 6px 0 18px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, transparent, hsl(var(--h) 60% 96%) 40%, transparent);
+}
+.realm-label {
+  display: flex; align-items: center; gap: 12px;
+  margin: 14px 0 14px; color: var(--ink-faint);
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em;
+}
+.realm-label::before, .realm-label::after {
+  content: ''; flex: 1; height: 1px; background: var(--line);
+}
+
+.map-path { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+.map-node {
+  position: relative;
+  width: 60px; padding: 9px 0 7px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.16s ease;
+}
+.map-node:hover { border-color: var(--accent); }
+.map-node:active { transform: scale(0.95); }
+.map-node b { font: 400 18px var(--font-ui); font-variant-numeric: tabular-nums; }
+.map-node.current {
+  background: var(--accent); border-color: transparent; color: #fff;
+}
+.map-node.current .stars i { color: rgba(255, 255, 255, 0.45); }
+.map-node.current .stars i.on { color: #fff; }
+.map-node.current::after {
+  content: attr(data-label); position: absolute; top: -9px;
+  font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: var(--ink); color: var(--ground); padding: 2px 8px; border-radius: 999px;
+}
+.map-node.locked { opacity: 0.4; cursor: not-allowed; }
+.map-node.locked b::after { content: '·'; }
+.map-node.done { border-color: hsl(var(--h) 40% 82%); }
+
+/* ---------- Pré-niveau ---------- */
+
+#screen-brief { justify-content: flex-start; }
+.brief-card {
+  margin: auto 0; padding: 30px 22px 22px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 26px;
+  text-align: center;
+}
+.brief-badge {
+  width: 62px; height: 62px; margin: -52px auto 16px;
+  display: grid; place-items: center;
+  background: var(--accent); color: #fff; border-radius: 20px;
+  font: 400 25px var(--font-ui);
+  box-shadow: 0 8px 20px hsl(var(--h) 50% 70% / 0.4);
+}
+.brief-objective { font-size: 17px; margin: 18px 0 20px; color: var(--ink); }
+.brief-meta { display: flex; justify-content: space-around; margin-bottom: 24px; }
+.brief-meta dt { color: var(--ink-faint); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; }
+.brief-meta dd { font: 400 18px var(--font-ui); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+/* ---------- HUD ---------- */
+
+.hud {
+  padding: 12px 16px 14px;
+  margin-bottom: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+}
+.hud-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.hud-stat { display: flex; flex-direction: column; gap: 3px; }
+.hud-stat-stars { align-items: flex-end; }
+.hud-label { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint); }
+.hud-stat b {
+  font: 400 23px var(--font-ui); font-variant-numeric: tabular-nums; line-height: 1;
+  transition: transform 0.2s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.hud-stat b.pop { transform: scale(1.32); }
+.hud-stat b.urgent { color: var(--alert); }
+.hud-stat .stars { padding-bottom: 5px; }
+
+.time-track {
+  height: 3px; margin-top: 12px; border-radius: 999px;
+  background: var(--line-soft); overflow: hidden;
+}
+.time-track i {
+  display: block; height: 100%; width: 100%;
+  background: var(--accent);
+  transition: width 1s linear, background 0.3s ease;
+}
+.time-track i.urgent { background: var(--alert); }
+
+/* ---------- Plateau ---------- */
+
+.board-wrap {
+  position: relative; flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 0;
+}
+
+/* Le mur est un vrai cadre : les portes se posent dessus, en débord. */
+.board {
+  position: relative;
+  box-sizing: content-box;
+  border: var(--wall) solid hsl(var(--h) 34% 90%);
+  border-radius: calc(var(--wall) + 8px);
+  background: hsl(var(--h) 40% 98%);
+  box-shadow: 0 10px 28px hsl(var(--h) 30% 60% / 0.13);
+}
+.grid-layer, .gate-layer, .block-layer { position: absolute; inset: 0; }
+.gate-layer { pointer-events: none; }
+
+/* Le quadrillage se devine, il ne se lit pas : il sert à situer une case vide,
+   pas à découper la grille. Plus il est net, plus le plateau paraît chargé. */
+.grid-cell {
+  position: absolute; top: 0; left: 0;
+  width: var(--cell); height: var(--cell);
+  border-right: 1px solid hsl(var(--h) 24% 96.5%);
+  border-bottom: 1px solid hsl(var(--h) 24% 96.5%);
+}
+
+/* ---------- Portes ---------- */
+
+.gate {
+  position: absolute;
+  display: grid; place-items: center;
+  background: var(--tile);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: calc(var(--wall) * 0.72);
+  line-height: 1;
+}
+/* Une flèche, au centre de l'ouverture, qui dit le SENS de sortie. Avec
+   l'option « symboles », le glyphe de la famille la précède. */
+.gate-fleche {
+  display: flex; align-items: center; justify-content: center; gap: 0.25em;
+  width: 100%; height: 100%;
+  font-size: 9px; line-height: 1;
+}
+.gate-left .gate-fleche, .gate-right .gate-fleche { flex-direction: column; }
+.gate-top    { top: calc(var(--wall) * -1); height: var(--wall); border-radius: 7px 7px 0 0; }
+.gate-bottom { bottom: calc(var(--wall) * -1); height: var(--wall); border-radius: 0 0 7px 7px; }
+.gate-left   { left: calc(var(--wall) * -1); width: var(--wall); border-radius: 7px 0 0 7px; }
+.gate-right  { right: calc(var(--wall) * -1); width: var(--wall); border-radius: 0 7px 7px 0; }
+.gate-cap {
+  position: absolute;
+  min-width: 15px; padding: 0 3px;
+  border-radius: 999px;
+  background: var(--ink); color: var(--ground);
+  font-size: 9px; font-weight: 500; line-height: 15px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.gate-top .gate-cap    { top: calc(var(--wall) * -1 - 8px); }
+.gate-bottom .gate-cap { bottom: calc(var(--wall) * -1 - 8px); }
+.gate-left .gate-cap   { left: calc(var(--wall) * -1 - 6px); }
+.gate-right .gate-cap  { right: calc(var(--wall) * -1 - 6px); }
+.gate-full { opacity: 0.4; filter: grayscale(0.7); }
+
+@keyframes gate-flash {
+  40% { filter: brightness(1.35) saturate(1.2); box-shadow: 0 0 16px 3px var(--tile); }
+}
+
+/* ---------- Blocs ---------- */
+
+.block {
+  position: absolute; top: 0; left: 0;
+  --bevel: calc(var(--cell) * 0.3);
+  transition: transform 80ms cubic-bezier(0.25, 0.8, 0.3, 1);
+  cursor: grab;
+  touch-action: none;
+  will-change: transform;
+  /* L'ombre portée suit la SILHOUETTE réelle du polyomino, pas sa boîte : c'est
+     ce qui donne le relief sans dessiner de contour case par case. */
+  filter:
+    drop-shadow(0 calc(var(--cell) * 0.045) 0 rgba(90, 70, 95, 0.16))
+    drop-shadow(0 calc(var(--cell) * 0.1) calc(var(--cell) * 0.13) rgba(90, 70, 95, 0.16));
+}
+
+/*
+ * Verre lisse : le reflet est un dégradé unique calé sur la boîte du bloc
+ * (backgroundSize/Position posés en JS), donc continu d'une case à l'autre.
+ * Un reflet par case aurait dessiné une grille de petits carrés brillants.
+ */
+.block-cell {
+  position: absolute;
+  width: var(--cell); height: var(--cell);
+  background-color: var(--tile);
+  background-image:
+    radial-gradient(78% 52% at 26% 12%, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0) 68%),
+    linear-gradient(178deg,
+      rgba(255, 255, 255, 0.5) 0%,
+      rgba(255, 255, 255, 0.14) 24%,
+      rgba(255, 255, 255, 0) 44%,
+      rgba(120, 90, 120, 0.06) 72%,
+      rgba(90, 60, 90, 0.19) 100%);
+  background-repeat: no-repeat;
+}
+.block-mark {
+  position: absolute;
+  width: var(--cell); height: var(--cell);
+  display: grid; place-items: center;
+  font-size: calc(var(--cell) * 0.36);
+  color: rgba(255, 255, 255, 0.92);
+  pointer-events: none;
+}
+/* Le cadenas et son décompte tiennent dans une seule case. */
+.locked-mark { flex-direction: column; display: flex !important; gap: 0; line-height: 1; }
+.locked-mark span { font-size: calc(var(--cell) * 0.34); }
+.locked-mark .lock-count {
+  font-size: calc(var(--cell) * 0.28);
+  font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.block.lock-open .locked-mark span { opacity: 0.35; }
+
+/* Pendant la saisie, aucune transition : le bloc doit coller au doigt.
+   La transition de 95 ms le faisait traîner derrière et donnait une impression
+   de lourdeur. */
+.block.grabbed { z-index: 5; transition: none; }
+.block.grabbed .block-cell { filter: brightness(1.06); }
+.block.grabbed { filter:
+  drop-shadow(0 calc(var(--cell) * 0.07) 0 rgba(90, 70, 95, 0.18))
+  drop-shadow(0 calc(var(--cell) * 0.16) calc(var(--cell) * 0.2) rgba(90, 70, 95, 0.2)); }
+.block.exiting { pointer-events: none; transition-property: transform, opacity; }
+.block.bumping { animation: bump 0.13s ease-in-out 2 alternate; }
+@keyframes bump { to { filter: brightness(1.12) saturate(1.3); } }
+
+.block.k-ancre, .block.k-encombrant { cursor: grab; }
+.block.k-wall { cursor: not-allowed; }
+/* Le bloc scellé : mat, plus froid, sans reflet. Il ne bouge pas, il ne porte
+   rien — c'est un morceau de décor, et il doit se lire comme tel sans pour
+   autant se confondre avec un bloc verrouillé, qui garde sa couleur. */
+.block.k-wall .block-cell {
+  background-color: var(--sealed);
+  /* Les rayures disaient « scellé », mais sur cinq ou six blocs elles faisaient
+     autant de lignes que le reste réuni. La matière mate suffit : ce bloc-ci
+     n'a ni éclat ni symbole, et c'est bien ce qui le distingue. */
+  background-image:
+    linear-gradient(178deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,0) 46%, rgba(70,60,80,.14) 100%);
+  background-size: auto, auto;
+}
+.block.k-locked { cursor: not-allowed; }
+.block.k-locked .block-cell { filter: saturate(0.42) brightness(1.08); }
+.block.unlocking .block-cell { animation: unlock 0.44s ease-out; }
+@keyframes unlock {
+  0% { filter: saturate(0.2) brightness(1.06); }
+  45% { filter: saturate(1.25) brightness(1.14); }
+  100% { filter: none; }
+}
+
+/* Glissière : UNE barre douce sur l'axe, arrondie et translucide.
+   C'étaient deux rangées de tirets, et sur une grille qui en compte une dizaine
+   le plateau devenait un tableau de pointillés — l'inverse de ce que ce jeu
+   promet. Une seule ligne dit exactement la même chose : cet axe, et pas
+   l'autre. */
+.block-rail {
+  position: absolute;
+  display: block; pointer-events: none;
+  background: rgba(255, 255, 255, 0.42);
+  border-radius: 999px;
+}
+.block.axis-h .block-rail {
+  top: 50%; height: 3px; margin-top: -1.5px;
+  left: 14%; right: 14%;
+}
+.block.axis-v .block-rail {
+  left: 50%; width: 3px; margin-left: -1.5px;
+  top: 14%; bottom: 14%;
+}
+
+/* Ancre : un seul sens de marche, celui de sa porte. La flèche pointe, là où
+   le rail traverse — c'est toute la différence entre les deux blocs. */
+.block-fleche {
+  position: absolute; right: 5%; bottom: 2%;
+  font-size: calc(var(--cell) * 0.34); line-height: 1;
+  color: rgba(255, 255, 255, 0.78);
+  pointer-events: none;
+}
+/* L'ancre se reconnaît à sa flèche. Le liseré qu'elle portait en plus ajoutait
+   un contour à chaque bloc, et c'est la somme de ces contours qui alourdissait
+   la grille. */
+
+/* Encombrant : coûte le double à sa porte. Le liseré doublé le dit de loin, le
+   « ×2 » porté sur le bloc le dit exactement. */
+/* L'encombrant se reconnaît à son « ×2 » : le double liseré faisait double
+   emploi, et deux traits de plus par bloc. */
+/* Décompte d'un verrou : une pastille claire, lisible sans crier. */
+.locked-mark {
+  display: grid; place-items: center;
+  min-width: 1.5em; padding: 0.1em 0.35em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  color: rgba(70, 55, 75, 0.78);
+  font-variant-numeric: tabular-nums;
+}
+/* Une pastille vide — verrou déjà ouvert, ou scellé de couleur qui porte sa
+   propre marque — ne doit rien dessiner : c'était un rond blanc posé sur le
+   bloc pour ne rien dire. */
+.locked-mark:has(.lock-count:empty) { background: none; }
+
+.poids-mark b {
+  font-size: calc(var(--cell) * 0.3);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+}
+
+/* Scellé de couleur : une pastille de la couleur qu'il attend. */
+.lock-count.lock-couleur {
+  width: calc(var(--cell) * 0.26); height: calc(var(--cell) * 0.26);
+  border-radius: 50%;
+  background: var(--attendu);
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.85);
+}
+
+/* Bloc double : deux couleurs, donc deux moitiés. La diagonale se lit d'un coup
+   d'œil et ne se confond pas avec le joker, qui balaie quatre teintes. */
+.block.k-double .block-cell {
+  background-color: transparent;
+  background-image:
+    radial-gradient(78% 52% at 26% 12%, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0) 68%),
+    linear-gradient(178deg, rgba(255,255,255,.32) 0%, rgba(255,255,255,0) 44%, rgba(90,60,90,.16) 100%),
+    linear-gradient(118deg, var(--tile) 0 47%, var(--c-bis) 53% 100%);
+}
+
+/* Porte partagée : elle sert deux familles, et le dit de la même façon. */
+.gate.gate-partagee { background-image: linear-gradient(118deg, var(--tile) 0 47%, var(--c-bis) 53% 100%); }
+
+/* La clé porte déjà son symbole ; un liseré de plus n'apprenait rien. */
+
+/* Joker : sort par n'importe quelle porte. */
+.block.k-joker .block-cell {
+  background-color: transparent;
+  background-image:
+    radial-gradient(78% 52% at 26% 12%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 68%),
+    linear-gradient(178deg, rgba(255,255,255,.35) 0%, rgba(255,255,255,0) 44%, rgba(90,60,90,.18) 100%),
+    linear-gradient(135deg, var(--c0), var(--c3) 34%, var(--c2) 62%, var(--c1));
+}
+
+.block.smashed { pointer-events: none; animation: smash 0.32s ease-in forwards; }
+@keyframes smash { to { transform: scale(0.3) rotate(14deg); opacity: 0; } }
+
+.block.hinted { z-index: 4; }
+.block.hinted .block-cell { animation: hint 1.15s ease-in-out 3; }
+@keyframes hint { 50% { box-shadow: inset 0 0 0 3px var(--ink); } }
+
+/* ---------- Sortie d'un bloc : la récompense ---------- */
+
+.fx-layer { position: absolute; inset: 0; pointer-events: none; z-index: 6; overflow: visible; }
+
+.spark {
+  position: absolute; border-radius: 50%;
+  background: var(--tile);
+  margin: calc(var(--cell) * -0.07) 0 0 calc(var(--cell) * -0.07);
+  animation: spark 620ms cubic-bezier(0.15, 0.75, 0.35, 1) forwards;
+}
+@keyframes spark {
+  0% { transform: translate3d(0, 0, 0) scale(0.5); opacity: 0; }
+  18% { opacity: 1; }
+  100% { transform: translate3d(var(--dx), var(--dy), 0) scale(0.18); opacity: 0; }
+}
+
+.ring {
+  position: absolute; border-radius: 50%;
+  border: 2px solid var(--tile);
+  transform: translate(-50%, -50%);
+  animation: ring 560ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+@keyframes ring {
+  0% { transform: translate(-50%, -50%) scale(0.25); opacity: 0.85; }
+  100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0; }
+}
+
+.gate.flash { animation: gate-flash 0.5s ease-out; }
+
+/* Couleurs des blocs : posées par ui/theme.js, une palette par monde. Les
+   valeurs de :root ne servent que de repli avant le premier niveau chargé. */
+.c0 { --tile: var(--c0); }
+.c1 { --tile: var(--c1); }
+.c2 { --tile: var(--c2); }
+.c3 { --tile: var(--c3); }
+.c4 { --tile: var(--c4); }
+.c5 { --tile: var(--c5); }
+
+/* Annonce d'entrée dans un monde : ce que le joueur va rencontrer pour la
+   première fois. Ne s'affiche qu'au premier niveau du monde — répétée vingt
+   fois, elle ne serait plus lue. */
+.brief-nouveaute {
+  margin: 12px auto 0; padding: 9px 14px; max-width: 260px;
+  background: var(--accent-wash); border-radius: 14px;
+  color: var(--accent-deep); font: 400 13px/1.35 var(--font-ui);
+}
+
+/* Choix de la langue, dans le menu utilisateur. */
+.user-langue { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.user-langue > span { color: var(--ink-soft); font-size: 14px; }
+.langue-choix { display: flex; }
+.langue-select {
+  appearance: none;
+  padding: 6px 30px 6px 12px;
+  background: var(--ground) no-repeat right 11px center / 9px;
+  /* Chevron dessiné en data:URI — la politique de sécurité d'un Artifact
+     interdit de charger une image depuis un autre hôte. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a7d88' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  border: 1px solid var(--line); border-radius: 999px;
+  color: var(--ink); font: 400 13px var(--font-ui);
+  cursor: pointer;
+  transition: border-color 0.16s ease;
+}
+.langue-select:hover, .langue-select:focus-visible { border-color: var(--accent); outline: none; }
+
+/* La tuile « pièces » du menu est un bouton : elle ouvre la boutique. Elle garde
+   l'allure des deux autres tuiles, avec juste ce qu'il faut pour qu'on devine
+   qu'elle répond — une tuile qui réagit sans le montrer ne se clique jamais. */
+.stat-action {
+  border: 1px solid var(--line); cursor: pointer;
+  font: inherit; text-align: center;
+  transition: border-color 0.16s ease, transform 0.14s ease;
+}
+.stat-action:hover { border-color: var(--accent); }
+.stat-action:active { transform: scale(0.97); }
+
+/* La grille et la palette côte à côte : on prend une pièce à droite et on la
+   dépose où on la veut. La palette défile seule quand les formes débordent. */
+.ed-top { display: flex; gap: 8px; align-items: flex-start; }
+.ed-top .ed-grid-wrap { flex: 1; min-width: 0; }
+.ed-palette {
+  flex: 0 0 54px;
+  display: flex; flex-direction: column; gap: 4px;
+  /* Bornée à la hauteur de la grille, et défilante au-delà : laissée libre,
+     elle empilait ses onze formes et repoussait couleurs, natures et boutons
+     hors de l'écran. */
+  max-height: 38vh; overflow-y: auto; overscroll-behavior: contain;
+  padding: 4px; border: 1px solid var(--line); border-radius: 14px;
+  background: var(--surface);
+}
+.ed-palette .ed-shape { width: 100%; padding: 5px; touch-action: none; }
+
+/* La pièce qui suit le doigt. Décalée vers le haut : sous la main, elle serait
+   cachée par elle. */
+.ed-fantome {
+  position: fixed; z-index: 40; pointer-events: none;
+  transform: translate(-50%, -140%);
+  opacity: 0.9;
+  box-shadow: 0 6px 18px rgba(80, 60, 85, 0.24);
+}
+.ed-cell.vise { outline: 2px solid var(--accent-deep); outline-offset: -2px; }
+
+/* Outils : la gomme et l'annulation ont leur propre barre. Ce ne sont pas des
+   pièces à poser, et les ranger parmi les formes le laissait croire. */
+.ed-toolbar { display: flex; gap: 5px; margin: 8px 0; }
+.ed-tool {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--ink-soft); font-size: 15px; line-height: 1; cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+.ed-tool:hover { border-color: var(--accent); }
+.ed-tool.sel { background: var(--accent-wash); border-color: var(--accent-deep); }
+.ed-hint { margin-top: 6px; color: var(--ink-faint); font: 400 12px/1.35 var(--font-ui); }
+
+/* Porte à deux couleurs : moitié-moitié, comme sur le plateau. */
+.ed-wall.double { background-image: linear-gradient(118deg, var(--tile) 0 47%, var(--c-bis) 53% 100%); }
+/* Mode gomme : le curseur le dit aussi sur la grille. */
+.ed-grid.gomme .ed-cell { cursor: crosshair; }
+
+/* Le temps mis, sous le nombre de glissés : présent sans concurrencer les
+   étoiles, qui restent la note du niveau. */
+.result-time {
+  margin: -8px 0 10px;
+  color: var(--ink-faint); font: 400 13px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Badge de série, sur l'accueil : ce qui donne envie de revenir demain. */
+.streak-badge {
+  position: absolute; top: max(18px, env(safe-area-inset-top)); left: 18px; z-index: 18;
+  padding: 7px 12px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--ink-soft); font: 500 13px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thèmes : les verrouillés restent visibles, avec ce qu'il faut pour les
+   ouvrir — c'est ce qu'on ne peut pas encore avoir qui donne envie. */
+.theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.theme-tuile {
+  display: grid; gap: 2px; justify-items: center; padding: 8px 4px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 14px;
+  color: var(--ink-soft); font: inherit; cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+.theme-tuile small { font-size: 9px; line-height: 1.15; text-align: center; opacity: 0.85; }
+.theme-emoji { font-size: 18px; line-height: 1; }
+.theme-tuile:hover:not([disabled]) { border-color: var(--accent); }
+.theme-tuile.sel { background: var(--accent-wash); border-color: var(--accent-deep); color: var(--accent-deep); }
+.theme-tuile.verrouille { opacity: 0.45; cursor: not-allowed; }
+
+/* Écran de défaite : UNE offre principale, une option discrète, une sortie.
+   Trois boutons de même poids ne se choisissent pas, ils se subissent. */
+.offer-oups { font: 500 26px var(--font-display); margin-bottom: 2px; }
+.offer-emoji { font-size: 40px; line-height: 1.1; margin-bottom: 6px; }
+.offer-lead { color: var(--ink-soft); font: 400 15px var(--font-ui); margin-bottom: 16px; }
+
+.offer-main {
+  width: 100%; display: grid; gap: 2px; padding: 14px 12px;
+  background: linear-gradient(160deg, hsl(150 46% 92%), hsl(150 42% 86%));
+  border: 1px solid hsl(150 38% 74%); border-radius: 20px;
+  color: hsl(150 40% 26%);
+  box-shadow: 0 8px 20px hsl(150 30% 60% / 0.25);
+}
+.offer-main-title { font: 500 18px var(--font-ui); }
+.offer-main-sub { font-size: 13px; opacity: 0.8; }
+.offer-main-free { font: 500 13px var(--font-ui); letter-spacing: 0.02em; }
+
+.offer-second { margin-top: 10px; font-size: 13px; }
+.offer-second b { font-variant-numeric: tabular-nums; }
+.offer-quit { margin-top: 4px; }
+
+/* Signalement. */
+.feedback-card { max-width: 340px; text-align: left; }
+.feedback-card h2 { text-align: center; }
+.fb-cats { display: flex; gap: 6px; margin: 10px 0; }
+.fb-cat {
+  flex: 1; padding: 7px 4px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 999px;
+  color: var(--ink-soft); font: 400 13px var(--font-ui); cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+.fb-cat.sel { background: var(--accent-wash); border-color: var(--accent); color: var(--accent-deep); }
+.fb-message {
+  width: 100%; padding: 10px 12px; resize: vertical;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 14px;
+  color: var(--ink); font: 400 14px/1.4 var(--font-ui);
+}
+.fb-message:focus-visible { border-color: var(--accent); outline: none; }
+.fb-add {
+  display: block; margin: 8px 0; padding: 8px;
+  border: 1px dashed var(--line); border-radius: 12px;
+  color: var(--ink-soft); font: 400 13px var(--font-ui); text-align: center; cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+.fb-add:hover { border-color: var(--accent); color: var(--accent-deep); }
+.fb-shots { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.fb-shot {
+  width: 54px; height: 54px; padding: 0; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--ground); cursor: pointer;
+}
+.fb-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fb-shot:hover { border-color: var(--alert); }
+.fb-actions { display: flex; gap: 6px; margin: 10px 0 4px; }
+.fb-actions .btn { flex: 1; }
+
+/* Historique des grilles créées. */
+.mine-list { list-style: none; display: grid; gap: 6px; margin: 10px 0 14px; text-align: left; }
+.mine-list li { display: flex; gap: 6px; align-items: stretch; }
+.mine-open {
+  flex: 1; display: grid; gap: 1px; padding: 9px 12px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 12px;
+  color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+  transition: border-color 0.16s ease;
+}
+.mine-open:hover { border-color: var(--accent); }
+.mine-open b { font: 500 14px var(--font-ui); }
+.mine-open small { color: var(--ink-faint); font-size: 12px; }
+.mine-del {
+  width: 36px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--ground); color: var(--ink-faint);
+  font-size: 17px; line-height: 1; cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+.mine-del:hover { border-color: var(--alert); color: var(--alert); }
+
+/* Boutique. */
+.shop-card { max-width: 340px; }
+.shop-solde { margin: 4px 0 14px; color: var(--ink-soft); font: 400 15px var(--font-ui); }
+.shop-solde b { color: var(--ink); font-size: 22px; font-variant-numeric: tabular-nums; }
+.shop-ad { width: 100%; }
+.shop-ad[disabled] { opacity: 0.45; pointer-events: none; }
+
+.shop-packs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 10px; }
+.shop-pack {
+  display: grid; gap: 2px; padding: 12px 8px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 16px;
+  color: var(--ink); font: inherit; cursor: pointer;
+  transition: border-color 0.16s ease, transform 0.14s ease;
+}
+.shop-pack:hover { border-color: var(--accent); }
+.shop-pack:active { transform: scale(0.97); }
+.shop-pack b { font: 400 20px var(--font-ui); font-variant-numeric: tabular-nums; }
+.shop-pack-bonus { color: var(--accent-deep); font-size: 11px; min-height: 13px; }
+.shop-pack-prix {
+  margin-top: 4px; padding: 3px 0; border-radius: 999px;
+  background: var(--accent-wash); color: var(--accent-deep); font-size: 13px;
+}
+
+/* Puzzle du jour : l'entrée du menu porte son titre en second niveau. */
+#btn-daily-puzzle { display: grid; gap: 2px; line-height: 1.25; }
+#btn-daily-puzzle small { font-size: 12px; opacity: 0.72; font-weight: 400; }
+
+/* Classement du jour. */
+.rank-mine { margin: 6px 0 12px; color: var(--accent-deep); font: 500 15px var(--font-ui); }
+.rank-list { list-style: none; display: grid; gap: 4px; margin: 0 0 12px; text-align: left; }
+.rank-list li {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  padding: 7px 12px; border-radius: 12px;
+  background: var(--ground); color: var(--ink-soft);
+  font: 400 14px var(--font-ui);
+}
+.rank-list li.moi { background: var(--accent-wash); color: var(--accent-deep); font-weight: 500; }
+.rank-list b { font-variant-numeric: tabular-nums; }
+
+/* Bouton pleine largeur du menu utilisateur (éditeur). */
+.user-large { width: 100%; }
+.ed-submit { width: 100%; }
+
+/* Échec de démarrage : la base de niveaux n'a pas pu être lue. */
+.boot-error {
+  position: absolute; inset: 0;
+  display: grid; align-content: center; gap: 10px; padding: 32px; text-align: center;
+  color: var(--ink-soft); font: 400 14px/1.5 var(--font-ui);
+}
+.boot-error h1 { color: var(--ink); font: 500 20px var(--font-display); }
+.boot-error code {
+  padding: 2px 6px; border-radius: 6px;
+  background: var(--accent-wash); color: var(--accent-deep); font-size: 13px;
+}
+
+/* ---------- Actions en partie ---------- */
+
+.game-actions { display: flex; gap: 7px; margin-top: 14px; }
+.action {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  padding: 9px 4px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  color: var(--ink-soft); font: 400 13px var(--font-ui);
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+.action:hover { border-color: var(--accent); color: var(--ink); }
+.action:active { transform: scale(0.97); }
+.action[disabled] { opacity: 0.4; pointer-events: none; }
+.action-icon { font-size: 17px; line-height: 1; }
+.action-plain { flex: 0 0 46px; }
+.action-cost {
+  padding: 1px 7px; border-radius: 999px;
+  background: var(--accent-wash); color: var(--accent-deep);
+  font-size: 10px; font-variant-numeric: tabular-nums;
+}
+/* Un bonus obtenu par pub est signalé comme tel : le joueur doit savoir ce
+   qu'il déclenche avant d'appuyer. */
+.action-cost.ad { background: hsl(150 40% 92%); color: hsl(150 38% 32%); }
+
+/* Mode marteau : on désigne la cible, le plateau le dit clairement. */
+.app.hammer .board { box-shadow: 0 0 0 3px var(--alert), 0 10px 28px hsl(var(--h) 30% 60% / 0.13); }
+.app.hammer .block:not(.k-wall) { cursor: crosshair; }
+.action-cost.free { background: hsl(150 45% 93%); color: hsl(150 40% 38%); }
+
+/* ---------- Superpositions ---------- */
+
+.overlay {
+  position: absolute; inset: 0; z-index: 20;
+  display: grid; place-items: center; padding: 26px;
+  background: hsl(var(--h) 30% 96% / 0.86);
+  backdrop-filter: blur(8px);
+  animation: screen-in 0.26s ease both;
+}
+.result-card, .offer-card {
+  width: 100%; padding: 30px 24px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line); border-radius: 26px;
+  box-shadow: 0 18px 44px hsl(var(--h) 30% 50% / 0.14);
+  text-align: center;
+  animation: card-in 0.42s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+@keyframes card-in { from { transform: scale(0.94) translateY(14px); opacity: 0; } }
+
+.result-card h2, .offer-card h2 {
+  font: 300 26px var(--font-display);
+  font-variation-settings: 'SOFT' 40;
+  margin-bottom: 20px;
+}
+.result-score { margin: 20px 0 6px; }
+.result-score span { font: 400 40px var(--font-ui); font-variant-numeric: tabular-nums; }
+.result-score small {
+  display: block; color: var(--ink-faint); font-size: 10px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+}
+.result-near {
+  margin: 8px 0 0; padding: 9px 14px;
+  background: var(--accent-wash); border-radius: 12px;
+  color: var(--accent-deep); font-size: 13px;
+}
+.result-reward { color: var(--award); margin: 14px 0 18px; min-height: 21px; }
+.result-actions { display: flex; gap: 9px; }
+.result-actions .btn { flex: 1; }
+
+.btn-reward {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  width: 100%; margin-bottom: 10px;
+  background: hsl(150 40% 92%); color: hsl(150 38% 32%);
+  border: 1px solid hsl(150 34% 82%);
+}
+.btn-reward:hover { background: hsl(150 44% 89%); }
+.btn-reward span { font-size: 11px; }
+
+.offer-lead { margin: 12px 0 2px; color: var(--ink-soft); font-size: 14px; }
+.offer-lead b { color: var(--ink); font-size: 17px; }
+.offer-bonus { margin: 14px 0 22px; font-size: 14px; color: var(--ink-soft); }
+.offer-bonus b { color: var(--accent-deep); }
+.offer-actions { display: flex; flex-direction: column; gap: 9px; }
+
+/* ---------- Publicité simulée ---------- */
+
+.ad-overlay { background: hsl(var(--h) 20% 20% / 0.9); }
+.ad-card {
+  width: 100%; padding: 26px 22px 22px;
+  border: 1px dashed hsl(var(--h) 15% 55%); border-radius: 22px;
+  background: hsl(var(--h) 18% 26%);
+  color: hsl(var(--h) 20% 92%);
+  text-align: center;
+}
+.ad-tag {
+  display: inline-block; margin-bottom: 14px; padding: 3px 11px;
+  border-radius: 999px; background: hsl(var(--h) 14% 34%);
+  font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: hsl(var(--h) 15% 72%);
+}
+.ad-title { font: 300 20px var(--font-display); margin-bottom: 18px; }
+.ad-visual {
+  display: grid; place-items: center;
+  aspect-ratio: 4 / 3; margin-bottom: 18px;
+  border-radius: 16px;
+  background: repeating-linear-gradient(45deg, hsl(var(--h) 12% 31%) 0 10px, hsl(var(--h) 12% 29%) 10px 20px);
+}
+.ad-count { font: 400 44px var(--font-ui); color: hsl(var(--h) 14% 62%); font-variant-numeric: tabular-nums; }
+.ad-note { margin-bottom: 18px; color: hsl(var(--h) 14% 68%); font-size: 12px; }
+.ad-close { background: var(--accent); color: #fff; }
+
+/* ---------- Bannière ---------- */
+
+/* Jamais pendant une partie : elle volerait de la place au plateau et
+   provoquerait des clics accidentels en plein glissé. */
+.banner {
+  position: absolute; left: 50%; bottom: 0; z-index: 15;
+  transform: translateX(-50%);
+  width: 320px; max-width: 100%; height: 50px;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  color: var(--ink-faint); font-size: 12px;
+}
+.banner-tag {
+  padding: 2px 7px; border-radius: 4px;
+  background: var(--accent-wash); color: var(--accent-deep);
+  font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.app.with-banner .screen { padding-bottom: 62px; }
+
+/* ---------- Toast ---------- */
+
+.toast {
+  position: absolute; left: 50%; bottom: 84px; z-index: 10;
+  transform: translateX(-50%);
+  padding: 10px 18px; border-radius: 999px;
+  background: var(--ink); color: var(--ground);
+  font-size: 13px;
+  animation: toast 1.4s ease both;
+  pointer-events: none; white-space: nowrap;
+}
+@keyframes toast { 0%, 100% { opacity: 0; } 15%, 75% { opacity: 1; } }
+
+/* ---------- Focus clavier ---------- */
+
+.btn:focus-visible,
+.icon-btn:focus-visible,
+.map-node:focus-visible,
+.action:focus-visible,
+.debug-toggle:focus-visible,
+.debug-panel input:focus-visible {
+  outline: 2px solid var(--accent-deep);
+  outline-offset: 3px;
+}
+
+/* ---------- Éditeur ---------- */
+
+.ed-scroll { flex: 1; overflow-y: auto; scrollbar-width: none; }
+.ed-scroll::-webkit-scrollbar { display: none; }
+
+.ed-grid-wrap { display: flex; justify-content: center; padding: 14px 0 6px; }
+.ed-grid {
+  --ec: 30px;
+  position: relative;
+  width: calc(var(--ew) * var(--ec));
+  height: calc(var(--eh) * var(--ec));
+  border: 11px solid hsl(var(--h) 34% 90%);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.ed-cell {
+  position: absolute;
+  width: var(--ec); height: var(--ec);
+  left: calc(var(--x) * var(--ec)); top: calc(var(--y) * var(--ec));
+  border: 1px solid hsl(var(--h) 26% 94%);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px; cursor: pointer; padding: 0;
+}
+.ed-cell.plein { background: var(--tile); border-color: transparent; border-radius: 4px; }
+.ed-cell.k-wall { background: var(--sealed); }
+.ed-cell.k-joker { background: linear-gradient(135deg, var(--c0), var(--c3) 40%, var(--c1)); }
+.ed-cell.k-locked { filter: saturate(0.35); }
+
+.ed-wall {
+  position: absolute;
+  border: 0; padding: 0; cursor: pointer;
+  background: hsl(var(--h) 30% 84%);
+  color: #fff; font-size: 9px; line-height: 1;
+}
+.ed-wall.ouvert { background: var(--tile); }
+.ed-wall-top, .ed-wall-bottom { width: var(--ec); height: 11px; left: calc(var(--i) * var(--ec)); }
+.ed-wall-top { top: -11px; }
+.ed-wall-bottom { bottom: -11px; }
+.ed-wall-left, .ed-wall-right { height: var(--ec); width: 11px; top: calc(var(--i) * var(--ec)); }
+.ed-wall-left { left: -11px; }
+.ed-wall-right { right: -11px; }
+
+.ed-status { min-height: 32px; padding: 6px 4px; font-size: 12px; color: var(--ink-soft); text-align: center; }
+.ed-status.ok { color: hsl(150 40% 34%); }
+.ed-status.ko { color: var(--alert); }
+
+.ed-section { margin-bottom: 12px; }
+.ed-legend {
+  display: block; margin-bottom: 6px;
+  font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint);
+}
+.ed-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 3px; scrollbar-width: none; }
+.ed-row::-webkit-scrollbar { display: none; }
+.ed-wrap { flex-wrap: wrap; overflow: visible; }
+
+.ed-shape, .ed-color, .ed-kind {
+  flex: 0 0 auto;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.ed-shape { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; }
+.ed-shape span { display: grid; gap: 1px; }
+.ed-shape i { background: var(--line); border-radius: 1px; }
+.ed-shape i.on { background: var(--ink-soft); }
+.ed-color { width: 36px; height: 36px; background: var(--tile); color: #fff; font-size: 14px; }
+.ed-kind { padding: 7px 11px; font: 400 12px var(--font-ui); color: var(--ink-soft); }
+.sel { border-color: var(--accent-deep); box-shadow: 0 0 0 2px var(--accent-wash); }
+
+.ed-num { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-soft); }
+.ed-num input {
+  width: 54px; padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink); font: inherit;
+}
+
+.ed-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ed-actions .btn { flex: 1; min-width: 84px; }
+.ed-json {
+  width: 100%; height: 130px; margin-top: 10px; padding: 10px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); color: var(--ink-soft);
+  font-family: ui-monospace, Menlo, monospace; font-size: 10px; resize: vertical;
+}
+
+/* ---------- Menu utilisateur ---------- */
+
+/* Flottant plutôt qu'intégré aux barres de titre : il doit être au même
+   endroit sur tous les écrans, y compris le menu qui n'a pas de barre. */
+.user-btn {
+  position: absolute; top: max(18px, env(safe-area-inset-top)); right: 18px; z-index: 18;
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink); cursor: pointer;
+  display: grid; place-items: center;
+  transition: border-color 0.16s ease, transform 0.14s ease;
+}
+.user-btn:hover { border-color: var(--accent); }
+.user-btn:active { transform: scale(0.94); }
+.user-btn.ouvert { border-color: var(--accent-deep); }
+/* Trois barres : le bouton doit dire « menu ». Le niveau du joueur y figurait,
+   mais un chiffre se lit comme une information, pas comme une commande — et
+   personne ne pensait à cliquer dessus pour régler le son. Le niveau reste
+   affiché dans le panneau, où il a sa place. */
+.user-burger { display: grid; gap: 3px; width: 15px; }
+.user-burger i {
+  display: block; height: 2px; border-radius: 2px;
+  background: var(--ink-soft);
+  transition: background 0.16s ease;
+}
+.user-btn:hover .user-burger i, .user-btn.ouvert .user-burger i { background: var(--accent-deep); }
+/* Pastille discrète quand le son est coupé : l'état doit se voir sans ouvrir. */
+.user-btn.muet::after {
+  content: '🔇'; position: absolute; right: -3px; bottom: -3px;
+  font-size: 11px; line-height: 1;
+  background: var(--surface); border-radius: 50%; padding: 1px;
+}
+
+/* Les barres de titre laissent la place au bouton flottant. */
+.topbar { padding-right: 46px; }
+
+.user-panel {
+  position: absolute; top: calc(max(18px, env(safe-area-inset-top)) + 46px); right: 14px;
+  z-index: 19; width: min(280px, calc(100% - 28px));
+  padding: 16px; border-radius: 20px;
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 18px 44px hsl(var(--h) 30% 50% / 0.18);
+  animation: panneau-in 0.22s cubic-bezier(0.2, 1.1, 0.4, 1) both;
+}
+@keyframes panneau-in { from { opacity: 0; transform: translateY(-8px) scale(0.97); } }
+
+.user-head { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+.user-avatar {
+  width: 40px; height: 40px; border-radius: 13px;
+  display: grid; place-items: center;
+  background: var(--accent); color: #fff;
+  font: 400 17px var(--font-ui); font-variant-numeric: tabular-nums;
+}
+.user-ident { flex: 1; display: flex; flex-direction: column; }
+.user-ident b { font-weight: 500; font-size: 14px; }
+.user-ident small { color: var(--ink-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.user-close { width: 30px; height: 30px; font-size: 17px; }
+
+.user-xp { height: 4px; border-radius: 999px; background: var(--line-soft); overflow: hidden; margin-bottom: 14px; }
+.user-xp i { display: block; height: 100%; background: var(--accent); transition: width 0.4s ease; }
+
+.user-stats { display: flex; gap: 8px; margin-bottom: 15px; }
+.user-stats > div {
+  flex: 1; padding: 9px 6px; text-align: center;
+  background: var(--ground); border-radius: 12px;
+}
+.user-stats dt { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+.user-stats dd { margin-top: 3px; font: 400 16px var(--font-ui); font-variant-numeric: tabular-nums; }
+
+.user-section { margin-bottom: 14px; }
+.user-legend {
+  display: block; margin-bottom: 7px;
+  font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint);
+}
+.user-note { margin-top: 6px; font-size: 10px; color: var(--ink-faint); line-height: 1.4; }
+
+/* Interrupteur */
+.switch {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 0; cursor: pointer; font-size: 13px;
+}
+.switch span { flex: 1; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch i {
+  flex: 0 0 auto; width: 38px; height: 22px; border-radius: 999px;
+  background: var(--line); position: relative; transition: background 0.18s ease;
+}
+.switch i::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--surface); transition: transform 0.18s cubic-bezier(0.3, 1.3, 0.5, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+.switch input:checked + i { background: var(--accent); }
+.switch input:checked + i::after { transform: translateX(16px); }
+.switch input:focus-visible + i { outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+
+.user-danger { width: 100%; color: var(--alert); }
+.user-danger:hover { border-color: var(--alert); color: var(--alert); }
+
+/* ---------- Debug ---------- */
+
+.debug-toggle {
+  position: absolute; right: 8px; bottom: 8px; z-index: 30;
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink-faint); font-size: 13px; cursor: pointer; opacity: 0.55;
+}
+.debug-toggle:hover { opacity: 1; }
+.debug-panel {
+  position: absolute; right: 8px; bottom: 42px; z-index: 30; width: 222px;
+  padding: 13px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 12px 30px hsl(var(--h) 30% 50% / 0.16);
+  font-size: 12px;
+}
+.debug-panel label { display: block; color: var(--ink-faint); margin-bottom: 9px; }
+.debug-panel input {
+  width: 100%; margin-top: 5px; padding: 6px 9px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 8px; color: var(--ink);
+}
+.debug-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.debug-info { margin-top: 9px; color: var(--ink-faint); line-height: 1.4; white-space: pre-line; }
+.debug-events {
+  margin: 9px 0 0; padding-left: 16px; max-height: 160px; overflow-y: auto;
+  color: var(--ink-faint); font-size: 10px; line-height: 1.5;
+}
+.debug-events b { color: var(--ink); font-weight: 500; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

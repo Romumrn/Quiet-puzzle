@@ -288,10 +288,28 @@ le premier ordre venu gagne, et le joueur n'a qu'à glisser. Relevé sur les
 dix-huit premiers mondes, ce chiffre était de l'ordre du nombre de blocs
 partout — grilles denses comprises.
 
-Un monde marqué `exigeant: true` fait donc départager ses candidates par le
-solveur : le générateur retient les trente meilleures grilles par la note
-habituelle, les mesure une à une, garde la plus retorse, et s'arrête dès qu'une
-atteint une douzaine d'états par bloc.
+Un monde marqué `exigeant: true` — ou portant une `exigenceCible` — fait donc
+départager ses candidates par le solveur : le générateur retient les meilleures
+grilles par la note habituelle, les mesure une à une, garde la plus retorse, et
+s'arrête dès qu'une atteint la cible.
+
+**`exigenceCible` est le seul levier qui passe encore à l'échelle.** Grille,
+couleurs, portes, types de blocs : tout est au maximum jouable, et empiler des
+quantités ne ferait que remplir. La cible monte de 12 à 64 états par bloc sur
+les douze derniers mondes — c'est ce qui les distingue les uns des autres.
+
+Trois réglages vont avec, et s'oublient facilement :
+
+- **le vivier.** Un monde exigeant explore 700 grilles au lieu de 220 et en
+  retient jusqu'à soixante. Sans cela, sur des grilles très contraintes, il n'en
+  reste qu'une ou deux à départager — et le départage ne départage plus rien.
+  Le symptôme est net : une exigence retombée à un état par bloc.
+- **la densité.** Elle doit BAISSER quand les murs et la taille minimale des
+  pièces montent, sans quoi presque aucune tentative n'aboutit. Les mondes à dix
+  murs et pièces de deux cases tournent à `[0.22, 0.28]`.
+- **le budget de mesure**, calé sur la cible et non fixé une fois pour toutes :
+  les grilles les plus retorses sont justement celles qui coûtent le plus cher à
+  mesurer, et seule l'ampleur du chiffre importe.
 
 L'ordre compte : **accumuler d'abord, mesurer ensuite**. Mesurer au fil de l'eau
 dépensait le budget sur les premières grilles venues, le seuil de comparaison

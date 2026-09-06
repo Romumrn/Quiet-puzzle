@@ -140,9 +140,14 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
   monde.effets += murs + verrous + rails + ancres + encombrants;
   monde.gestes += L.minDrags;
   monde.n++;
-  // Les états explorés ne sont connus que sur les niveaux détaillés — le
-  // solveur ne tourne que là — d'où un compteur séparé.
-  if (sol) { monde.etats += sol.etats; monde.mesures++; }
+  /**
+   * Les états explorés. On préfère `L.exigence`, mesurée à la FABRICATION sur
+   * TOUS les niveaux du monde, à ce que le solveur trouve ici sur les trois
+   * niveaux détaillés : un échantillon de trois est si bruité qu'il faisait
+   * passer un monde deux fois plus retors pour un recul.
+   */
+  if (L.exigence !== undefined) { monde.etats += L.exigence; monde.mesures++; }
+  else if (sol) { monde.etats += sol.etats; monde.mesures++; }
 }
 
 /**

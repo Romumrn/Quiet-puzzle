@@ -1,9 +1,16 @@
 # Déploiement GitHub Pages.
 #
-# Reconstruit le fichier unique depuis les sources modulaires à chaque push,
-# donc docs/ ne peut pas dériver du code. Actif seulement si la source Pages du
-# dépôt est réglée sur « GitHub Actions » ; avec la source « branche main /docs »,
-# c'est le fichier committé qui est servi et ce workflow ne sert à rien.
+# Publie les sources MODULAIRES, et non le fichier unique. La raison est
+# arithmétique : à six cents niveaux, la base pèse quatre méga-octets et le
+# fichier unique six — quinze secondes d'attente en 4G avant de voir quoi que ce
+# soit. Servi en modules, le jeu ouvre sur 388 Ko et ne charge un monde qu'au
+# moment de le jouer.
+#
+# Le fichier unique reste fabriqué par `tools/bundle.mjs`, pour le partage hors
+# ligne et l'ouverture par double-clic.
+#
+# Actif seulement si la source Pages du dépôt est réglée sur « GitHub Actions » ;
+# avec la source « branche main /docs », c'est le contenu committé qui est servi.
 name: Déployer sur GitHub Pages
 
 on:
@@ -33,14 +40,9 @@ jobs:
         working-directory: prototype
         run: node tools/test.mjs
 
-      - name: Construire le fichier unique
-        working-directory: prototype
-        run: node tools/bundle.mjs
-
       - name: Préparer le site
-        run: |
-          mkdir -p _site
-          cp prototype/dist/standalone.html _site/index.html
+        working-directory: prototype
+        run: node tools/publier.mjs ../_site
 
       - uses: actions/upload-pages-artifact@v3
         with:
