@@ -673,6 +673,23 @@ body { display: grid; place-items: center; }
 .stat-action:hover { border-color: var(--accent); }
 .stat-action:active { transform: scale(0.97); }
 
+/* Outils de l'éditeur : la gomme et l'annulation, posées à côté des formes.
+   Ce ne sont pas des pinceaux — on ne pose pas une gomme — d'où leur place
+   à part, avant la palette. */
+.ed-tools { display: flex; gap: 5px; flex: 0 0 auto; }
+.ed-tool {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--ink-soft); font-size: 15px; line-height: 1; cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+.ed-tool:hover { border-color: var(--accent); }
+.ed-tool.sel { background: var(--accent-wash); border-color: var(--accent-deep); }
+.ed-shapes { flex: 1; }
+/* Mode gomme : le curseur le dit aussi sur la grille. */
+.ed-grid.gomme .ed-cell { cursor: crosshair; }
+
 /* Le temps mis, sous le nombre de glissés : présent sans concurrencer les
    étoiles, qui restent la note du niveau. */
 .result-time {
@@ -680,6 +697,41 @@ body { display: grid; place-items: center; }
   color: var(--ink-faint); font: 400 13px var(--font-ui);
   font-variant-numeric: tabular-nums;
 }
+
+/* Signalement. */
+.feedback-card { max-width: 340px; text-align: left; }
+.feedback-card h2 { text-align: center; }
+.fb-cats { display: flex; gap: 6px; margin: 10px 0; }
+.fb-cat {
+  flex: 1; padding: 7px 4px;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 999px;
+  color: var(--ink-soft); font: 400 13px var(--font-ui); cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+.fb-cat.sel { background: var(--accent-wash); border-color: var(--accent); color: var(--accent-deep); }
+.fb-message {
+  width: 100%; padding: 10px 12px; resize: vertical;
+  background: var(--ground); border: 1px solid var(--line); border-radius: 14px;
+  color: var(--ink); font: 400 14px/1.4 var(--font-ui);
+}
+.fb-message:focus-visible { border-color: var(--accent); outline: none; }
+.fb-add {
+  display: block; margin: 8px 0; padding: 8px;
+  border: 1px dashed var(--line); border-radius: 12px;
+  color: var(--ink-soft); font: 400 13px var(--font-ui); text-align: center; cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+.fb-add:hover { border-color: var(--accent); color: var(--accent-deep); }
+.fb-shots { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.fb-shot {
+  width: 54px; height: 54px; padding: 0; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--ground); cursor: pointer;
+}
+.fb-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fb-shot:hover { border-color: var(--alert); }
+.fb-actions { display: flex; gap: 6px; margin: 10px 0 4px; }
+.fb-actions .btn { flex: 1; }
 
 /* Historique des grilles créées. */
 .mine-list { list-style: none; display: grid; gap: 6px; margin: 10px 0 14px; text-align: left; }
@@ -1324,6 +1376,12 @@ body { display: grid; place-items: center; }
         <p class="user-note" data-i18n="user.editor.note">Dessinez une grille, vérifiez-la, proposez-la comme puzzle du jour.</p>
       </div>
 
+      <div class="user-section">
+        <span class="user-legend" data-i18n="feedback.legend">Nous écrire</span>
+        <button class="btn btn-ghost btn-sm user-large" id="btn-feedback"
+                data-i18n="feedback.open">Signaler un bug ou une idée</button>
+      </div>
+
       <button class="btn btn-ghost btn-sm user-danger" id="btn-reset"
               data-i18n="user.reset">Réinitialiser la progression</button>
     </div>
@@ -1344,6 +1402,35 @@ body { display: grid; place-items: center; }
           <button class="btn btn-ghost" id="btn-result-map" data-i18n="result.map">Carte</button>
           <button class="btn btn-ghost" id="btn-result-retry" data-i18n="result.retry">Rejouer</button>
           <button class="btn btn-primary" id="btn-result-next" data-i18n="result.next">Suivant</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SIGNALEMENT ============ -->
+    <div class="overlay" id="overlay-feedback" hidden>
+      <div class="result-card feedback-card">
+        <h2 data-i18n="feedback.title">Un bug, une idée ?</h2>
+
+        <div class="fb-cats" id="fb-cats"></div>
+
+        <textarea id="fb-message" class="fb-message" rows="5"
+                  data-i18n-placeholder="feedback.placeholder"></textarea>
+
+        <label class="fb-add">
+          <input type="file" id="fb-files" accept="image/*" multiple hidden>
+          <span data-i18n="feedback.attach">Ajouter des captures</span>
+        </label>
+        <div class="fb-shots" id="fb-shots"></div>
+
+        <p class="user-note" data-i18n="feedback.note">Aucun serveur ne reçoit ce message : téléchargez le rapport ou ouvrez votre messagerie, vous restez maître de l’envoi.</p>
+
+        <div class="fb-actions">
+          <button class="btn btn-ghost btn-sm" id="fb-copy" data-i18n="feedback.copy">Copier</button>
+          <button class="btn btn-ghost btn-sm" id="fb-download" data-i18n="feedback.download">Télécharger</button>
+          <button class="btn btn-primary btn-sm" id="fb-mail" data-i18n="feedback.mail">Ouvrir ma messagerie</button>
+        </div>
+        <div class="result-actions">
+          <button class="btn btn-ghost" id="btn-feedback-close" data-i18n="ad.close">Fermer</button>
         </div>
       </div>
     </div>
@@ -1406,7 +1493,10 @@ body { display: grid; place-items: center; }
 
         <div class="ed-section">
           <span class="ed-legend">Forme</span>
-          <div class="ed-row" id="ed-shapes"></div>
+          <div class="ed-row">
+            <div class="ed-tools" id="ed-tools"></div>
+            <div class="ed-row ed-wrap ed-shapes" id="ed-shapes"></div>
+          </div>
         </div>
         <div class="ed-section">
           <span class="ed-legend">Couleur</span>
@@ -2416,6 +2506,18 @@ const LANGUES = [
 
 const TEXTES = {
   fr: {
+    'feedback.legend': 'Nous écrire', 'feedback.open': 'Signaler un bug ou une idée',
+    'feedback.title': 'Un bug, une idée ?',
+    'feedback.cat.bug': 'Bug', 'feedback.cat.idea': 'Idée', 'feedback.cat.other': 'Autre',
+    'feedback.placeholder': 'Que s’est-il passé ? Qu’attendiez-vous ?',
+    'feedback.attach': 'Ajouter des captures',
+    'feedback.note': 'Aucun serveur ne reçoit ce message : téléchargez le rapport ou ouvrez votre messagerie, vous restez maître de l’envoi.',
+    'feedback.copy': 'Copier', 'feedback.download': 'Télécharger', 'feedback.mail': 'Ouvrir ma messagerie',
+    'feedback.copied': 'Rapport copié', 'feedback.downloaded': 'Rapport téléchargé',
+    'feedback.empty': 'Écrivez d’abord quelques mots',
+    'feedback.toobig': 'Capture trop lourde (plus de {n} Mo)',
+    'editor.eraser': 'Gomme', 'editor.undo': 'Annuler le dernier bloc',
+    'editor.undone': 'Dernier bloc retiré',
     'editor.trying': 'Essai',
     'result.time': 'en {temps}',
     'editor.mine': 'Mes niveaux', 'editor.mine.empty': 'Aucune grille enregistrée pour l’instant',
@@ -2527,6 +2629,18 @@ const TEXTES = {
   },
 
   en: {
+    'feedback.legend': 'Contact us', 'feedback.open': 'Report a bug or an idea',
+    'feedback.title': 'A bug, an idea?',
+    'feedback.cat.bug': 'Bug', 'feedback.cat.idea': 'Idea', 'feedback.cat.other': 'Other',
+    'feedback.placeholder': 'What happened? What did you expect?',
+    'feedback.attach': 'Add screenshots',
+    'feedback.note': 'No server receives this message: download the report or open your mail app — you stay in charge of sending it.',
+    'feedback.copy': 'Copy', 'feedback.download': 'Download', 'feedback.mail': 'Open my mail app',
+    'feedback.copied': 'Report copied', 'feedback.downloaded': 'Report downloaded',
+    'feedback.empty': 'Write a few words first',
+    'feedback.toobig': 'Screenshot too large (over {n} MB)',
+    'editor.eraser': 'Eraser', 'editor.undo': 'Undo last block',
+    'editor.undone': 'Last block removed',
     'editor.trying': 'Test run',
     'result.time': 'in {temps}',
     'editor.mine': 'My levels', 'editor.mine.empty': 'No grid saved yet',
@@ -2638,6 +2752,18 @@ const TEXTES = {
   },
 
   es: {
+    'feedback.legend': 'Escríbenos', 'feedback.open': 'Informar de un fallo o una idea',
+    'feedback.title': '¿Un fallo, una idea?',
+    'feedback.cat.bug': 'Fallo', 'feedback.cat.idea': 'Idea', 'feedback.cat.other': 'Otro',
+    'feedback.placeholder': '¿Qué ha pasado? ¿Qué esperabas?',
+    'feedback.attach': 'Añadir capturas',
+    'feedback.note': 'Ningún servidor recibe este mensaje: descarga el informe o abre tu correo — el envío queda en tus manos.',
+    'feedback.copy': 'Copiar', 'feedback.download': 'Descargar', 'feedback.mail': 'Abrir mi correo',
+    'feedback.copied': 'Informe copiado', 'feedback.downloaded': 'Informe descargado',
+    'feedback.empty': 'Escribe unas palabras primero',
+    'feedback.toobig': 'Captura demasiado pesada (más de {n} MB)',
+    'editor.eraser': 'Goma', 'editor.undo': 'Deshacer el último bloque',
+    'editor.undone': 'Último bloque retirado',
     'editor.trying': 'Prueba',
     'result.time': 'en {temps}',
     'editor.mine': 'Mis niveles', 'editor.mine.empty': 'Aún no hay cuadrículas guardadas',
@@ -2749,6 +2875,18 @@ const TEXTES = {
   },
 
   it: {
+    'feedback.legend': 'Scrivici', 'feedback.open': 'Segnala un bug o un’idea',
+    'feedback.title': 'Un bug, un’idea?',
+    'feedback.cat.bug': 'Bug', 'feedback.cat.idea': 'Idea', 'feedback.cat.other': 'Altro',
+    'feedback.placeholder': 'Che cosa è successo? Che cosa ti aspettavi?',
+    'feedback.attach': 'Aggiungi schermate',
+    'feedback.note': 'Nessun server riceve questo messaggio: scarica il rapporto o apri la posta — l’invio resta a te.',
+    'feedback.copy': 'Copia', 'feedback.download': 'Scarica', 'feedback.mail': 'Apri la posta',
+    'feedback.copied': 'Rapporto copiato', 'feedback.downloaded': 'Rapporto scaricato',
+    'feedback.empty': 'Scrivi prima qualche parola',
+    'feedback.toobig': 'Schermata troppo pesante (oltre {n} MB)',
+    'editor.eraser': 'Gomma', 'editor.undo': 'Annulla l’ultimo blocco',
+    'editor.undone': 'Ultimo blocco rimosso',
     'editor.trying': 'Prova',
     'result.time': 'in {temps}',
     'editor.mine': 'I miei livelli', 'editor.mine.empty': 'Nessuna griglia salvata per ora',
@@ -2860,6 +2998,18 @@ const TEXTES = {
   },
 
   zh: {
+    'feedback.legend': '联系我们', 'feedback.open': '反馈问题或建议',
+    'feedback.title': '有问题或建议？',
+    'feedback.cat.bug': '问题', 'feedback.cat.idea': '建议', 'feedback.cat.other': '其他',
+    'feedback.placeholder': '发生了什么？你期待的是什么？',
+    'feedback.attach': '添加截图',
+    'feedback.note': '没有服务器会收到这条消息：请下载报告或打开邮件应用 — 是否发送由你决定。',
+    'feedback.copy': '复制', 'feedback.download': '下载', 'feedback.mail': '打开邮件',
+    'feedback.copied': '报告已复制', 'feedback.downloaded': '报告已下载',
+    'feedback.empty': '请先写几句话',
+    'feedback.toobig': '截图过大（超过 {n} MB）',
+    'editor.eraser': '橡皮', 'editor.undo': '撤销上一个方块',
+    'editor.undone': '已移除上一个方块',
     'editor.trying': '试玩',
     'result.time': '用时 {temps}',
     'editor.mine': '我的关卡', 'editor.mine.empty': '还没有保存任何棋盘',
@@ -3017,7 +3167,8 @@ function texteMonde(monde, champ) {
 /**
  * Remplit le markup. Trois attributs, selon l'endroit où le texte atterrit :
  * `data-i18n` pour le contenu, `data-i18n-title` pour l'infobulle,
- * `data-i18n-aria` pour le nom accessible.
+ * `data-i18n-aria` pour le nom accessible, `data-i18n-placeholder` pour
+ * l'invite d'un champ de saisie.
  */
 function appliquer(racine = (typeof document === 'undefined' ? null : document)) {
   // Sans DOM — sous Node, dans les tests — il n'y a rien à remplir, et le
@@ -3027,6 +3178,9 @@ function appliquer(racine = (typeof document === 'undefined' ? null : document))
   for (const el of racine.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
   for (const el of racine.querySelectorAll('[data-i18n-aria]')) {
     el.setAttribute('aria-label', t(el.dataset.i18nAria));
+  }
+  for (const el of racine.querySelectorAll('[data-i18n-placeholder]')) {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
   }
   if (typeof document !== 'undefined') {
     document.documentElement.lang = courante;
@@ -4175,6 +4329,123 @@ function vider() {
 return { enregistrer, charger, supprimer, vider, liste };
 })();
 
+const __m_feedback = (() => {
+/**
+ * Signalements : bugs, suggestions, remarques.
+ *
+ * Le joueur écrit, joint des captures s'il veut, et repart avec un rapport
+ * complet. Ce que ce module NE fait pas, et c'est le point à comprendre : il
+ * n'envoie rien. Le prototype n'a pas de serveur, et rien ne part d'un
+ * navigateur sans destinataire.
+ *
+ * Il prépare donc le rapport et laisse le joueur choisir sa route : le copier,
+ * le télécharger, ou ouvrir son courrielleur avec le texte déjà écrit. Les
+ * captures ne peuvent voyager que par le fichier téléchargé — aucun `mailto:`
+ * ne sait joindre une pièce.
+ *
+ * Le CONTEXTE TECHNIQUE est joint automatiquement : version, langue, écran,
+ * niveau en cours, taille de fenêtre, navigateur. C'est ce qui manque toujours
+ * dans un rapport de bug, et ce que personne ne pense à donner.
+ */
+
+const store = __m_save;
+const { track } = __m_events;
+
+const CLE = 'puzzlequest.feedback.v1';
+const MAX = 20;
+
+/** Catégories proposées. L'identifiant part dans le rapport, pas le libellé. */
+const CATEGORIES = ['bug', 'idea', 'other'];
+
+/**
+ * Les captures ne sont PAS conservées dans le stockage local : quelques images
+ * de téléphone en base64 dépassent à elles seules le quota d'un navigateur, et
+ * l'historique deviendrait la raison pour laquelle le jeu ne sauvegarde plus.
+ * Elles vivent le temps de la rédaction, et voyagent dans le fichier exporté.
+ */
+const lire = () => {
+  try {
+    const brut = localStorage.getItem(CLE);
+    const l = brut ? JSON.parse(brut) : [];
+    return Array.isArray(l) ? l : [];
+  } catch {
+    return [];
+  }
+};
+
+const ecrire = (l) => {
+  try { localStorage.setItem(CLE, JSON.stringify(l.slice(0, MAX))); } catch { /* quota */ }
+};
+
+/** Ce que le développeur voudra savoir et que le joueur ne pensera pas à dire. */
+function contexte(extra = {}) {
+  const d = store.load();
+  return {
+    version: 'prototype',
+    date: new Date().toISOString(),
+    langue: d.langue || 'auto',
+    niveauDebloque: d.unlockedLevel,
+    pieces: d.coins,
+    glyphes: d.glyphes === true,
+    ecran: typeof window === 'undefined' ? null
+      : `${window.innerWidth}×${window.innerHeight}`,
+    navigateur: typeof navigator === 'undefined' ? null : navigator.userAgent,
+    ...extra,
+  };
+}
+
+/**
+ * Compose le rapport. `captures` est une liste de { nom, type, taille, data },
+ * `data` étant une URI `data:` — c'est sous cette forme qu'elles peuvent être
+ * relues par qui reçoit le fichier.
+ */
+function composer({ categorie, message, captures = [], extra = {} }) {
+  return {
+    categorie: CATEGORIES.includes(categorie) ? categorie : 'other',
+    message: String(message || '').slice(0, 4000),
+    contexte: contexte(extra),
+    captures,
+  };
+}
+
+/** Enregistre le rapport, sans ses captures. @returns {string} identifiant */
+function enregistrer(rapport) {
+  const l = lire();
+  const id = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+  l.unshift({
+    id,
+    categorie: rapport.categorie,
+    message: rapport.message,
+    contexte: rapport.contexte,
+    captures: rapport.captures.length,   // le compte, pas les images
+  });
+  ecrire(l);
+  track('feedback_submitted', { id, categorie: rapport.categorie, captures: rapport.captures.length });
+  return id;
+}
+
+const liste = () => lire();
+const vider = () => ecrire([]);
+
+/** Le rapport en texte lisible — c'est ce qui part dans un courriel. */
+function enTexte(rapport) {
+  const lignes = [
+    `[${rapport.categorie}] Quiet Puzzle`,
+    '',
+    rapport.message,
+    '',
+    '--- contexte ---',
+    ...Object.entries(rapport.contexte).map(([k, v]) => `${k}: ${v}`),
+  ];
+  if (rapport.captures.length) {
+    lignes.push('', `${rapport.captures.length} capture(s) dans le fichier joint.`);
+  }
+  return lignes.join('\n');
+}
+
+return { contexte, composer, enregistrer, enTexte, CATEGORIES, liste, vider };
+})();
+
 const __m_api = (() => {
 /**
  * APIClient — équivalent de Scripts/Backend/APIClient.cs (doc §4)
@@ -5094,10 +5365,6 @@ const COTES = ['top', 'right', 'bottom', 'left'];
  * direction qui la définit, comme l'axe définit une glissière.
  */
 const NATURES = [
-  // La gomme d'abord : effacer était possible — un appui sur un bloc le
-  // retirait — mais rien ne le disait, et une action qu'aucun outil ne
-  // représente n'existe pas pour qui ne l'a pas devinée.
-  { gomme: true, label: 'Gomme ⌫' },
   { kind: KIND.NORMAL, label: 'Normal' },
   { kind: KIND.RAIL, label: 'Glissière', axis: 'h' },
   { kind: KIND.RAIL, label: 'Glissière ↕', axis: 'v' },
@@ -5114,7 +5381,13 @@ const NATURES = [
 const el = (id) => document.getElementById(id);
 
 let etat = null;
-let choix = { shape: 0, color: 0, nature: 1, verrouCount: 2 };
+let choix = { shape: 0, color: 0, nature: 0, verrouCount: 2 };
+/**
+ * La gomme est un OUTIL, pas une nature de bloc : on ne pose pas une gomme, on
+ * choisit d'effacer. La ranger parmi les natures forçait à la désélectionner
+ * pour reposer quoi que ce soit, et faisait d'un mode un pinceau.
+ */
+let gommeActive = false;
 let onTester = null;
 let onSoumettre = null;
 let brouillonId = null;
@@ -5137,6 +5410,7 @@ function init({ onTest, onSubmit, niveau = null, id = null }) {
   // et retient son identifiant pour ne pas en créer un doublon à chaque essai.
   brouillonId = id;
   etat = vide(6, 7);
+  gommeActive = false;
   if (niveau) importerDans(niveau);
   construirePalettes();
   brancherBoutons();
@@ -5192,7 +5466,47 @@ function versNiveau() {
 // Palettes
 // ---------------------------------------------------------------------------
 
+/**
+ * Annulation. On garde la PILE des blocs posés plutôt qu'un instantané de la
+ * grille : c'est le dernier geste que le joueur veut défaire, et une pile suffit
+ * — d'autant qu'elle survit aux effacements, un bloc retiré à la gomme n'ayant
+ * plus à être défait.
+ */
+function annulerDernier() {
+  if (!etat.blocks.length) return false;
+  etat.blocks.pop();
+  dessiner();
+  return true;
+}
+
+/** Appelée par le bouton « précédent » du téléphone. */
+function retourArriere() {
+  return annulerDernier();
+}
+
 function construirePalettes() {
+  const outils = el('ed-tools');
+  if (outils) {
+    outils.replaceChildren();
+
+    const gomme = document.createElement('button');
+    gomme.className = 'ed-tool';
+    gomme.id = 'ed-gomme';
+    gomme.title = t('editor.eraser');
+    gomme.setAttribute('aria-label', t('editor.eraser'));
+    gomme.textContent = '🧽';
+    gomme.onclick = () => { gommeActive = !gommeActive; majPalettes(); };
+
+    const annuler = document.createElement('button');
+    annuler.className = 'ed-tool';
+    annuler.title = t('editor.undo');
+    annuler.setAttribute('aria-label', t('editor.undo'));
+    annuler.textContent = '↶';
+    annuler.onclick = () => annulerDernier();
+
+    outils.append(gomme, annuler);
+  }
+
   const formes = el('ed-shapes');
   formes.replaceChildren(...SHAPES.map((sh, i) => {
     const b = document.createElement('button');
@@ -5239,6 +5553,9 @@ function majPalettes() {
   [...el('ed-shapes').children].forEach((b, i) => b.classList.toggle('sel', i === choix.shape));
   [...el('ed-colors').children].forEach((b, i) => b.classList.toggle('sel', i === choix.color));
   [...el('ed-kinds').children].forEach((b, i) => b.classList.toggle('sel', i === choix.nature));
+  // La gomme s'allume seule : c'est un mode, et un mode doit se voir de loin.
+  el('ed-gomme')?.classList.toggle('sel', gommeActive);
+  el('ed-grid')?.classList.toggle('gomme', gommeActive);
 }
 
 // ---------------------------------------------------------------------------
@@ -5264,9 +5581,7 @@ function dessiner() {
       m.textContent = color !== null ? COLORS[color].glyph : '';
       m.onclick = () => {
         // Avec la gomme, un mur se referme au lieu de changer de couleur.
-        etat.portes[side][i] = NATURES[choix.nature].gomme
-          ? null
-          : (color === null ? choix.color : null);
+        etat.portes[side][i] = gommeActive ? null : (color === null ? choix.color : null);
         dessiner();
       };
       grille.appendChild(m);
@@ -5289,7 +5604,7 @@ function dessiner() {
           : COLORS[bloc.color].glyph;
       }
       c.onclick = () => {
-        if (NATURES[choix.nature].gomme) { if (bloc) retirer(bloc); return; }
+        if (gommeActive) { if (bloc) retirer(bloc); return; }
         if (bloc) retirer(bloc); else poser(x, y);
       };
       grille.appendChild(c);
@@ -5301,7 +5616,7 @@ function dessiner() {
 function poser(x, y) {
   const forme = SHAPES[choix.shape];
   const nature = NATURES[choix.nature];
-  if (nature.gomme) return;
+  if (gommeActive) return;
   if (x + forme.w > etat.W || y + forme.h > etat.H) { majEtat('La forme dépasse de la grille'); return; }
   if (forme.cells.some(([dx, dy]) => occupe(x + dx, y + dy))) { majEtat('Emplacement déjà occupé'); return; }
 
@@ -5504,7 +5819,7 @@ function redimensionner(W, H) {
   dessiner();
 }
 
-return { init, versNiveau };
+return { init, versNiveau, retourArriere };
 })();
 
 const __m_failOffer = (() => {
@@ -5869,6 +6184,7 @@ const currency = __m_currency;
 const failOffer = __m_failOffer;
 const daily = __m_daily;
 const dailyPuzzle = __m_dailyPuzzle;
+const feedback = __m_feedback;
 const { track, recent, subscribe } = __m_events;
 const { AudioManager } = __m_audioManager;
 
@@ -5986,9 +6302,33 @@ async function showBrief(n) {
 // Partie
 // ---------------------------------------------------------------------------
 
-function startLevel() {
+/**
+ * Interstitielle à l'OUVERTURE d'un niveau, et non plus à sa fin.
+ *
+ * Une pub qui tombe sur l'écran de réussite arrive au moment exact où le joueur
+ * peut décider qu'il a fini sa session : on lui coupe sa récompense, et il
+ * quitte. Placée avant la grille suivante, elle attrape quelqu'un qui a déjà
+ * décidé de continuer — le même inventaire vendu au moment où il coûte le moins.
+ *
+ * Deux niveaux n'en montrent jamais : ceux de l'éditeur et le puzzle du jour.
+ * Ils ne font pas partie de la progression, et une pub devant une grille qu'on
+ * vient de dessiner soi-même serait absurde. Un simple rejeu après échec en est
+ * exempt aussi : on ne fait pas payer une reprise.
+ */
+async function pubAvantNiveau() {
+  if (!level?.number || essaiEditeur || puzzleDuJour) return;
+  if (echecsDuNiveau > 0) return;
+  await ads.montrerInterstitiel({
+    niveau: level.number,
+    noAds: currency.aSupprimeLesPubs(),
+    premiereDefaiteDuNiveau: false,
+  });
+}
+
+async function startLevel() {
   ouvrirPanneau(false);
   result.hide();
+  await pubAvantNiveau();
   theme.appliquer(level.number);
   audio.reinitialiserSerie();
   offreUtilisee = false;
@@ -6187,14 +6527,10 @@ async function finishLevel() {
 
   const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won });
 
-  // Une interstitielle à la fin d'un niveau, si et seulement si la politique
-  // de cadencement l'autorise (adPolicy.js).
+  // L'interstitielle ne se joue plus ICI mais à l'ouverture du niveau suivant
+  // (voir `startLevel`). On se contente d'avancer le compteur de la politique :
+  // c'est bien une fin de niveau qui rend une pub éligible.
   ads.policy.noterFinDeNiveau();
-  await ads.montrerInterstitiel({
-    niveau: level.number,
-    noAds: currency.aSupprimeLesPubs(),
-    premiereDefaiteDuNiveau: !won && echecsDuNiveau === 1,
-  });
 
   result.show({
     won,
@@ -6467,10 +6803,153 @@ function ouvrirEditeur(reprise = null) {
   });
   screens.show('editor');
   majBanniere('editor');
+  // Le cran d'arrêt du bouton « précédent » : sans lui, rien à intercepter.
+  history.pushState({ ecran: 'editor' }, '');
 }
 
 el('btn-editor').onclick = () => ouvrirEditeur();
+
+/**
+ * Bouton « précédent » du téléphone.
+ *
+ * Sur Android, il ferme l'application quand rien ne l'intercepte — geste
+ * malheureux au milieu d'une grille qu'on dessine. On empile donc une entrée
+ * d'historique à l'ouverture de l'éditeur, et chaque retour défait le dernier
+ * bloc posé au lieu de sortir. L'entrée est aussitôt réempilée : sans cela, le
+ * premier retour serait le seul intercepté.
+ *
+ * Quand il n'y a plus rien à défaire, le retour reprend son rôle normal et
+ * ramène au menu. On ne piège jamais le joueur dans un écran.
+ */
+window.addEventListener('popstate', () => {
+  if (screens.current() !== 'editor') return;
+  const defait = editor.retourArriere();
+  if (defait) {
+    history.pushState({ ecran: 'editor' }, '');
+    screens.toast(t('editor.undone'));
+  } else {
+    showMenu();
+  }
+});
 el('btn-mine-close').onclick = () => { el('overlay-mine').hidden = true; };
+
+// ---------------------------------------------------------------------------
+// Signalement — bug, idée, remarque
+// ---------------------------------------------------------------------------
+
+/** Captures jointes à la rédaction en cours. Jamais stockées : voir feedback.js. */
+let captures = [];
+let categorie = 'bug';
+const CAPTURE_MAX_MO = 4;
+
+function majCategories() {
+  el('fb-cats').replaceChildren(...feedback.CATEGORIES.map((c) => {
+    const b = document.createElement('button');
+    b.className = 'fb-cat' + (c === categorie ? ' sel' : '');
+    b.textContent = t(`feedback.cat.${c}`);
+    b.onclick = () => { categorie = c; majCategories(); };
+    return b;
+  }));
+}
+
+function majCaptures() {
+  el('fb-shots').replaceChildren(...captures.map((c, i) => {
+    const vignette = document.createElement('button');
+    vignette.className = 'fb-shot';
+    vignette.setAttribute('aria-label', t('editor.delete'));
+    const img = document.createElement('img');
+    img.src = c.data;
+    img.alt = c.nom;
+    vignette.append(img);
+    vignette.onclick = () => { captures.splice(i, 1); majCaptures(); };
+    return vignette;
+  }));
+}
+
+el('fb-files').onchange = async (ev) => {
+  for (const fichier of [...ev.target.files]) {
+    if (fichier.size > CAPTURE_MAX_MO * 1024 * 1024) {
+      screens.toast(t('feedback.toobig', { n: CAPTURE_MAX_MO }));
+      continue;
+    }
+    const data = await new Promise((resolve) => {
+      const lecteur = new FileReader();
+      lecteur.onload = () => resolve(lecteur.result);
+      lecteur.readAsDataURL(fichier);
+    });
+    captures.push({ nom: fichier.name, type: fichier.type, taille: fichier.size, data });
+  }
+  ev.target.value = '';
+  majCaptures();
+};
+
+/** Rédaction en cours, mise en forme et enregistrée pour l'historique local. */
+function rapportCourant() {
+  const message = el('fb-message').value.trim();
+  if (!message) { screens.toast(t('feedback.empty')); return null; }
+  const rapport = feedback.composer({
+    categorie,
+    message,
+    captures,
+    extra: { ecranCourant: screens.current(), niveauEnCours: level?.number ?? null },
+  });
+  feedback.enregistrer(rapport);
+  return rapport;
+}
+
+el('btn-feedback').onclick = () => {
+  ouvrirPanneau(false);
+  captures = [];
+  categorie = 'bug';
+  el('fb-message').value = '';
+  majCategories();
+  majCaptures();
+  el('overlay-feedback').hidden = false;
+};
+
+el('btn-feedback-close').onclick = () => { el('overlay-feedback').hidden = true; };
+
+el('fb-copy').onclick = async () => {
+  const rapport = rapportCourant();
+  if (!rapport) return;
+  try {
+    await navigator.clipboard.writeText(feedback.enTexte(rapport));
+    screens.toast(t('feedback.copied'));
+  } catch {
+    // Presse-papiers refusé (contexte non sécurisé, permission) : le
+    // téléchargement reste ouvert, et il emporte les captures en prime.
+    el('fb-download').click();
+  }
+};
+
+/**
+ * Téléchargement du rapport complet, captures comprises. C'est la SEULE route
+ * par laquelle une image peut voyager : aucun `mailto:` ne sait joindre une
+ * pièce, et il n'y a pas de serveur à qui la confier.
+ */
+el('fb-download').onclick = () => {
+  const rapport = rapportCourant();
+  if (!rapport) return;
+  const blob = new Blob([JSON.stringify(rapport, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = `quiet-puzzle-${rapport.categorie}-${Date.now()}.json`;
+  lien.click();
+  URL.revokeObjectURL(url);
+  screens.toast(t('feedback.downloaded'));
+};
+
+el('fb-mail').onclick = () => {
+  const rapport = rapportCourant();
+  if (!rapport) return;
+  const sujet = `Quiet Puzzle — ${t(`feedback.cat.${rapport.categorie}`)}`;
+  // Pas de destinataire codé en dur : le courrielleur s'ouvre sur un brouillon
+  // que le joueur adresse à qui il veut. Inventer une adresse ici la rendrait
+  // fausse le jour où elle change, et il n'y en a pas encore.
+  window.location.href = `mailto:?subject=${encodeURIComponent(sujet)}`
+    + `&body=${encodeURIComponent(feedback.enTexte(rapport))}`;
+};
 
 // ---------------------------------------------------------------------------
 // Puzzle du jour

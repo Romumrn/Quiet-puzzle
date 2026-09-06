@@ -23,6 +23,18 @@ export const LANGUES = [
 
 const TEXTES = {
   fr: {
+    'feedback.legend': 'Nous écrire', 'feedback.open': 'Signaler un bug ou une idée',
+    'feedback.title': 'Un bug, une idée ?',
+    'feedback.cat.bug': 'Bug', 'feedback.cat.idea': 'Idée', 'feedback.cat.other': 'Autre',
+    'feedback.placeholder': 'Que s’est-il passé ? Qu’attendiez-vous ?',
+    'feedback.attach': 'Ajouter des captures',
+    'feedback.note': 'Aucun serveur ne reçoit ce message : téléchargez le rapport ou ouvrez votre messagerie, vous restez maître de l’envoi.',
+    'feedback.copy': 'Copier', 'feedback.download': 'Télécharger', 'feedback.mail': 'Ouvrir ma messagerie',
+    'feedback.copied': 'Rapport copié', 'feedback.downloaded': 'Rapport téléchargé',
+    'feedback.empty': 'Écrivez d’abord quelques mots',
+    'feedback.toobig': 'Capture trop lourde (plus de {n} Mo)',
+    'editor.eraser': 'Gomme', 'editor.undo': 'Annuler le dernier bloc',
+    'editor.undone': 'Dernier bloc retiré',
     'editor.trying': 'Essai',
     'result.time': 'en {temps}',
     'editor.mine': 'Mes niveaux', 'editor.mine.empty': 'Aucune grille enregistrée pour l’instant',
@@ -134,6 +146,18 @@ const TEXTES = {
   },
 
   en: {
+    'feedback.legend': 'Contact us', 'feedback.open': 'Report a bug or an idea',
+    'feedback.title': 'A bug, an idea?',
+    'feedback.cat.bug': 'Bug', 'feedback.cat.idea': 'Idea', 'feedback.cat.other': 'Other',
+    'feedback.placeholder': 'What happened? What did you expect?',
+    'feedback.attach': 'Add screenshots',
+    'feedback.note': 'No server receives this message: download the report or open your mail app — you stay in charge of sending it.',
+    'feedback.copy': 'Copy', 'feedback.download': 'Download', 'feedback.mail': 'Open my mail app',
+    'feedback.copied': 'Report copied', 'feedback.downloaded': 'Report downloaded',
+    'feedback.empty': 'Write a few words first',
+    'feedback.toobig': 'Screenshot too large (over {n} MB)',
+    'editor.eraser': 'Eraser', 'editor.undo': 'Undo last block',
+    'editor.undone': 'Last block removed',
     'editor.trying': 'Test run',
     'result.time': 'in {temps}',
     'editor.mine': 'My levels', 'editor.mine.empty': 'No grid saved yet',
@@ -245,6 +269,18 @@ const TEXTES = {
   },
 
   es: {
+    'feedback.legend': 'Escríbenos', 'feedback.open': 'Informar de un fallo o una idea',
+    'feedback.title': '¿Un fallo, una idea?',
+    'feedback.cat.bug': 'Fallo', 'feedback.cat.idea': 'Idea', 'feedback.cat.other': 'Otro',
+    'feedback.placeholder': '¿Qué ha pasado? ¿Qué esperabas?',
+    'feedback.attach': 'Añadir capturas',
+    'feedback.note': 'Ningún servidor recibe este mensaje: descarga el informe o abre tu correo — el envío queda en tus manos.',
+    'feedback.copy': 'Copiar', 'feedback.download': 'Descargar', 'feedback.mail': 'Abrir mi correo',
+    'feedback.copied': 'Informe copiado', 'feedback.downloaded': 'Informe descargado',
+    'feedback.empty': 'Escribe unas palabras primero',
+    'feedback.toobig': 'Captura demasiado pesada (más de {n} MB)',
+    'editor.eraser': 'Goma', 'editor.undo': 'Deshacer el último bloque',
+    'editor.undone': 'Último bloque retirado',
     'editor.trying': 'Prueba',
     'result.time': 'en {temps}',
     'editor.mine': 'Mis niveles', 'editor.mine.empty': 'Aún no hay cuadrículas guardadas',
@@ -356,6 +392,18 @@ const TEXTES = {
   },
 
   it: {
+    'feedback.legend': 'Scrivici', 'feedback.open': 'Segnala un bug o un’idea',
+    'feedback.title': 'Un bug, un’idea?',
+    'feedback.cat.bug': 'Bug', 'feedback.cat.idea': 'Idea', 'feedback.cat.other': 'Altro',
+    'feedback.placeholder': 'Che cosa è successo? Che cosa ti aspettavi?',
+    'feedback.attach': 'Aggiungi schermate',
+    'feedback.note': 'Nessun server riceve questo messaggio: scarica il rapporto o apri la posta — l’invio resta a te.',
+    'feedback.copy': 'Copia', 'feedback.download': 'Scarica', 'feedback.mail': 'Apri la posta',
+    'feedback.copied': 'Rapporto copiato', 'feedback.downloaded': 'Rapporto scaricato',
+    'feedback.empty': 'Scrivi prima qualche parola',
+    'feedback.toobig': 'Schermata troppo pesante (oltre {n} MB)',
+    'editor.eraser': 'Gomma', 'editor.undo': 'Annulla l’ultimo blocco',
+    'editor.undone': 'Ultimo blocco rimosso',
     'editor.trying': 'Prova',
     'result.time': 'in {temps}',
     'editor.mine': 'I miei livelli', 'editor.mine.empty': 'Nessuna griglia salvata per ora',
@@ -467,6 +515,18 @@ const TEXTES = {
   },
 
   zh: {
+    'feedback.legend': '联系我们', 'feedback.open': '反馈问题或建议',
+    'feedback.title': '有问题或建议？',
+    'feedback.cat.bug': '问题', 'feedback.cat.idea': '建议', 'feedback.cat.other': '其他',
+    'feedback.placeholder': '发生了什么？你期待的是什么？',
+    'feedback.attach': '添加截图',
+    'feedback.note': '没有服务器会收到这条消息：请下载报告或打开邮件应用 — 是否发送由你决定。',
+    'feedback.copy': '复制', 'feedback.download': '下载', 'feedback.mail': '打开邮件',
+    'feedback.copied': '报告已复制', 'feedback.downloaded': '报告已下载',
+    'feedback.empty': '请先写几句话',
+    'feedback.toobig': '截图过大（超过 {n} MB）',
+    'editor.eraser': '橡皮', 'editor.undo': '撤销上一个方块',
+    'editor.undone': '已移除上一个方块',
     'editor.trying': '试玩',
     'result.time': '用时 {temps}',
     'editor.mine': '我的关卡', 'editor.mine.empty': '还没有保存任何棋盘',
@@ -624,7 +684,8 @@ export function texteMonde(monde, champ) {
 /**
  * Remplit le markup. Trois attributs, selon l'endroit où le texte atterrit :
  * `data-i18n` pour le contenu, `data-i18n-title` pour l'infobulle,
- * `data-i18n-aria` pour le nom accessible.
+ * `data-i18n-aria` pour le nom accessible, `data-i18n-placeholder` pour
+ * l'invite d'un champ de saisie.
  */
 export function appliquer(racine = (typeof document === 'undefined' ? null : document)) {
   // Sans DOM — sous Node, dans les tests — il n'y a rien à remplir, et le
@@ -634,6 +695,9 @@ export function appliquer(racine = (typeof document === 'undefined' ? null : doc
   for (const el of racine.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
   for (const el of racine.querySelectorAll('[data-i18n-aria]')) {
     el.setAttribute('aria-label', t(el.dataset.i18nAria));
+  }
+  for (const el of racine.querySelectorAll('[data-i18n-placeholder]')) {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
   }
   if (typeof document !== 'undefined') {
     document.documentElement.lang = courante;

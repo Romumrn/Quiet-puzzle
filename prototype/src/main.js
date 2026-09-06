@@ -29,6 +29,7 @@ import * as currency from './monetization/currency.js';
 import * as failOffer from './monetization/failOffer.js';
 import * as daily from './meta/daily.js';
 import * as dailyPuzzle from './meta/dailyPuzzle.js';
+import * as feedback from './meta/feedback.js';
 import { track, recent, subscribe } from './data/events.js';
 import { AudioManager } from './audio/audioManager.js';
 
@@ -146,9 +147,33 @@ async function showBrief(n) {
 // Partie
 // ---------------------------------------------------------------------------
 
-function startLevel() {
+/**
+ * Interstitielle à l'OUVERTURE d'un niveau, et non plus à sa fin.
+ *
+ * Une pub qui tombe sur l'écran de réussite arrive au moment exact où le joueur
+ * peut décider qu'il a fini sa session : on lui coupe sa récompense, et il
+ * quitte. Placée avant la grille suivante, elle attrape quelqu'un qui a déjà
+ * décidé de continuer — le même inventaire vendu au moment où il coûte le moins.
+ *
+ * Deux niveaux n'en montrent jamais : ceux de l'éditeur et le puzzle du jour.
+ * Ils ne font pas partie de la progression, et une pub devant une grille qu'on
+ * vient de dessiner soi-même serait absurde. Un simple rejeu après échec en est
+ * exempt aussi : on ne fait pas payer une reprise.
+ */
+async function pubAvantNiveau() {
+  if (!level?.number || essaiEditeur || puzzleDuJour) return;
+  if (echecsDuNiveau > 0) return;
+  await ads.montrerInterstitiel({
+    niveau: level.number,
+    noAds: currency.aSupprimeLesPubs(),
+    premiereDefaiteDuNiveau: false,
+  });
+}
+
+async function startLevel() {
   ouvrirPanneau(false);
   result.hide();
+  await pubAvantNiveau();
   theme.appliquer(level.number);
   audio.reinitialiserSerie();
   offreUtilisee = false;
@@ -347,14 +372,10 @@ async function finishLevel() {
 
   const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won });
 
-  // Une interstitielle à la fin d'un niveau, si et seulement si la politique
-  // de cadencement l'autorise (adPolicy.js).
+  // L'interstitielle ne se joue plus ICI mais à l'ouverture du niveau suivant
+  // (voir `startLevel`). On se contente d'avancer le compteur de la politique :
+  // c'est bien une fin de niveau qui rend une pub éligible.
   ads.policy.noterFinDeNiveau();
-  await ads.montrerInterstitiel({
-    niveau: level.number,
-    noAds: currency.aSupprimeLesPubs(),
-    premiereDefaiteDuNiveau: !won && echecsDuNiveau === 1,
-  });
 
   result.show({
     won,
@@ -627,10 +648,153 @@ function ouvrirEditeur(reprise = null) {
   });
   screens.show('editor');
   majBanniere('editor');
+  // Le cran d'arrêt du bouton « précédent » : sans lui, rien à intercepter.
+  history.pushState({ ecran: 'editor' }, '');
 }
 
 el('btn-editor').onclick = () => ouvrirEditeur();
+
+/**
+ * Bouton « précédent » du téléphone.
+ *
+ * Sur Android, il ferme l'application quand rien ne l'intercepte — geste
+ * malheureux au milieu d'une grille qu'on dessine. On empile donc une entrée
+ * d'historique à l'ouverture de l'éditeur, et chaque retour défait le dernier
+ * bloc posé au lieu de sortir. L'entrée est aussitôt réempilée : sans cela, le
+ * premier retour serait le seul intercepté.
+ *
+ * Quand il n'y a plus rien à défaire, le retour reprend son rôle normal et
+ * ramène au menu. On ne piège jamais le joueur dans un écran.
+ */
+window.addEventListener('popstate', () => {
+  if (screens.current() !== 'editor') return;
+  const defait = editor.retourArriere();
+  if (defait) {
+    history.pushState({ ecran: 'editor' }, '');
+    screens.toast(t('editor.undone'));
+  } else {
+    showMenu();
+  }
+});
 el('btn-mine-close').onclick = () => { el('overlay-mine').hidden = true; };
+
+// ---------------------------------------------------------------------------
+// Signalement — bug, idée, remarque
+// ---------------------------------------------------------------------------
+
+/** Captures jointes à la rédaction en cours. Jamais stockées : voir feedback.js. */
+let captures = [];
+let categorie = 'bug';
+const CAPTURE_MAX_MO = 4;
+
+function majCategories() {
+  el('fb-cats').replaceChildren(...feedback.CATEGORIES.map((c) => {
+    const b = document.createElement('button');
+    b.className = 'fb-cat' + (c === categorie ? ' sel' : '');
+    b.textContent = t(`feedback.cat.${c}`);
+    b.onclick = () => { categorie = c; majCategories(); };
+    return b;
+  }));
+}
+
+function majCaptures() {
+  el('fb-shots').replaceChildren(...captures.map((c, i) => {
+    const vignette = document.createElement('button');
+    vignette.className = 'fb-shot';
+    vignette.setAttribute('aria-label', t('editor.delete'));
+    const img = document.createElement('img');
+    img.src = c.data;
+    img.alt = c.nom;
+    vignette.append(img);
+    vignette.onclick = () => { captures.splice(i, 1); majCaptures(); };
+    return vignette;
+  }));
+}
+
+el('fb-files').onchange = async (ev) => {
+  for (const fichier of [...ev.target.files]) {
+    if (fichier.size > CAPTURE_MAX_MO * 1024 * 1024) {
+      screens.toast(t('feedback.toobig', { n: CAPTURE_MAX_MO }));
+      continue;
+    }
+    const data = await new Promise((resolve) => {
+      const lecteur = new FileReader();
+      lecteur.onload = () => resolve(lecteur.result);
+      lecteur.readAsDataURL(fichier);
+    });
+    captures.push({ nom: fichier.name, type: fichier.type, taille: fichier.size, data });
+  }
+  ev.target.value = '';
+  majCaptures();
+};
+
+/** Rédaction en cours, mise en forme et enregistrée pour l'historique local. */
+function rapportCourant() {
+  const message = el('fb-message').value.trim();
+  if (!message) { screens.toast(t('feedback.empty')); return null; }
+  const rapport = feedback.composer({
+    categorie,
+    message,
+    captures,
+    extra: { ecranCourant: screens.current(), niveauEnCours: level?.number ?? null },
+  });
+  feedback.enregistrer(rapport);
+  return rapport;
+}
+
+el('btn-feedback').onclick = () => {
+  ouvrirPanneau(false);
+  captures = [];
+  categorie = 'bug';
+  el('fb-message').value = '';
+  majCategories();
+  majCaptures();
+  el('overlay-feedback').hidden = false;
+};
+
+el('btn-feedback-close').onclick = () => { el('overlay-feedback').hidden = true; };
+
+el('fb-copy').onclick = async () => {
+  const rapport = rapportCourant();
+  if (!rapport) return;
+  try {
+    await navigator.clipboard.writeText(feedback.enTexte(rapport));
+    screens.toast(t('feedback.copied'));
+  } catch {
+    // Presse-papiers refusé (contexte non sécurisé, permission) : le
+    // téléchargement reste ouvert, et il emporte les captures en prime.
+    el('fb-download').click();
+  }
+};
+
+/**
+ * Téléchargement du rapport complet, captures comprises. C'est la SEULE route
+ * par laquelle une image peut voyager : aucun `mailto:` ne sait joindre une
+ * pièce, et il n'y a pas de serveur à qui la confier.
+ */
+el('fb-download').onclick = () => {
+  const rapport = rapportCourant();
+  if (!rapport) return;
+  const blob = new Blob([JSON.stringify(rapport, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = `quiet-puzzle-${rapport.categorie}-${Date.now()}.json`;
+  lien.click();
+  URL.revokeObjectURL(url);
+  screens.toast(t('feedback.downloaded'));
+};
+
+el('fb-mail').onclick = () => {
+  const rapport = rapportCourant();
+  if (!rapport) return;
+  const sujet = `Quiet Puzzle — ${t(`feedback.cat.${rapport.categorie}`)}`;
+  // Pas de destinataire codé en dur : le courrielleur s'ouvre sur un brouillon
+  // que le joueur adresse à qui il veut. Inventer une adresse ici la rendrait
+  // fausse le jour où elle change, et il n'y en a pas encore.
+  window.location.href = `mailto:?subject=${encodeURIComponent(sujet)}`
+    + `&body=${encodeURIComponent(feedback.enTexte(rapport))}`;
+};
 
 // ---------------------------------------------------------------------------
 // Puzzle du jour

@@ -24,10 +24,6 @@ const COTES = ['top', 'right', 'bottom', 'left'];
  * direction qui la définit, comme l'axe définit une glissière.
  */
 const NATURES = [
-  // La gomme d'abord : effacer était possible — un appui sur un bloc le
-  // retirait — mais rien ne le disait, et une action qu'aucun outil ne
-  // représente n'existe pas pour qui ne l'a pas devinée.
-  { gomme: true, label: 'Gomme ⌫' },
   { kind: KIND.NORMAL, label: 'Normal' },
   { kind: KIND.RAIL, label: 'Glissière', axis: 'h' },
   { kind: KIND.RAIL, label: 'Glissière ↕', axis: 'v' },
@@ -44,7 +40,13 @@ const NATURES = [
 const el = (id) => document.getElementById(id);
 
 let etat = null;
-let choix = { shape: 0, color: 0, nature: 1, verrouCount: 2 };
+let choix = { shape: 0, color: 0, nature: 0, verrouCount: 2 };
+/**
+ * La gomme est un OUTIL, pas une nature de bloc : on ne pose pas une gomme, on
+ * choisit d'effacer. La ranger parmi les natures forçait à la désélectionner
+ * pour reposer quoi que ce soit, et faisait d'un mode un pinceau.
+ */
+let gommeActive = false;
 let onTester = null;
 let onSoumettre = null;
 let brouillonId = null;
@@ -67,6 +69,7 @@ export function init({ onTest, onSubmit, niveau = null, id = null }) {
   // et retient son identifiant pour ne pas en créer un doublon à chaque essai.
   brouillonId = id;
   etat = vide(6, 7);
+  gommeActive = false;
   if (niveau) importerDans(niveau);
   construirePalettes();
   brancherBoutons();
@@ -122,7 +125,47 @@ export function versNiveau() {
 // Palettes
 // ---------------------------------------------------------------------------
 
+/**
+ * Annulation. On garde la PILE des blocs posés plutôt qu'un instantané de la
+ * grille : c'est le dernier geste que le joueur veut défaire, et une pile suffit
+ * — d'autant qu'elle survit aux effacements, un bloc retiré à la gomme n'ayant
+ * plus à être défait.
+ */
+function annulerDernier() {
+  if (!etat.blocks.length) return false;
+  etat.blocks.pop();
+  dessiner();
+  return true;
+}
+
+/** Appelée par le bouton « précédent » du téléphone. */
+export function retourArriere() {
+  return annulerDernier();
+}
+
 function construirePalettes() {
+  const outils = el('ed-tools');
+  if (outils) {
+    outils.replaceChildren();
+
+    const gomme = document.createElement('button');
+    gomme.className = 'ed-tool';
+    gomme.id = 'ed-gomme';
+    gomme.title = t('editor.eraser');
+    gomme.setAttribute('aria-label', t('editor.eraser'));
+    gomme.textContent = '🧽';
+    gomme.onclick = () => { gommeActive = !gommeActive; majPalettes(); };
+
+    const annuler = document.createElement('button');
+    annuler.className = 'ed-tool';
+    annuler.title = t('editor.undo');
+    annuler.setAttribute('aria-label', t('editor.undo'));
+    annuler.textContent = '↶';
+    annuler.onclick = () => annulerDernier();
+
+    outils.append(gomme, annuler);
+  }
+
   const formes = el('ed-shapes');
   formes.replaceChildren(...SHAPES.map((sh, i) => {
     const b = document.createElement('button');
@@ -169,6 +212,9 @@ function majPalettes() {
   [...el('ed-shapes').children].forEach((b, i) => b.classList.toggle('sel', i === choix.shape));
   [...el('ed-colors').children].forEach((b, i) => b.classList.toggle('sel', i === choix.color));
   [...el('ed-kinds').children].forEach((b, i) => b.classList.toggle('sel', i === choix.nature));
+  // La gomme s'allume seule : c'est un mode, et un mode doit se voir de loin.
+  el('ed-gomme')?.classList.toggle('sel', gommeActive);
+  el('ed-grid')?.classList.toggle('gomme', gommeActive);
 }
 
 // ---------------------------------------------------------------------------
@@ -194,9 +240,7 @@ function dessiner() {
       m.textContent = color !== null ? COLORS[color].glyph : '';
       m.onclick = () => {
         // Avec la gomme, un mur se referme au lieu de changer de couleur.
-        etat.portes[side][i] = NATURES[choix.nature].gomme
-          ? null
-          : (color === null ? choix.color : null);
+        etat.portes[side][i] = gommeActive ? null : (color === null ? choix.color : null);
         dessiner();
       };
       grille.appendChild(m);
@@ -219,7 +263,7 @@ function dessiner() {
           : COLORS[bloc.color].glyph;
       }
       c.onclick = () => {
-        if (NATURES[choix.nature].gomme) { if (bloc) retirer(bloc); return; }
+        if (gommeActive) { if (bloc) retirer(bloc); return; }
         if (bloc) retirer(bloc); else poser(x, y);
       };
       grille.appendChild(c);
@@ -231,7 +275,7 @@ function dessiner() {
 function poser(x, y) {
   const forme = SHAPES[choix.shape];
   const nature = NATURES[choix.nature];
-  if (nature.gomme) return;
+  if (gommeActive) return;
   if (x + forme.w > etat.W || y + forme.h > etat.H) { majEtat('La forme dépasse de la grille'); return; }
   if (forme.cells.some(([dx, dy]) => occupe(x + dx, y + dy))) { majEtat('Emplacement déjà occupé'); return; }
 

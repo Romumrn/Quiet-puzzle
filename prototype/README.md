@@ -144,11 +144,37 @@ identifiant inconnu, et que **chaque palier offre plus de pièces par euro que l
 précédent** : payer plus cher pour une pièce plus chère serait un piège, pas une
 offre.
 
+## Nous écrire
+
+Le menu utilisateur ouvre un écran de signalement : catégorie (bug, idée,
+autre), message, et captures d'écran en pièces jointes. Le **contexte technique**
+part avec — version, langue, écran en cours, niveau, taille de fenêtre,
+navigateur : c'est ce qui manque toujours dans un rapport de bug, et ce que
+personne ne pense à donner.
+
+`src/meta/feedback.js` prépare le rapport mais **n'envoie rien** : il n'y a pas
+de serveur, et rien ne part d'un navigateur sans destinataire. Le joueur choisit
+sa route — copier, télécharger, ou ouvrir son courrielleur sur un brouillon déjà
+écrit. Les captures ne peuvent voyager que par le fichier téléchargé : aucun
+`mailto:` ne sait joindre une pièce.
+
+Les images ne sont **pas** conservées dans le stockage local : quelques captures
+de téléphone en base64 dépassent à elles seules le quota d'un navigateur, et
+l'historique deviendrait la raison pour laquelle le jeu ne sauvegarde plus.
+
 ## Monétisation
 
 Toute la plomberie publicitaire est en place, prête à recevoir AppLovin MAX
 (doc §5.2). Les pubs sont **simulées** par un panneau plein écran avec décompte,
 pour que l'emplacement et le rythme soient jugeables avant tout contrat régie.
+
+L'interstitielle se joue à l'**ouverture** d'un niveau, et non plus à sa fin.
+Une pub qui tombe sur l'écran de réussite arrive au moment exact où le joueur
+peut décider qu'il a fini sa session : on lui coupe sa récompense, et il quitte.
+Placée avant la grille suivante, elle attrape quelqu'un qui a déjà décidé de
+continuer — le même inventaire, vendu au moment où il coûte le moins. Trois
+parties n'en voient jamais : celles de l'éditeur, le puzzle du jour, et un
+simple rejeu après échec.
 
 Le travail n'est pas l'intégration du SDK, qui est mécanique, mais le
 **cadencement** — `src/monetization/adPolicy.js`, logique pure et testée :
@@ -216,10 +242,15 @@ score qu'il choisit. Le vrai serveur devra faire de même.
 
 Trois choses le rendaient pénible, et sont corrigées :
 
-- **une gomme**. Effacer était possible — un appui sur un bloc le retirait —
-  mais rien ne le disait, et une action qu'aucun outil ne représente n'existe
-  pas pour qui ne l'a pas devinée. La gomme ouvre la palette des natures, et
-  referme aussi les portes.
+- **une gomme, et une annulation**. Effacer était possible — un appui sur un
+  bloc le retirait — mais rien ne le disait. La gomme est un OUTIL posé à côté
+  des formes, pas une nature de bloc : on ne pose pas une gomme, on choisit
+  d'effacer, et la ranger parmi les natures obligeait à la désélectionner pour
+  reposer quoi que ce soit. À côté d'elle, un bouton défait le dernier bloc — et
+  **le bouton « précédent » du téléphone fait de même** au lieu de fermer
+  l'application au milieu d'une grille. Quand il n'y a plus rien à défaire, il
+  reprend son rôle et ramène au menu : on ne piège jamais le joueur dans un
+  écran.
 - **un essai ne mène plus nulle part**. Tester une grille affichait l'écran de
   fin ordinaire, avec « Suivant » — qui n'a pas de suite — et créditait
   vingt-trois pièces en inscrivant un « niveau 0 » dans la sauvegarde : l'éditeur
