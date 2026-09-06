@@ -760,7 +760,13 @@ function rapportCourant() {
     categorie,
     message,
     captures,
-    extra: { ecranCourant: screens.current(), niveauEnCours: level?.number ?? null },
+    extra: {
+      ecranCourant: screens.current(),
+      niveauEnCours: level?.number ?? null,
+      // L'état du son part avec le rapport : « je n'entends rien » est
+      // indémêlable sans savoir si le contexte audio a seulement démarré.
+      audio: JSON.stringify(audio.diagnostic()),
+    },
   });
   feedback.enregistrer(rapport);
   return rapport;
@@ -1098,7 +1104,8 @@ function refreshDebug() {
   const d = store.load();
   el('debug-info').textContent =
     `débloqué : ${d.unlockedLevel}/${levels.totalLevels()} · ★ ${store.totalStars()} · ${d.coins} pièces`
-    + (board ? `\nplateau ${board.W}×${board.H} · ${board.remaining()} blocs · réf. ${level.minDrags} glissés` : '');
+    + (board ? `\nplateau ${board.W}×${board.H} · ${board.remaining()} blocs · réf. ${level.minDrags} glissés` : '')
+    + `\naudio ${JSON.stringify(audio.diagnostic())}`;
 }
 
 // Son : on restaure les préférences avant tout affichage.

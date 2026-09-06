@@ -435,6 +435,29 @@ L'engrenage en bas à droite permet de sauter à un niveau, forcer une victoire 
 une défaite, **rejouer la solution de référence** (contrôle visuel du
 générateur), tout débloquer et accélérer les animations.
 
+## Le son sur iPhone
+
+Trois pièges d'iOS, corrigés ensemble parce qu'ils donnent tous le même
+symptôme — un silence sans message d'erreur :
+
+- **le commutateur latéral.** Un son joué uniquement par Web Audio est classé
+  « ambient » : le petit interrupteur le coupe. Lire une fois un élément
+  `<audio>` — un silence de quelques octets — au cours d'un vrai geste bascule
+  la session dans la catégorie de lecture.
+- **le geste qui autorise.** Safari ne reconnaît pas toujours un `pointerdown` ;
+  `touchend` et `click` figurent donc aussi dans la liste, et les écouteurs
+  restent posés tant que le contexte n'a pas démarré, pour retenter au geste
+  suivant. `resume()` part avant toute attente : passé le premier `await`, iOS
+  ne rattache plus l'appel au geste.
+- **`decodeAudioData`.** Avant iOS 15, Safari n'en rend pas de promesse et exige
+  les deux fonctions de rappel. Sans cette forme, le décodage rendait
+  `undefined` et aucun son n'était jamais chargé.
+
+`audio.diagnostic()` rend l'état du contexte, le nombre d'échantillons décodés
+et les réglages. Il s'affiche dans le panneau QA et part avec tout rapport de
+signalement : « je n'entends rien » est indémêlable sans savoir si le contexte a
+seulement démarré.
+
 ## Identité visuelle
 
 Rose pastel, sobre. Toute la chromie de l'habillage dérive d'une seule variable
@@ -449,6 +472,14 @@ les fonds et toutes les couleurs sont peints explicitement, donc la page tient
 sur n'importe quel support. Chaque couleur porte aussi un glyphe (●, ◆, ▲, ★, ■,
 ⬢), repris à l'identique sur sa porte : l'appariement reste lisible sans dépendre
 de la teinte.
+
+Le plateau a été allégé après relecture : les glissières portaient deux rangées
+de tirets, les blocs scellés des hachures, les ancres et les encombrants un
+liseré, et les verrous un emoji jaune vif. Chacun se justifiait seul ; ensemble,
+sur une grille de trente pièces, ils faisaient un tableau de lignes — l'inverse
+de ce que ce jeu promet. Une glissière ne montre plus qu'une barre douce sur son
+axe, un scellé est mat, un verrou porte son décompte dans une pastille claire,
+et le quadrillage se devine au lieu de se lire.
 
 ## Hors périmètre
 

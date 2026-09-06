@@ -51,9 +51,17 @@ export class AudioManager {
     this.degre = 0;
     this.derniereSortie = 0;
 
-    // Le premier geste de l'utilisateur, quel qu'il soit, débloque le son.
+    /**
+     * Le premier geste de l'utilisateur débloque le son.
+     *
+     * `touchend` et `click` figurent dans la liste en plus de `pointerdown` :
+     * Safari sur iOS ne considère pas toujours un `pointerdown` comme le geste
+     * qui autorise la lecture, alors qu'il accepte les deux autres. Les
+     * écouteurs restent posés tant que le contexte n'a pas réellement démarré,
+     * pour retenter au geste suivant.
+     */
     this._reveil = () => this.reveiller();
-    for (const ev of ['pointerdown', 'keydown']) {
+    for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) {
       window.addEventListener(ev, this._reveil, { once: false, passive: true });
     }
     document.addEventListener('visibilitychange', () => {
@@ -65,7 +73,34 @@ export class AudioManager {
 
   // --- Cycle de vie --------------------------------------------------------
 
+  /**
+   * Débloque la sortie audio d'iOS.
+   *
+   * Sur iPhone, un son joué uniquement par Web Audio est classé « ambient » :
+   * le petit interrupteur latéral le coupe, et le joueur n'entend rien sans
+   * comprendre pourquoi. Lire une fois un élément `<audio>` — ici un silence de
+   * quelques octets — au cours d'un vrai geste bascule la session dans la
+   * catégorie de lecture, et le reste suit.
+   *
+   * L'échec est sans conséquence : sur les navigateurs qui n'en ont pas besoin,
+   * cette lecture ne s'entend pas, et si elle est refusée le jeu continue.
+   */
+  _debloquerIOS() {
+    if (this._debloque) return;
+    this._debloque = true;
+    try {
+      const silence = new Audio(
+        'data:audio/mp4;base64,AAAAHGZ0eXBNNEEgAAAAAE00QSBpc29tbXA0MgAAAAhmcmVlAAAAG21kYXQAAAGzABAHAAABthADAowdbb9/AAAC6W1vb3YAAABsbXZoZAAAAAB8JbCAfCWwgAAAA+gAAAAAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAhV0cmFrAAAAXHRraGQAAAAPfCWwgHwlsIAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAA',
+      );
+      silence.playsInline = true;
+      silence.volume = 0;
+      const joue = silence.play();
+      joue?.catch(() => { /* refusé : sans effet sur la suite */ });
+    } catch { /* pas d'élément audio disponible */ }
+  }
+
   async reveiller() {
+    this._debloquerIOS();
     if (!this.ctx) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
@@ -78,17 +113,45 @@ export class AudioManager {
       this.gainEffets.connect(this.ctx.destination);
       this._chargement = this._charger();
     }
-    if (this.ctx.state === 'suspended') await this.ctx.resume();
+    // `resume()` doit partir dans la pile du geste, avant toute attente : passé
+    // le premier `await`, iOS ne reconnaît plus le clic comme l'autorisant.
+    if (this.ctx.state === 'suspended') this.ctx.resume();
     await this._chargement;
-    this.pret = true;
-    if (this._musiqueDemandee) this.lancerMusique();
+    if (this.ctx.state === 'suspended') await this.ctx.resume().catch(() => {});
+    this.pret = this.ctx.state === 'running';
+    // Les écouteurs de réveil ne sont retirés QUE si le son marche vraiment :
+    // sur iOS, le premier geste échoue parfois, et il faut pouvoir retenter.
+    if (this.pret) {
+      for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) {
+        window.removeEventListener(ev, this._reveil);
+      }
+      if (this._musiqueDemandee) this.lancerMusique();
+    }
+  }
+
+  /** Ce qu'il faut savoir quand un joueur signale qu'il n'entend rien. */
+  diagnostic() {
+    return {
+      contexte: this.ctx ? this.ctx.state : 'absent',
+      pret: this.pret,
+      tampons: this.tampons.size,
+      musique: this.musiqueActive,
+      effets: this.effetsActifs,
+      debloque: this._debloque === true,
+    };
   }
 
   async _charger() {
     const lire = async (url) => {
       const rep = await fetch(url);
       const brut = await rep.arrayBuffer();
-      return await this.ctx.decodeAudioData(brut);
+      // Safari d'avant iOS 15 ne rend pas de promesse et exige les deux
+      // fonctions de rappel. Sans cette forme, le décodage rendait `undefined`
+      // et aucun son n'était jamais chargé — silence complet, sans erreur.
+      return new Promise((resolve, reject) => {
+        const promesse = this.ctx.decodeAudioData(brut, resolve, reject);
+        promesse?.then?.(resolve, reject);
+      });
     };
     const [musique, ...sorties] = await Promise.all([lire(MUSIQUE), ...SORTIES.map(lire)]);
     this.tampons.set('musique', musique);

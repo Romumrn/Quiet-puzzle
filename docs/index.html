@@ -30,7 +30,7 @@
   --c3: #e9cd8c;  /* ★ */
   --c4: #bdaadd;  /* ■ */
   --c5: #f0b18b;  /* ⬢ */
-  --sealed: #c9c2ce;
+  --sealed: #bdb6c4;
 
   --award: #d9a441;   /* étoiles : un ambre discret, stable quelle que soit --h */
   --alert: #d4697e;
@@ -384,11 +384,13 @@ body { display: grid; place-items: center; }
 .grid-layer, .gate-layer, .block-layer { position: absolute; inset: 0; }
 .gate-layer { pointer-events: none; }
 
+/* Le quadrillage se devine, il ne se lit pas : il sert à situer une case vide,
+   pas à découper la grille. Plus il est net, plus le plateau paraît chargé. */
 .grid-cell {
   position: absolute; top: 0; left: 0;
   width: var(--cell); height: var(--cell);
-  border-right: 1px solid hsl(var(--h) 26% 94%);
-  border-bottom: 1px solid hsl(var(--h) 26% 94%);
+  border-right: 1px solid hsl(var(--h) 24% 96.5%);
+  border-bottom: 1px solid hsl(var(--h) 24% 96.5%);
 }
 
 /* ---------- Portes ---------- */
@@ -499,15 +501,20 @@ body { display: grid; place-items: center; }
 
 .block.k-ancre, .block.k-encombrant { cursor: grab; }
 .block.k-wall { cursor: not-allowed; }
+/* Le bloc scellé : mat, plus froid, sans reflet. Il ne bouge pas, il ne porte
+   rien — c'est un morceau de décor, et il doit se lire comme tel sans pour
+   autant se confondre avec un bloc verrouillé, qui garde sa couleur. */
 .block.k-wall .block-cell {
   background-color: var(--sealed);
+  /* Les rayures disaient « scellé », mais sur cinq ou six blocs elles faisaient
+     autant de lignes que le reste réuni. La matière mate suffit : ce bloc-ci
+     n'a ni éclat ni symbole, et c'est bien ce qui le distingue. */
   background-image:
-    repeating-linear-gradient(45deg, rgba(255,255,255,.42) 0 4px, transparent 4px 9px),
-    linear-gradient(178deg, rgba(255,255,255,.4) 0%, rgba(255,255,255,0) 40%, rgba(70,60,80,.2) 100%);
+    linear-gradient(178deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,0) 46%, rgba(70,60,80,.14) 100%);
   background-size: auto, auto;
 }
 .block.k-locked { cursor: not-allowed; }
-.block.k-locked .block-cell { filter: saturate(0.2) brightness(1.06); }
+.block.k-locked .block-cell { filter: saturate(0.42) brightness(1.08); }
 .block.unlocking .block-cell { animation: unlock 0.44s ease-out; }
 @keyframes unlock {
   0% { filter: saturate(0.2) brightness(1.06); }
@@ -515,42 +522,56 @@ body { display: grid; place-items: center; }
   100% { filter: none; }
 }
 
-/* Glissière (Rush Hour) : le rail dit sur quel axe le bloc peut aller. */
+/* Glissière : UNE barre douce sur l'axe, arrondie et translucide.
+   C'étaient deux rangées de tirets, et sur une grille qui en compte une dizaine
+   le plateau devenait un tableau de pointillés — l'inverse de ce que ce jeu
+   promet. Une seule ligne dit exactement la même chose : cet axe, et pas
+   l'autre. */
 .block-rail {
-  position: absolute; inset: 0;
+  position: absolute;
   display: block; pointer-events: none;
+  background: rgba(255, 255, 255, 0.42);
+  border-radius: 999px;
 }
 .block.axis-h .block-rail {
-  border-top: 2px dashed rgba(255, 255, 255, 0.55);
-  border-bottom: 2px dashed rgba(255, 255, 255, 0.55);
-  top: 34%; bottom: 34%; left: 8%; right: 8%;
+  top: 50%; height: 3px; margin-top: -1.5px;
+  left: 14%; right: 14%;
 }
 .block.axis-v .block-rail {
-  border-left: 2px dashed rgba(255, 255, 255, 0.55);
-  border-right: 2px dashed rgba(255, 255, 255, 0.55);
-  left: 34%; right: 34%; top: 8%; bottom: 8%;
+  left: 50%; width: 3px; margin-left: -1.5px;
+  top: 14%; bottom: 14%;
 }
 
 /* Ancre : un seul sens de marche, celui de sa porte. La flèche pointe, là où
    le rail traverse — c'est toute la différence entre les deux blocs. */
 .block-fleche {
-  position: absolute; right: 4%; bottom: 1%;
-  font-size: calc(var(--cell) * 0.4); line-height: 1;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(80, 60, 85, 0.45);
+  position: absolute; right: 5%; bottom: 2%;
+  font-size: calc(var(--cell) * 0.34); line-height: 1;
+  color: rgba(255, 255, 255, 0.78);
   pointer-events: none;
 }
-.block.k-ancre .block-cell {
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.42);
-}
+/* L'ancre se reconnaît à sa flèche. Le liseré qu'elle portait en plus ajoutait
+   un contour à chaque bloc, et c'est la somme de ces contours qui alourdissait
+   la grille. */
 
 /* Encombrant : coûte le double à sa porte. Le liseré doublé le dit de loin, le
    « ×2 » porté sur le bloc le dit exactement. */
-.block.k-encombrant .block-cell {
-  box-shadow:
-    inset 0 0 0 2px rgba(255, 255, 255, 0.5),
-    inset 0 0 0 5px rgba(120, 90, 120, 0.16);
+/* L'encombrant se reconnaît à son « ×2 » : le double liseré faisait double
+   emploi, et deux traits de plus par bloc. */
+/* Décompte d'un verrou : une pastille claire, lisible sans crier. */
+.locked-mark {
+  display: grid; place-items: center;
+  min-width: 1.5em; padding: 0.1em 0.35em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  color: rgba(70, 55, 75, 0.78);
+  font-variant-numeric: tabular-nums;
 }
+/* Une pastille vide — verrou déjà ouvert, ou scellé de couleur qui porte sa
+   propre marque — ne doit rien dessiner : c'était un rond blanc posé sur le
+   bloc pour ne rien dire. */
+.locked-mark:has(.lock-count:empty) { background: none; }
+
 .poids-mark b {
   font-size: calc(var(--cell) * 0.3);
   font-variant-numeric: tabular-nums;
@@ -578,8 +599,7 @@ body { display: grid; place-items: center; }
 /* Porte partagée : elle sert deux familles, et le dit de la même façon. */
 .gate.gate-partagee { background-image: linear-gradient(118deg, var(--tile) 0 47%, var(--c-bis) 53% 100%); }
 
-/* La clé : un bloc dont la sortie ouvre tous les verrous du niveau. */
-.block.est-cle .block-cell { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.66); }
+/* La clé porte déjà son symbole ; un liseré de plus n'apprenait rien. */
 
 /* Joker : sort par n'importe quelle porte. */
 .block.k-joker .block-cell {
@@ -3496,9 +3516,17 @@ class AudioManager {
     this.degre = 0;
     this.derniereSortie = 0;
 
-    // Le premier geste de l'utilisateur, quel qu'il soit, débloque le son.
+    /**
+     * Le premier geste de l'utilisateur débloque le son.
+     *
+     * `touchend` et `click` figurent dans la liste en plus de `pointerdown` :
+     * Safari sur iOS ne considère pas toujours un `pointerdown` comme le geste
+     * qui autorise la lecture, alors qu'il accepte les deux autres. Les
+     * écouteurs restent posés tant que le contexte n'a pas réellement démarré,
+     * pour retenter au geste suivant.
+     */
     this._reveil = () => this.reveiller();
-    for (const ev of ['pointerdown', 'keydown']) {
+    for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) {
       window.addEventListener(ev, this._reveil, { once: false, passive: true });
     }
     document.addEventListener('visibilitychange', () => {
@@ -3510,7 +3538,34 @@ class AudioManager {
 
   // --- Cycle de vie --------------------------------------------------------
 
+  /**
+   * Débloque la sortie audio d'iOS.
+   *
+   * Sur iPhone, un son joué uniquement par Web Audio est classé « ambient » :
+   * le petit interrupteur latéral le coupe, et le joueur n'entend rien sans
+   * comprendre pourquoi. Lire une fois un élément `<audio>` — ici un silence de
+   * quelques octets — au cours d'un vrai geste bascule la session dans la
+   * catégorie de lecture, et le reste suit.
+   *
+   * L'échec est sans conséquence : sur les navigateurs qui n'en ont pas besoin,
+   * cette lecture ne s'entend pas, et si elle est refusée le jeu continue.
+   */
+  _debloquerIOS() {
+    if (this._debloque) return;
+    this._debloque = true;
+    try {
+      const silence = new Audio(
+        'data:audio/mp4;base64,AAAAHGZ0eXBNNEEgAAAAAE00QSBpc29tbXA0MgAAAAhmcmVlAAAAG21kYXQAAAGzABAHAAABthADAowdbb9/AAAC6W1vb3YAAABsbXZoZAAAAAB8JbCAfCWwgAAAA+gAAAAAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAhV0cmFrAAAAXHRraGQAAAAPfCWwgHwlsIAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAA',
+      );
+      silence.playsInline = true;
+      silence.volume = 0;
+      const joue = silence.play();
+      joue?.catch(() => { /* refusé : sans effet sur la suite */ });
+    } catch { /* pas d'élément audio disponible */ }
+  }
+
   async reveiller() {
+    this._debloquerIOS();
     if (!this.ctx) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
@@ -3523,17 +3578,45 @@ class AudioManager {
       this.gainEffets.connect(this.ctx.destination);
       this._chargement = this._charger();
     }
-    if (this.ctx.state === 'suspended') await this.ctx.resume();
+    // `resume()` doit partir dans la pile du geste, avant toute attente : passé
+    // le premier `await`, iOS ne reconnaît plus le clic comme l'autorisant.
+    if (this.ctx.state === 'suspended') this.ctx.resume();
     await this._chargement;
-    this.pret = true;
-    if (this._musiqueDemandee) this.lancerMusique();
+    if (this.ctx.state === 'suspended') await this.ctx.resume().catch(() => {});
+    this.pret = this.ctx.state === 'running';
+    // Les écouteurs de réveil ne sont retirés QUE si le son marche vraiment :
+    // sur iOS, le premier geste échoue parfois, et il faut pouvoir retenter.
+    if (this.pret) {
+      for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) {
+        window.removeEventListener(ev, this._reveil);
+      }
+      if (this._musiqueDemandee) this.lancerMusique();
+    }
+  }
+
+  /** Ce qu'il faut savoir quand un joueur signale qu'il n'entend rien. */
+  diagnostic() {
+    return {
+      contexte: this.ctx ? this.ctx.state : 'absent',
+      pret: this.pret,
+      tampons: this.tampons.size,
+      musique: this.musiqueActive,
+      effets: this.effetsActifs,
+      debloque: this._debloque === true,
+    };
   }
 
   async _charger() {
     const lire = async (url) => {
       const rep = await fetch(url);
       const brut = await rep.arrayBuffer();
-      return await this.ctx.decodeAudioData(brut);
+      // Safari d'avant iOS 15 ne rend pas de promesse et exige les deux
+      // fonctions de rappel. Sans cette forme, le décodage rendait `undefined`
+      // et aucun son n'était jamais chargé — silence complet, sans erreur.
+      return new Promise((resolve, reject) => {
+        const promesse = this.ctx.decodeAudioData(brut, resolve, reject);
+        promesse?.then?.(resolve, reject);
+      });
     };
     const [musique, ...sorties] = await Promise.all([lire(MUSIQUE), ...SORTIES.map(lire)]);
     this.tampons.set('musique', musique);
@@ -4837,8 +4920,11 @@ class BoardView {
       if (b.kind === KIND.LOCKED) {
         // Cadenas et décompte tiennent DANS la case : une étiquette débordante
         // recouvrait les blocs voisins et rendait la grille illisible.
+        // Pas d'emoji : 🔒 et 🔑 arrivaient en jaune vif au milieu d'une palette
+        // pastel, et c'est le premier endroit où l'œil tombait. Le décompte se
+        // suffit à lui-même, dans une pastille assortie au reste.
         marque.classList.add('locked-mark');
-        marque.innerHTML = '<span>🔒</span><b class="lock-count"></b>';
+        marque.innerHTML = '<b class="lock-count"></b>';
       } else if (b.kind === KIND.ENCOMBRANT) {
         // Ce que ce bloc coûtera à sa porte, écrit dessus : sans le chiffre, un
         // encombrant se confond avec un bloc ordinaire et le joueur ne peut pas
@@ -4848,9 +4934,11 @@ class BoardView {
       } else if (b.kind === KIND.JOKER) {
         marque.textContent = '✳';
       } else if (b.estCle) {
-        // La clé porte son symbole même sans l'option « symboles » : c'est une
-        // règle du niveau, pas une aide de lecture des couleurs.
-        marque.textContent = '🔑';
+        // La clé porte sa marque même sans l'option « symboles » : c'est une
+        // règle du niveau, pas une aide de lecture des couleurs. Un losange
+        // plutôt qu'une clé en emoji — la même forme que sur les verrous qui
+        // l'attendent, et dans le même ton que le reste du plateau.
+        marque.textContent = '◈';
       } else {
         marque.textContent = couleursDe(b).map((c) => COLORS[c].glyph).join('');
       }
@@ -5047,7 +5135,7 @@ class BoardView {
     // Verrou à clé : il montre la clé qu'il attend, et non un décompte.
     if (b.condition?.type === 'block') {
       const ouvert = this.board.conditionMet(b);
-      compteur.textContent = ouvert ? '' : '🔑';
+      compteur.textContent = ouvert ? '' : '◈';
       compteur.classList.remove('lock-couleur');
       node.classList.toggle('lock-open', ouvert);
       return;
@@ -5173,7 +5261,7 @@ function conditionLabel(condition, board = null) {
     const reste = Math.max(0, condition.count - board.exited.length);
     return reste === 0 ? 'Ouvert' : `Encore ${reste}`;
   }
-  if (condition.type === 'block') return '🔑';
+  if (condition.type === 'block') return '◈';
   const nom = COLORS[condition.color]?.name ?? '';
   if (!board) return `${nom} fini`;
   const reste = [...board.blocks.values()].filter((b) => b.color === condition.color).length;
@@ -7032,7 +7120,13 @@ function rapportCourant() {
     categorie,
     message,
     captures,
-    extra: { ecranCourant: screens.current(), niveauEnCours: level?.number ?? null },
+    extra: {
+      ecranCourant: screens.current(),
+      niveauEnCours: level?.number ?? null,
+      // L'état du son part avec le rapport : « je n'entends rien » est
+      // indémêlable sans savoir si le contexte audio a seulement démarré.
+      audio: JSON.stringify(audio.diagnostic()),
+    },
   });
   feedback.enregistrer(rapport);
   return rapport;
@@ -7370,7 +7464,8 @@ function refreshDebug() {
   const d = store.load();
   el('debug-info').textContent =
     `débloqué : ${d.unlockedLevel}/${levels.totalLevels()} · ★ ${store.totalStars()} · ${d.coins} pièces`
-    + (board ? `\nplateau ${board.W}×${board.H} · ${board.remaining()} blocs · réf. ${level.minDrags} glissés` : '');
+    + (board ? `\nplateau ${board.W}×${board.H} · ${board.remaining()} blocs · réf. ${level.minDrags} glissés` : '')
+    + `\naudio ${JSON.stringify(audio.diagnostic())}`;
 }
 
 // Son : on restaure les préférences avant tout affichage.

@@ -203,8 +203,11 @@ export class BoardView {
       if (b.kind === KIND.LOCKED) {
         // Cadenas et décompte tiennent DANS la case : une étiquette débordante
         // recouvrait les blocs voisins et rendait la grille illisible.
+        // Pas d'emoji : 🔒 et 🔑 arrivaient en jaune vif au milieu d'une palette
+        // pastel, et c'est le premier endroit où l'œil tombait. Le décompte se
+        // suffit à lui-même, dans une pastille assortie au reste.
         marque.classList.add('locked-mark');
-        marque.innerHTML = '<span>🔒</span><b class="lock-count"></b>';
+        marque.innerHTML = '<b class="lock-count"></b>';
       } else if (b.kind === KIND.ENCOMBRANT) {
         // Ce que ce bloc coûtera à sa porte, écrit dessus : sans le chiffre, un
         // encombrant se confond avec un bloc ordinaire et le joueur ne peut pas
@@ -214,9 +217,11 @@ export class BoardView {
       } else if (b.kind === KIND.JOKER) {
         marque.textContent = '✳';
       } else if (b.estCle) {
-        // La clé porte son symbole même sans l'option « symboles » : c'est une
-        // règle du niveau, pas une aide de lecture des couleurs.
-        marque.textContent = '🔑';
+        // La clé porte sa marque même sans l'option « symboles » : c'est une
+        // règle du niveau, pas une aide de lecture des couleurs. Un losange
+        // plutôt qu'une clé en emoji — la même forme que sur les verrous qui
+        // l'attendent, et dans le même ton que le reste du plateau.
+        marque.textContent = '◈';
       } else {
         marque.textContent = couleursDe(b).map((c) => COLORS[c].glyph).join('');
       }
@@ -413,7 +418,7 @@ export class BoardView {
     // Verrou à clé : il montre la clé qu'il attend, et non un décompte.
     if (b.condition?.type === 'block') {
       const ouvert = this.board.conditionMet(b);
-      compteur.textContent = ouvert ? '' : '🔑';
+      compteur.textContent = ouvert ? '' : '◈';
       compteur.classList.remove('lock-couleur');
       node.classList.toggle('lock-open', ouvert);
       return;
@@ -539,7 +544,7 @@ export function conditionLabel(condition, board = null) {
     const reste = Math.max(0, condition.count - board.exited.length);
     return reste === 0 ? 'Ouvert' : `Encore ${reste}`;
   }
-  if (condition.type === 'block') return '🔑';
+  if (condition.type === 'block') return '◈';
   const nom = COLORS[condition.color]?.name ?? '';
   if (!board) return `${nom} fini`;
   const reste = [...board.blocks.values()].filter((b) => b.color === condition.color).length;
