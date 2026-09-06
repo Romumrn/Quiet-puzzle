@@ -114,6 +114,8 @@ les dix-neuf niveaux qui suivent l'entrée dans un monde seraient identiques.
 | 16 | Chambre Sourde | plus de joker | 9×10 | 6 | 8 | 1 |
 | 17 | Voûte Haute | les plus grandes grilles | 9×11 | 6 | 8 | 1 |
 | 18 | Dernier Souffle | capacité exacte | 9×11 | 6 | 8 | 0 |
+| 19 | Salle des Nœuds | grilles **choisies au solveur** | 9×11 | 6 | 8 | 0 |
+| 20 | Point Mort | idem, poussé plus loin | 9×11 | 6 | 8 | 0 |
 
 Le premier monde n'a pas de capacité du tout : sans elle aucun ordre de sortie
 ne peut être mauvais, et ces vingt niveaux servent à apprendre le geste. La
@@ -274,6 +276,36 @@ n'attendre que lui.
 Ordre d'efficacité **mesurée**, pas supposée. Le classement vient du nombre
 d'états que le solveur doit explorer, et il a plusieurs fois contredit
 l'intuition.
+
+### 5.0 — Choisir la grille sur son EXIGENCE (`exigeant`)
+
+Le levier le plus fort, et le seul qui garantisse qu'il faille réfléchir. Les
+autres réglages *rendent possible* l'embarras ; celui-ci le *vérifie*.
+
+La mesure est le nombre d'états qu'un solveur explore pour vider la grille. Une
+grille qui s'en tient au nombre de blocs se résout **sans jamais se tromper** :
+le premier ordre venu gagne, et le joueur n'a qu'à glisser. Relevé sur les
+dix-huit premiers mondes, ce chiffre était de l'ordre du nombre de blocs
+partout — grilles denses comprises.
+
+Un monde marqué `exigeant: true` fait donc départager ses candidates par le
+solveur : le générateur retient les trente meilleures grilles par la note
+habituelle, les mesure une à une, garde la plus retorse, et s'arrête dès qu'une
+atteint une douzaine d'états par bloc.
+
+L'ordre compte : **accumuler d'abord, mesurer ensuite**. Mesurer au fil de l'eau
+dépensait le budget sur les premières grilles venues, le seuil de comparaison
+montant avec la meilleure note connue.
+
+C'est coûteux — le solveur travaille en secondes — et c'est précisément pourquoi
+la base existe : la dépense est faite une fois à la fabrication, jamais chez le
+joueur. Les quarante niveaux des deux derniers mondes ont ainsi un ratio médian
+de **187 états par bloc**, contre 1 partout ailleurs.
+
+`tools/balance.mjs` refuse tout niveau exigeant dont la mesure retombe sous
+trois états par bloc, et compte désormais les états dans la progression des
+mondes : sans cela, une grille deux cents fois plus retorse passait pour un
+recul parce qu'elle portait deux blocs de moins.
 
 ### 5.1 — La capacité des portes (`marge`)
 

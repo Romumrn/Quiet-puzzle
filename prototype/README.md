@@ -88,7 +88,16 @@ capacité, aucun ordre de sortie ne peut être mauvais**. Sortir un bloc ne fait
 que libérer de la place, donc tout choix glouton mène à la victoire — le solveur
 vidait les grilles sans jamais revenir en arrière, quelle que soit leur densité.
 
-Les leviers réellement efficaces, dans l'ordre :
+Le levier décisif est venu en dernier, et il ne règle rien : il **vérifie**.
+Le nombre d'états qu'un solveur explore pour vider une grille dit si elle se
+réfléchit ou si elle se déroule — une grille qui s'en tient au nombre de blocs
+se résout sans jamais se tromper. Mesuré sur les dix-huit premiers mondes, ce
+chiffre valait 1 par bloc partout, grilles denses comprises : on n'avait qu'à
+glisser. Les deux derniers mondes font donc départager leurs candidates par le
+solveur à la fabrication, et affichent un ratio médian de **187 états par
+bloc**.
+
+Les leviers qui rendent cet embarras possible, dans l'ordre :
 
 1. **Portes à capacité** — router un bloc vers la mauvaise porte de la bonne
    couleur gâche des cases. C'est ce qui oblige à planifier.
@@ -305,7 +314,7 @@ monde), et l'application ne fait que la lire. Un niveau peut donc être retouch�
 à la main sans qu'une exécution l'écrase, et les niveaux livrés sont exactement
 ceux qui ont été testés.
 
-La progression tient en **dix-huit mondes de vingt niveaux**, et un monde entier
+La progression tient en **vingt mondes de vingt niveaux**, et un monde entier
 tient dans une ligne de la table `REALMS` : sa palette, sa teinte, le type de
 bloc qu'il introduit, et les quantités notées `[début, fin]` qu'on interpole sur
 ses vingt niveaux. La difficulté monte donc DANS le monde et fait un palier
@@ -368,7 +377,7 @@ Deux principes rendent ce portage mécanique :
 - **`core/` ne touche jamais au DOM.** Chaque geste produit des évènements
   (`move`, `exit`, `unlock`) que `render/` rejoue en animation. La logique tourne
   telle quelle sous Node — c'est ce qui permet à `tools/test.mjs` de **prouver que
-  les 360 niveaux sont résolubles** en rejouant leur solution sur le vrai moteur,
+  les 400 niveaux sont résolubles** en rejouant leur solution sur le vrai moteur,
   et ce qui donnera la couverture unitaire visée au §10.1.
 - **`Board.snapshot()` / `restore()`** permettent d'explorer des coups sans les
   jouer : c'est ce qui mesure l'équilibrage aujourd'hui, et ce qui portera

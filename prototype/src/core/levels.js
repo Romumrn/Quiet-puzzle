@@ -18,6 +18,7 @@
 
 import { SHAPES, KIND, coutCapacite } from './block.js';
 import { Board, SIDES as VECTEURS_SORTIE } from './board.js';
+import { resoudre } from './solver.js';
 
 /**
  * Un monde tient sur vingt niveaux et se définit par une seule ligne de la
@@ -279,6 +280,34 @@ export const REALMS = [
     portesPartagees: [2, 4], porteLarge: 0.15, formesMin: 2, densite: [0.27, 0.34],
     jokers: 0, marge: 0, scelleCouleur: true, cle: true,
   },
+  {
+    id: 18,
+    nom: { fr: 'Salle des Nœuds', en: 'The Knot Room', es: 'Sala de los Nudos', it: 'Sala dei Nodi', zh: '绳结厅' },
+    difficulte: { fr: 'nœud', en: 'knotted', es: 'enredado', it: 'intricato', zh: '纠缠' },
+    teinte: 248,
+    palette: ['#c78ba6', '#7d9fd0', '#7ec3a8', '#c9b47e', '#9a8ccb', '#c99688'],
+    nouveaute: null,
+    apporte: { fr: 'Des blocs qui se gênent : il faut trouver l’ordre', en: 'Blocks that get in each other’s way: the order matters', es: 'Bloques que se estorban: hay que dar con el orden', it: 'Blocchi che si ostacolano: bisogna trovare l’ordine', zh: '方块彼此挡路：顺序才是关键' },
+    W: 9, H: 11, colorCount: 6, gateCount: 8,
+    murs: [4, 7], verrous: [4, 6], rails: [10, 16],
+    ancres: [7, 11], encombrants: [5, 9], doubles: [0, 2],
+    portesPartagees: [2, 4], porteLarge: 0.15, formesMin: 2, densite: [0.26, 0.32],
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigeant: true,
+  },
+  {
+    id: 19,
+    nom: { fr: 'Point Mort', en: 'Deadlock', es: 'Punto Muerto', it: 'Punto Morto', zh: '死局' },
+    difficulte: { fr: 'inextricable', en: 'inextricable', es: 'inextricable', it: 'inestricabile', zh: '无解之局' },
+    teinte: 8,
+    palette: ['#c4879c', '#7799c9', '#78bd9c', '#c4b075', '#9385c6', '#c58f80'],
+    nouveaute: null,
+    apporte: { fr: 'Chaque sortie en ferme une autre', en: 'Every exit closes another one', es: 'Cada salida cierra otra', it: 'Ogni uscita ne chiude un’altra', zh: '每开一门，另一门便闭' },
+    W: 9, H: 11, colorCount: 6, gateCount: 8,
+    murs: [5, 8], verrous: [5, 7], rails: [12, 18],
+    ancres: [8, 12], encombrants: [6, 10], doubles: [0, 1],
+    portesPartagees: [3, 5], porteLarge: 0.1, formesMin: 2, densite: [0.27, 0.33],
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigeant: true,
+  },
 ];
 
 export const TOTAL_LEVELS = REALMS.length * LEVELS_PER_REALM;
@@ -379,6 +408,11 @@ function curve(n) {
     porteLarge: R.porteLarge ?? 0.35,
     formesMin: R.formesMin ?? 1,
     cle: R.cle === true,
+    // Un monde « exigeant » fait départager ses grilles par le solveur : on y
+    // retient celle qui demande le plus de retours en arrière, et non la plus
+    // dense. Coûteux — quelques secondes par niveau — donc réservé aux mondes
+    // qui en font leur sujet, et payé une seule fois à la fabrication.
+    exigeant: R.exigeant === true,
     jokers: R.jokers,
     blockCount,
     /**
@@ -545,6 +579,34 @@ function mesureGestes(base) {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Combien de RETOURS EN ARRIÈRE une grille impose.
+ *
+ * C'est la seule mesure honnête de « il faut réfléchir ». La densité, le nombre
+ * de blocs, les effets : tout cela peut être élevé sans qu'aucun choix ne soit
+ * jamais mauvais — le solveur pose alors son premier coup et gagne, et le
+ * joueur aussi. Les mesures relevées sur les dix-huit premiers mondes sont
+ * édifiantes : la quasi-totalité des grilles se résolvent en autant d'états
+ * qu'elles ont de blocs, c'est-à-dire sans se tromper une seule fois.
+ *
+ * Une grille exigeante est une grille où le solveur doit défaire ce qu'il vient
+ * de faire. On lui donne un budget serré : au-delà, la grille est déjà bien
+ * assez retorse, et connaître le chiffre exact ne changerait pas le choix.
+ */
+const BUDGET_EXIGENCE = 30000;
+
+function exigenceDe(g) {
+  const board = new Board({
+    width: g.W, height: g.H, gates: g.gates, blocks: g.blocks,
+    moveLimit: 9999, timeLimit: 9999, solution: [],
+  });
+  const r = resoudre(board, BUDGET_EXIGENCE);
+  // Une grille que le solveur n'arrive pas à vider dans son budget n'est pas
+  // pour autant bonne : on ne la départage pas au hasard, on la prend telle
+  // qu'elle est — sa solution de référence, elle, existe toujours.
+  return r.etats;
+}
+
 function build(n) {
   const rng = mulberry32(0x5eed * n + 1013904223);
   const p = curve(n);
@@ -559,6 +621,22 @@ function build(n) {
   // ce genre vient de l'encombrement, et se contenter de la première grille
   // acceptable donnait des niveaux à moitié vides.
   let meilleure = null;
+
+  /**
+   * Sélection sur l'EXIGENCE, pour les mondes qui en font leur sujet.
+   *
+   * On évalue au fil de l'eau, et non un palmarès constitué à la fin : le
+   * classement se fait sur la note — densité, éloignement, charge — qui ne dit
+   * rien de l'embarras. Dix grilles bien remplies peuvent toutes se résoudre du
+   * premier coup, et c'est exactement ce qu'on obtenait.
+   *
+   * On n'évalue donc que les candidates du haut du panier, on s'arrête dès
+   * qu'une grille atteint la cible, et on borne le nombre d'appels : le solveur
+   * coûte des secondes, et il n'est pas question d'en dépenser cent par niveau.
+   */
+  const finalistes = [];
+  const FINALISTES = 30;
+
   for (let tentative = 0; tentative < 220; tentative++) {
     const grille = new Grille(W, H);
     const gates = makeGates(p, rng);
@@ -865,10 +943,38 @@ function build(n) {
     const charge = poses.length / p.blockCount;
     const note = densite + eloignementMoyen / 8 + charge / 3
       - 1.6 * Math.max(0, dominante - 0.4);
-    if (!meilleure || note > meilleure.note) {
-      meilleure = { W, H, gates, blocks, solution, occupees, note, eloignementMoyen, dominante, colorCount: p.colorCount };
+    const candidate = { W, H, gates, blocks, solution, occupees, note, eloignementMoyen, dominante, colorCount: p.colorCount };
+    if (!meilleure || note > meilleure.note) meilleure = candidate;
+
+    if (p.exigeant) {
+      // On accumule d'abord, on mesure ensuite. Évaluer au fil de l'eau
+      // dépensait le budget de solveur sur les premières grilles venues :
+      // le seuil de comparaison monte avec la meilleure note connue, si bien
+      // que les candidates médiocres du début passaient toutes.
+      finalistes.push(candidate);
+      finalistes.sort((a, b) => b.note - a.note);
+      if (finalistes.length > FINALISTES) finalistes.length = FINALISTES;
+      continue;
     }
     if (densite >= 0.6 && eloignementMoyen >= 3.2 && dominante <= 0.4 && charge >= 0.9) break;
+  }
+
+  /**
+   * Départage des finalistes : on garde celle qui oblige le plus le solveur à
+   * revenir sur ses pas, et l'on s'arrête dès qu'une grille atteint la cible —
+   * une douzaine d'états par bloc, de quoi qu'un joueur ait lui aussi à s'y
+   * reprendre. Les mesurer toutes coûterait des secondes pour rien.
+   */
+  if (p.exigeant && finalistes.length) {
+    let retenue = null;
+    let exigenceMax = -1;
+    for (const c of finalistes) {
+      const etats = exigenceDe(c);
+      if (etats > exigenceMax) { exigenceMax = etats; retenue = c; }
+      if (etats >= c.blocks.length * 12) break;
+    }
+    meilleure = retenue;
+    meilleure.exigence = exigenceMax;
   }
 
   if (!meilleure) return null;
@@ -933,6 +1039,13 @@ export function getLevel(n) {
     moveLimit,
     timeLimit,
     minDrags: g.minDrags,
+    /**
+     * Nombre d'états qu'un solveur explore pour vider la grille. Un niveau qui
+     * s'en tient au nombre de blocs se résout sans jamais se tromper ; au-delà,
+     * il faut revenir sur ses pas. Mesuré à la fabrication pour les mondes
+     * exigeants, absent ailleurs — l'équilibrage le lit, le jeu l'ignore.
+     */
+    ...(g.exigence === undefined ? {} : { exigence: g.exigence }),
     objective: { type: 'clear_all', target: g.blocks.filter((b) => b.kind !== KIND.WALL).length },
     starDrags,
     estimatedTime: timeLimit,

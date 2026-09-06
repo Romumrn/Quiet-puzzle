@@ -44,9 +44,9 @@ for (let m = 0; m < REALMS.length; m++) {
 }
 if (process.argv.includes('--tout')) for (let n = 1; n <= TOTAL_LEVELS; n++) DETAILLE.add(n);
 
-console.log('niv  monde              blocs murs verr rail ancr enc joker  rempli  éloign  gestes  ★3  ★2  coups  temps  états');
+console.log('niv  monde              blocs murs verr rail ancr enc joker  rempli  éloign  gestes  ★3  ★2  coups  temps  états  exigen');
 let alertes = [];
-const parMonde = REALMS.map(() => ({ cases: 0, effets: 0, gestes: 0, n: 0 }));
+const parMonde = REALMS.map(() => ({ cases: 0, effets: 0, gestes: 0, etats: 0, mesures: 0, n: 0 }));
 
 for (let n = 1; n <= TOTAL_LEVELS; n++) {
   const L = getLevel(n);
@@ -105,6 +105,8 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
     String(L.moveLimit).padStart(6),
     `${L.timeLimit}s`.padStart(6),
     String(sol ? sol.etats : '—').padStart(6),
+    // L'exigence mesurée à la fabrication, quand le monde l'a fait mesurer.
+    String(L.exigence ?? '—').padStart(7),
   );
   // Un abandon ne dit rien du niveau : le budget est épuisé, pas l'espace des
   // solutions. Seul un échec au terme d'une recherche complète est un défaut.
@@ -123,6 +125,12 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
   if (n > 5 && cases / (L.width * L.height) < 0.45) alertes.push(`niveau ${n} : grille trop vide (${rempli}%)`);
   if (Number(eloign) < 2) alertes.push(`niveau ${n} : blocs trop près de leur porte (${eloign} cases)`);
   if (L.timeLimit / L.minDrags < 3) alertes.push(`niveau ${n} : moins de 3 s par glissé`);
+  // Un monde qui promet de la réflexion doit la tenir : une grille qui se
+  // résout en autant d'états qu'elle a de blocs se joue sans jamais se
+  // tromper, et c'est précisément ce qu'on cherchait à éviter.
+  if (L.exigence !== undefined && L.exigence < L.blocks.length * 3) {
+    alertes.push(`niveau ${n} : se résout sans revenir en arrière (${L.exigence} états pour ${L.blocks.length} blocs)`);
+  }
 
   const monde = parMonde[realmDe(n).id];
   // On mesure les CASES occupées, et non le nombre de blocs : un monde qui
@@ -132,6 +140,9 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
   monde.effets += murs + verrous + rails + ancres + encombrants;
   monde.gestes += L.minDrags;
   monde.n++;
+  // Les états explorés ne sont connus que sur les niveaux détaillés — le
+  // solveur ne tourne que là — d'où un compteur séparé.
+  if (sol) { monde.etats += sol.etats; monde.mesures++; }
 }
 
 /**
@@ -142,22 +153,35 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
  * joueur ressent vraiment.
  */
 console.log('\nPROGRESSION PAR MONDE');
-console.log('monde                cases  effets  gestes');
+console.log('monde                cases  effets  gestes    états');
 let precedent = null;
 for (const [i, m] of parMonde.entries()) {
   if (!m.n) continue;
-  const moy = { cases: m.cases / m.n, effets: m.effets / m.n, gestes: m.gestes / m.n };
+  const moy = {
+    cases: m.cases / m.n, effets: m.effets / m.n, gestes: m.gestes / m.n,
+    // Combien de retours en arrière le solveur doit faire : la seule mesure qui
+    // dise si une grille se réfléchit ou se contente de se dérouler.
+    etats: m.mesures ? m.etats / m.mesures : 0,
+  };
   console.log(
     REALMS[i].name.padEnd(20),
     moy.cases.toFixed(1).padStart(5),
     moy.effets.toFixed(1).padStart(7),
     moy.gestes.toFixed(1).padStart(7),
+    moy.etats.toFixed(0).padStart(8),
   );
   if (precedent) {
-    const recule = ['cases', 'effets', 'gestes'].filter((k) => moy[k] < precedent.moy[k] - 0.05);
-    // Un monde peut échanger un levier contre un autre — moins de blocs, plus
-    // d'effets. Ce n'est un vrai recul que si TOUT redescend à la fois.
-    if (recule.length === 3) alertes.push(`monde « ${REALMS[i].name} » : plus facile que « ${REALMS[i - 1].name} »`);
+    const mesures = ['cases', 'effets', 'gestes', 'etats'];
+    const recule = mesures.filter((k) => moy[k] < precedent.moy[k] - 0.05);
+    // Un monde peut échanger un levier contre un autre — moins de blocs mais
+    // plus d'effets, moins d'effets mais bien plus de retours en arrière. Ce
+    // n'est un vrai recul que si TOUT redescend à la fois. Les états comptent
+    // parmi ces mesures depuis qu'un monde peut faire de l'embarras son sujet :
+    // sans eux, une grille deux cents fois plus retorse passait pour un recul
+    // parce qu'elle portait deux blocs de moins.
+    if (recule.length === mesures.length) {
+      alertes.push(`monde « ${REALMS[i].name} » : plus facile que « ${REALMS[i - 1].name} »`);
+    }
   }
   precedent = { moy };
 }
