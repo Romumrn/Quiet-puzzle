@@ -8,5 +8,7 @@ Deux réflexes qui coûtent cher à oublier :
 
 - toucher à `REALMS` dans `prototype/src/core/levels.js` n'a **aucun effet**
   tant que `node tools/build-levels.mjs` n'a pas régénéré `prototype/levels/` ;
-- `node tools/test.mjs` prend plusieurs minutes sur 400 niveaux : le lancer en
-  tâche de fond.
+- `node tools/test.mjs` ne fait **pas** tourner le solveur : les tests de base
+  tiennent en moins d'une seconde. Le drapeau `--solveur` rallume les deux
+  passes qui l'emploient — plusieurs minutes — et ne se justifie que si l'on a
+  touché au solveur, au générateur, ou ajouté des niveaux.

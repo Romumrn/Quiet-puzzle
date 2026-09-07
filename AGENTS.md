@@ -48,6 +48,7 @@ media/              captures du README
 | Besoin | Fichier |
 |---|---|
 | Rendu du plateau, animations, marques sur les blocs | `src/render/boardView.js` |
+| Matière des blocs (arrondi, reflet, relief, ombre) | `styles/main.css` — tout est sur `.block` : `--bevel`, `--reflet` et le `filter` d'ombre ; le relief de silhouette est sur `.block-cell::after` |
 | Glisser au doigt | `src/input/input.js` |
 | Écran de résultat (victoire / défaite) | `src/ui/resultScreen.js` |
 | Carte des niveaux | `src/ui/mapScreen.js` |
@@ -132,7 +133,8 @@ Quatre endroits, dans cet ordre :
 cd prototype
 python3 -m http.server 8123      # jouer en local
 node tools/build-levels.mjs      # régénérer levels/ (~1 min pour 400 niveaux)
-node tools/test.mjs              # tests — long, lance-le en arrière-plan
+node tools/test.mjs              # tests de base — moins d'une seconde
+node tools/test.mjs --solveur    # + les deux passes du solveur — plusieurs minutes
 node tools/balance.mjs           # équilibrage : tableau + alertes
 node tools/check.mjs             # syntaxe des modules (rapide)
 node tools/publier.mjs           # publier : écrit docs/ (388 Ko à l'ouverture)
@@ -140,8 +142,14 @@ node tools/bundle.mjs            # fichier unique, pour le partage hors ligne
 ```
 
 **Après toute modification :** `check.mjs` (2 s) pendant le travail,
-`test.mjs` avant de committer. `test.mjs` prend plusieurs minutes sur 400
-niveaux — le lancer en tâche de fond et faire autre chose en attendant.
+`test.mjs` avant de committer — il tient en moins d'une seconde.
+
+**`--solveur` seulement quand on touche au solveur, au générateur, ou qu'on
+ajoute des niveaux.** Ce drapeau rallume les deux seules vérifications qui font
+tourner le solveur — la comparaison de la base avec le générateur, et la
+résolubilité vérifiée sans lire les solutions de référence. Elles coûtent
+plusieurs minutes ; sur un changement de rendu ou d'interface, elles ne peuvent
+rien voir. Le lancer en tâche de fond.
 
 ---
 

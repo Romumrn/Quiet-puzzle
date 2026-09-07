@@ -44,6 +44,21 @@ const VECTEURS = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] };
 /** Sens de sortie, tel qu'il s'affiche sur la porte. */
 const FLECHES = { top: '▲', right: '▶', bottom: '▼', left: '◀' };
 
+/**
+ * Cadenas d'un verrou à clé.
+ *
+ * Dessiné, et non 🔒 : l'emoji arrive en jaune vif au milieu d'une palette
+ * pastel et devient le premier endroit où l'œil tombe. Il remplace le losange
+ * ◈ qui répondait à celui de la clé — un symbole abstrait qu'il fallait avoir
+ * appris, là où un cadenas dit « fermé » sans rien apprendre. La clé, elle,
+ * garde son losange : c'est ce qui la distingue de ce qu'elle ouvre.
+ */
+const CADENAS = `<svg class="cadenas" viewBox="0 0 20 20" aria-hidden="true">
+  <path d="M6.7 9V6.6a3.3 3.3 0 0 1 6.6 0V9" fill="none" stroke-width="2" stroke-linecap="round"/>
+  <rect x="3.9" y="8.7" width="12.2" height="9.1" rx="2.8"/>
+  <circle cx="10" cy="12.6" r="1.45"/>
+</svg>`;
+
 export class BoardView {
   constructor(root) {
     this.root = root;
@@ -179,6 +194,14 @@ export class BoardView {
       // n'en montre que sa portion, et la forme entière paraît d'un seul tenant.
       c.style.backgroundSize = `${b.width * this.cell}px ${b.height * this.cell}px`;
       c.style.backgroundPosition = `${-dx * this.cell}px ${-dy * this.cell}px`;
+      // Les quatre côtés RÉELLEMENT extérieurs à la forme, marqués sur la case.
+      // C'est ce qui permet aux styles de n'éclairer et n'ombrer que la
+      // silhouette du polyomino : une arête intérieure ne doit rien dessiner,
+      // sinon le bloc se recoupe en petits carrés.
+      if (!a(dx, dy - 1)) c.classList.add('e-t');
+      if (!a(dx, dy + 1)) c.classList.add('e-b');
+      if (!a(dx - 1, dy)) c.classList.add('e-l');
+      if (!a(dx + 1, dy)) c.classList.add('e-r');
       // Arrondi uniquement sur les coins réellement extérieurs à la forme.
       const r = 'var(--bevel)';
       c.style.borderTopLeftRadius = !a(dx, dy - 1) && !a(dx - 1, dy) ? r : '0';
@@ -193,20 +216,20 @@ export class BoardView {
     // — les glyphes de famille (●◆▲★■⬢) l'encombraient sans rien apprendre à
     // qui joue déjà à la couleur.
     const glyphe = avecGlyphes() && b.color >= 0 && b.kind !== KIND.WALL && b.kind !== KIND.JOKER;
-    if (glyphe || b.estCle
-        || b.kind === KIND.LOCKED || b.kind === KIND.ENCOMBRANT || b.kind === KIND.JOKER) {
+    const aUneMarque = glyphe || b.estCle
+      || b.kind === KIND.LOCKED || b.kind === KIND.ENCOMBRANT || b.kind === KIND.JOKER;
+    if (aUneMarque) {
       const marque = document.createElement('span');
       marque.className = 'block-mark';
-      const [gx, gy] = this._centreCell(b);
-      marque.style.left = `${gx * this.cell}px`;
-      marque.style.top = `${gy * this.cell}px`;
+      const [mx, my, mw, mh] = this._boiteMarque(b);
+      marque.style.left = `${mx}px`;
+      marque.style.top = `${my}px`;
+      marque.style.width = `${mw}px`;
+      marque.style.height = `${mh}px`;
       if (b.kind === KIND.LOCKED) {
-        // Cadenas et décompte tiennent DANS la case : une étiquette débordante
-        // recouvrait les blocs voisins et rendait la grille illisible.
-        // Pas d'emoji : 🔒 et 🔑 arrivaient en jaune vif au milieu d'une palette
-        // pastel, et c'est le premier endroit où l'œil tombait. Le décompte se
-        // suffit à lui-même, dans une pastille assortie au reste.
-        marque.classList.add('locked-mark');
+        // Ce que le verrou attend : un cadenas s'il attend la clé, une pastille
+        // de la couleur qu'il guette, un décompte sinon. `_majVerrou` choisit,
+        // et le rafraîchit à chaque bloc sorti.
         marque.innerHTML = '<b class="lock-count"></b>';
       } else if (b.kind === KIND.ENCOMBRANT) {
         // Ce que ce bloc coûtera à sa porte, écrit dessus : sans le chiffre, un
@@ -219,8 +242,7 @@ export class BoardView {
       } else if (b.estCle) {
         // La clé porte sa marque même sans l'option « symboles » : c'est une
         // règle du niveau, pas une aide de lecture des couleurs. Un losange
-        // plutôt qu'une clé en emoji — la même forme que sur les verrous qui
-        // l'attendent, et dans le même ton que le reste du plateau.
+        // plutôt qu'une clé en emoji, dans le même ton que le reste du plateau.
         marque.textContent = '◈';
       } else {
         marque.textContent = couleursDe(b).map((c) => COLORS[c].glyph).join('');
@@ -243,6 +265,19 @@ export class BoardView {
       const fleche = document.createElement('u');
       fleche.className = 'block-fleche';
       fleche.textContent = { top: '▲', right: '▶', bottom: '▼', left: '◀' }[b.dir] || '';
+      // Même point d'ancrage que les marques — se caler sur la boîte du bloc
+      // posait la flèche d'un L dans le creux de son angle, donc en dehors de
+      // la forme. Une ancre peut aussi être la clé du niveau : la flèche
+      // recule alors dans un coin pour ne pas recouvrir le losange.
+      if (aUneMarque) {
+        fleche.classList.add('fleche-coin');
+      } else {
+        const [fx, fy, fw, fh] = this._boiteMarque(b);
+        fleche.style.left = `${fx}px`;
+        fleche.style.top = `${fy}px`;
+        fleche.style.width = `${fw}px`;
+        fleche.style.height = `${fh}px`;
+      }
       node.appendChild(fleche);
     }
 
@@ -254,13 +289,44 @@ export class BoardView {
     return node;
   }
 
-  /** Case de la forme la plus proche de son centre — pour poser le glyphe. */
+  /**
+   * Où poser une marque : `[gauche, haut, largeur, hauteur]` en pixels.
+   *
+   * Sur la BOÎTE DU BLOC dès que son centre tombe dans la forme — un « ×2 » ou
+   * un cadenas calé au centre d'une CASE se lisait de travers sur tout bloc
+   * qui en compte plusieurs. Un L ou un T, dont le centre tombe dans le creux
+   * de l'angle, se rabat sur la case de l'angle (voir `_centreCell`).
+   */
+  _boiteMarque(b) {
+    const cx = b.width / 2, cy = b.height / 2;
+    const xs = [...new Set([Math.ceil(cx) - 1, Math.floor(cx)])];
+    const ys = [...new Set([Math.ceil(cy) - 1, Math.floor(cy)])];
+    const dedans = xs.every((x) => ys.every((y) => b.cells.some(([p, q]) => p === x && q === y)));
+    if (dedans) return [0, 0, b.width * this.cell, b.height * this.cell];
+    const [dx, dy] = this._centreCell(b);
+    return [dx * this.cell, dy * this.cell, this.cell, this.cell];
+  }
+
+  /**
+   * Case où poser une marque quand le centre du bloc tombe hors de la forme :
+   * celle de L'ANGLE, c'est-à-dire la plus entourée.
+   *
+   * Le seul critère de distance au centre ne départageait pas un L — ses trois
+   * cases sont à égale distance — et rendait la première venue, donc un bout
+   * de branche, au hasard de l'ordre de `cells`. La case la plus entourée est
+   * le coude d'un L, la jonction d'un T, le milieu d'une ligne : à chaque fois
+   * celle que l'œil lit comme le centre de la forme. La distance au centre ne
+   * sert plus qu'à départager les ex æquo.
+   */
   _centreCell(b) {
+    const occupee = (x, y) => b.cells.some(([p, q]) => p === x && q === y);
     const cx = (b.width - 1) / 2, cy = (b.height - 1) / 2;
-    let best = b.cells[0], d = Infinity;
+    let best = b.cells[0], score = -Infinity;
     for (const [dx, dy] of b.cells) {
-      const dd = (dx - cx) ** 2 + (dy - cy) ** 2;
-      if (dd < d) { d = dd; best = [dx, dy]; }
+      const voisines = occupee(dx, dy - 1) + occupee(dx, dy + 1)
+        + occupee(dx - 1, dy) + occupee(dx + 1, dy);
+      const s = voisines - ((dx - cx) ** 2 + (dy - cy) ** 2) / 1000;
+      if (s > score) { score = s; best = [dx, dy]; }
     }
     return best;
   }
@@ -418,8 +484,9 @@ export class BoardView {
     // Verrou à clé : il montre la clé qu'il attend, et non un décompte.
     if (b.condition?.type === 'block') {
       const ouvert = this.board.conditionMet(b);
-      compteur.textContent = ouvert ? '' : '◈';
+      compteur.innerHTML = ouvert ? '' : CADENAS;
       compteur.classList.remove('lock-couleur');
+      compteur.classList.toggle('lock-cadenas', !ouvert);
       node.classList.toggle('lock-open', ouvert);
       return;
     }

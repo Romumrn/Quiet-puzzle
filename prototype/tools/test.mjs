@@ -4,6 +4,20 @@
  * Le test central rejoue, sur le vrai moteur, la solution de référence produite
  * par la génération à l'envers. S'il passe pour tous les niveaux, aucun niveau
  * livré n'est insoluble. Aucune dépendance : core/ ne touche pas au DOM.
+ *
+ * DEUX vérifications font tourner le SOLVEUR, et elles seules coûtent des
+ * minutes là où tout le reste tient en secondes : la comparaison de la base
+ * avec le générateur (qui régénère chaque grille, et le générateur appelle le
+ * solveur pour doser la difficulté) et la résolubilité vérifiée
+ * indépendamment. Elles sont donc **sur demande** :
+ *
+ *     node tools/test.mjs                      les tests de base — quelques secondes
+ *     node tools/test.mjs --solveur            + les deux passes du solveur
+ *     node tools/test.mjs --solveur-complet    idem, sur les niveaux un par un
+ *
+ * Les lancer quand on touche au solveur, au générateur, ou qu'on ajoute des
+ * niveaux. Pas pour un changement de rendu ou d'interface : elles ne peuvent
+ * rien y voir.
  */
 
 import { Board } from '../src/core/board.js';
@@ -20,6 +34,10 @@ const TOTAL_LEVELS = base.totalLevels();
 const niveaux = new Map();
 for (let n = 1; n <= TOTAL_LEVELS; n++) niveaux.set(n, await base.getLevel(n));
 const getLevel = (n) => niveaux.get(n);
+
+/** Les passes qui font tourner le solveur ne partent que si on les demande. */
+const COMPLET = process.argv.includes('--solveur-complet');
+const SOLVEUR = COMPLET || process.argv.includes('--solveur');
 
 let echecs = 0;
 const check = (nom, cond, detail = '') => {
@@ -85,17 +103,26 @@ console.log('\n== La base de niveaux ==');
   // avoir été retouché à la main, c'est même l'intérêt d'avoir une base. Mais
   // une base oubliée après un réglage du générateur produit exactement la même
   // signature, et il vaut mieux le savoir.
-  const { getLevel: genererLevel } = await import('../src/core/levels.js');
-  const differents = [];
-  for (let n = 1; n <= TOTAL_LEVELS; n++) {
-    if (JSON.stringify(genererLevel(n)) !== JSON.stringify(getLevel(n))) differents.push(n);
-  }
-  if (differents.length) {
-    console.log(`  NOTE  ${differents.length} niveau(x) diffèrent du générateur `
-      + `(${differents.slice(0, 6).join(', ')}${differents.length > 6 ? '…' : ''}) — `
-      + 'retouches à la main, ou base à régénérer avec tools/build-levels.mjs');
+  //
+  // Régénérer les niveaux relance le solveur sur chacun d'eux (le générateur
+  // s'en sert pour doser la difficulté) : c'est la passe la plus chère de tout
+  // le fichier, et elle ne dit rien tant que le générateur n'a pas bougé.
+  if (!SOLVEUR) {
+    console.log('  PASSÉ la comparaison avec le générateur — il repasse le solveur '
+      + 'sur chaque grille (--solveur)');
   } else {
-    console.log('  OK   la base est à jour vis-à-vis du générateur');
+    const { getLevel: genererLevel } = await import('../src/core/levels.js');
+    const differents = [];
+    for (let n = 1; n <= TOTAL_LEVELS; n++) {
+      if (JSON.stringify(genererLevel(n)) !== JSON.stringify(getLevel(n))) differents.push(n);
+    }
+    if (differents.length) {
+      console.log(`  NOTE  ${differents.length} niveau(x) diffèrent du générateur `
+        + `(${differents.slice(0, 6).join(', ')}${differents.length > 6 ? '…' : ''}) — `
+        + 'retouches à la main, ou base à régénérer avec tools/build-levels.mjs');
+    } else {
+      console.log('  OK   la base est à jour vis-à-vis du générateur');
+    }
   }
 }
 
@@ -203,7 +230,9 @@ console.log('\n== Intégrité de la grille ==');
 }
 
 console.log('\n== Résolubilité vérifiée indépendamment ==');
-{
+if (!SOLVEUR) {
+  console.log('  PASSÉ  --solveur pour la lancer (quelques minutes)');
+} else {
   const { resoudre, BUDGET_HORS_LIGNE } = await import('../src/core/solver.js');
 
   /**
@@ -217,7 +246,7 @@ console.log('\n== Résolubilité vérifiée indépendamment ==');
    * test qui prend dix minutes n'est plus lancé, et un garde-fou qu'on ne lance
    * plus ne garde rien. `--solveur-complet` passe les niveaux un par un.
    */
-  const complet = process.argv.includes('--solveur-complet');
+  const complet = COMPLET;
   const aVerifier = [];
   if (complet) {
     for (let n = 1; n <= TOTAL_LEVELS; n++) aVerifier.push(n);

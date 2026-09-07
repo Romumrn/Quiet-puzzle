@@ -16,6 +16,11 @@
 
     <!-- ============ MENU ============ -->
     <section class="screen active" id="screen-menu">
+      <!-- Badge de série : c'est ce qui donne envie de revenir demain. Il vit
+           DANS l'accueil, et non sur `.app` : posé au-dessus de tous les
+           écrans, il retombait sur la flèche de retour de la carte et des
+           niveaux. Masqué tant qu'aucune série n'est en cours. -->
+      <div class="streak-badge" id="streak-badge" hidden></div>
       <div class="menu-art" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
       <h1 class="logo">Quiet<em>Puzzle</em></h1>
       <p class="tagline" data-i18n="menu.baseline">Videz la grille par les portes de couleur</p>
@@ -130,10 +135,6 @@
     </section>
 
     <!-- ============ MENU UTILISATEUR ============ -->
-    <!-- Badge de série : visible dès l'accueil, c'est ce qui donne envie de
-         revenir demain. Masqué tant qu'aucune série n'est en cours. -->
-    <div class="streak-badge" id="streak-badge" hidden></div>
-
     <button class="user-btn" id="user-btn" aria-expanded="false" aria-controls="user-panel"
             data-i18n-title="user.title" data-i18n-aria="user.title" title="Profil et réglages">
       <!-- Trois barres : le bouton dit « menu », alors qu'un chiffre de niveau
