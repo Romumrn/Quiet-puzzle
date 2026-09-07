@@ -21,7 +21,7 @@
  */
 
 import { Board } from '../src/core/board.js';
-import { KIND } from '../src/core/block.js';
+import { KIND, couleursDe } from '../src/core/block.js';
 import * as base from './base.mjs';
 
 /**
@@ -227,6 +227,45 @@ console.log('\n== Intégrité de la grille ==');
   }
   check('aucun bloc ne se chevauche à l\'ouverture', chevauchements === 0, chevauchements + ' cas');
   check('aucun bloc hors de la grille', horsGrille === 0, horsGrille + ' cas');
+}
+
+console.log('\n== Portes et couleurs ==');
+{
+  /**
+   * Une porte qui sert une couleur absente de la grille est un FAUX INDICE :
+   * le joueur cherche des blocs qui n'existent pas. Le cas se produisait parce
+   * que les portes sont ouvertes AVANT que le moindre bloc ne soit posé — 125
+   * portes sur 117 niveaux — et rien ne repassait vérifier.
+   *
+   * Le contrôle inverse compte autant, dans l'autre sens : une couleur posée
+   * sans porte pour l'accueillir rend le niveau infaisable.
+   */
+  const orphelines = [];
+  const sansPorte = [];
+  for (const L of niveaux.values()) {
+    const couleurs = new Set();
+    // Un joker sort par n'importe quelle porte : aucune ne lui est inutile.
+    let joker = false;
+    for (const b of L.blocks) {
+      if (b.kind === KIND.WALL) continue;
+      if (b.kind === KIND.JOKER) { joker = true; continue; }
+      for (const c of couleursDe(b)) if (c >= 0) couleurs.add(c);
+    }
+    if (!joker) {
+      for (const g of L.gates) {
+        if (!couleursDe(g).some((c) => couleurs.has(c))) {
+          orphelines.push(`${L.number}/${g.side} c${couleursDe(g).join('+')}`);
+        }
+      }
+    }
+    for (const c of couleurs) {
+      if (!L.gates.some((g) => couleursDe(g).includes(c))) sansPorte.push(`${L.number}/c${c}`);
+    }
+  }
+  check('aucune porte ne sert une couleur absente de la grille',
+    orphelines.length === 0, orphelines.slice(0, 5).join(' · '));
+  check('toute couleur posée a une porte pour sortir',
+    sansPorte.length === 0, sansPorte.slice(0, 5).join(' · '));
 }
 
 console.log('\n== Résolubilité vérifiée indépendamment ==');
@@ -503,8 +542,14 @@ console.log('\n== Carte du projet (AGENTS.md) ==');
   // disparaissent, la carte envoie chercher ce qui n'est plus là.
   const symboles = ['REALMS', 'PIECES_PAR_ETOILE', 'PALIERS_SERIE', 'THEMES',
                     'EVENEMENTS', 'PACKS', 'PUB_RECOMPENSE', 'coutCapacite',
-                    'accepteDirection', 'peutSortirDeSaPorte'];
+                    'accepteDirection', 'peutSortirDeSaPorte',
+                    // La chaîne de génération, décrite pas à pas par la carte :
+                    // c'est la section la plus fréquentée, elle doit rester vraie.
+                    'realmDe', 'curve', 'makeGates', 'portesUtiles', 'poseAuPorte',
+                    'distanceALaPorte', 'mesureGestes', 'exigenceDe', 'budgetExigence',
+                    'seuilsEtoiles', 'mulberry32', 'shuffled', 'LEVELS_PER_REALM'];
   const sources = ['src/core/levels.js', 'src/core/block.js', 'src/core/board.js',
+                   'src/core/etoiles.js', 'src/data/levelStore.js',
                    'src/data/api.js', 'src/data/analytics.js', 'src/meta/daily.js',
                    'src/meta/themes.js', 'src/monetization/currency.js']
     .map((f) => readFileSync(join(racine, f), 'utf8')).join('\n');
@@ -527,7 +572,7 @@ console.log('\n== Nomenclature des évènements ==');
 
   // Le contexte de niveau doit toujours porter les mêmes clés : c'est ce qui
   // permet de comparer un abandon et une réussite sans arithmétique cachée.
-  const attendues = ['level_id', 'level', 'world', 'attempt', 'duration', 'moves', 'stars'];
+  const attendues = ['level_id', 'level', 'world', 'attempt', 'duration', 'moves', 'min_drags', 'stars'];
   const ctx = contexteNiveau({ levelId: 'lvl_001', number: 1, realm: 'Test' });
   check('le contexte de niveau porte toutes ses clés',
     attendues.every((k) => k in ctx), Object.keys(ctx).join(', '));

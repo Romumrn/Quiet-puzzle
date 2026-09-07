@@ -25,7 +25,9 @@ media/              captures du README
 |---|---|---|
 | Ajouter / régler un monde | `src/core/levels.js` | table `REALMS` — **une ligne par monde** |
 | Changer une quantité (murs, rails, densité…) | `src/core/levels.js` | la ligne du monde dans `REALMS` |
-| Changer les formules limites / étoiles | `src/core/levels.js` | `getLevel()`, bas du fichier |
+| Changer le barème des étoiles | `src/core/etoiles.js` | `MARGE_3E` / `MARGE_2E` — **le seul endroit** |
+| Changer les formules limites (coups, temps) | `src/core/levels.js` | `getLevel()`, bas du fichier |
+| Recaler le barème sur les scores réels | `src/data/levelStore.js` | `calibrer()` — table `levelId → glissés` annoncée par l'index |
 | Comprendre la génération | `src/core/levels.js` | `build()` — pose inverse |
 | Régénérer les niveaux | `tools/build-levels.mjs` | **obligatoire après tout changement de `REALMS`** |
 | Ajouter un type de bloc | 4 fichiers — voir §« Nouveau bloc » |
@@ -88,6 +90,136 @@ media/              captures du README
 | Lire un niveau, le catalogue des mondes | `src/data/levelStore.js` |
 | Sauvegarde locale (tout l'état joueur) | `src/data/save.js` — `EMPTY()` liste tous les champs |
 | Façade « API » (futur backend) | `src/data/api.js` |
+
+---
+
+## La génération d'un niveau, pas à pas
+
+Le passage le plus fréquenté du projet. Cette section dit **quelle fonction fait
+quoi, dans quel ordre** ; le *pourquoi* et les réglages fins sont dans
+`docs/creation-de-niveaux.md`.
+
+### Le modèle en deux temps — la confusion à ne pas faire
+
+```
+tools/build-levels.mjs  ──appelle──▶  src/core/levels.js : getLevel(n)
+                                              │ hors ligne, une fois
+                                              ▼
+                                        prototype/levels/*.json
+                                              │ à l'exécution
+                                              ▼
+   l'application  ──lit──▶  src/data/levelStore.js : getLevel(n)
+```
+
+**Deux fonctions portent le nom `getLevel(n)`, et ce ne sont pas les mêmes :**
+
+| | `src/core/levels.js` | `src/data/levelStore.js` |
+|---|---|---|
+| Rôle | **fabrique** un niveau | **lit** un niveau déjà fabriqué |
+| Quand | hors ligne, par `tools/build-levels.mjs` | à chaque partie |
+| Coût | jusqu'à plusieurs secondes (solveur) | une lecture de JSON |
+| Qui l'appelle | les outils, les tests | `src/data/api.js`, donc tout le jeu |
+
+L'application **ne génère plus rien**. Modifier le générateur sans lancer
+`node tools/build-levels.mjs` ne change donc strictement rien au jeu.
+
+### La chaîne d'appels, dans l'ordre
+
+Tout part de `getLevel(n)` (le générateur). Chaque étape est une fonction de
+`src/core/levels.js`, sauf mention contraire.
+
+**1. `realmDe(n)` → la ligne du monde.** Découpe par `LEVELS_PER_REALM` (20) et
+rend l'entrée de `REALMS`. Un monde = une ligne : grille `W`/`H`, `colorCount`,
+`gateCount`, les rampes `[début, fin]` de chaque ingrédient, la teinte et la
+palette.
+
+**2. `curve(n)` → les paramètres de CE niveau.** Interpole chaque rampe du monde
+sur les vingt niveaux (`rampe([a, b])`), et surtout **déduit `blockCount` de la
+SURFACE**, pas d'une rampe absolue — corrigé par la taille moyenne des formes
+autorisées (`formesMin`). C'est ce qui garde une grille aussi remplie au premier
+niveau d'un monde qu'au dernier du précédent, alors que la grille vient de
+grandir.
+
+**3. `build(n)` → la grille.** Le cœur. RNG seedé par `mulberry32(n)` : **le
+niveau *n* rend toujours la même grille**. La fonction tente `TENTATIVES`
+candidates (220, ou 700 dans un monde `exigeant`) et garde la meilleure.
+
+Pour **chaque** candidate :
+
+| Ordre | Fonction / étape | Ce qu'elle fait |
+|---|---|---|
+| a | `makeGates(p, rng)` | **Les portes AVANT les blocs** — une par couleur, réparties sans chevauchement. `porteLarge` fixe la part de portes de 3 cases ; `portesPartagees` en fait accepter deux couleurs. |
+| b | *murs* | Posés en premier dans la grille : les chemins seront creusés en les évitant. |
+| c | `poseAuPorte()` + `peutSortirDeSaPorte()` | **Pose à l'envers** : le bloc entre par sa porte, et l'on vérifie tout de suite qu'il pourrait en ressortir. C'est ce qui rend toute grille résoluble par construction. |
+| d | *marche arrière orientée* | Le bloc recule dans la grille en privilégiant la direction qui l'**éloigne** de sa porte (`distanceALaPorte()`). Un bloc resté collé à sa porte n'apporte rien. |
+| e | *types spéciaux* | Rail, ancre, encombrant — décidés **avant** la marche arrière : un type qui bride le déplacement doit reculer sous la même bride. |
+| f | *solution de référence* | Dernier posé = premier sorti. C'est la solution lue à l'envers. |
+| g | *scellés, verrous, doubles, jokers, clé* | Chacun n'est posé **que si la solution de référence le satisfait déjà** — jamais l'inverse. |
+| h | *capacité des portes* | Provisionnée avec `coutCapacite()` de `src/core/block.js` — **le seul point de vérité**, partagé avec le moteur et le solveur. `marge` accorde le rab. |
+| i | `portesUtiles(gates, blocks)` | Retire les portes qu'aucun bloc posé ne peut emprunter. Voir « Pièges ». |
+| j | *note* | `densité + éloignement/8 + charge/3 − pénalité de couleur dominante`. La meilleure note gagne. |
+
+**4. Départage des mondes `exigeant`.** Au lieu de la plus dense, on garde la
+grille qui fait le plus **revenir le solveur sur ses pas** : `exigenceDe(c)`
+compte les états explorés, avec le budget de `budgetExigence()`. On s'arrête dès
+qu'une candidate atteint `exigenceCible` × nombre de blocs. C'est le seul levier
+de difficulté qui passe encore à l'échelle, et il coûte des secondes par niveau.
+
+**5. `mesureGestes()` → `minDrags`.** Rejoue la solution de référence de façon
+**gloutonne** : à chaque glissé, on pousse le bloc aussi loin qu'il peut aller.
+C'est le nombre de gestes d'un joueur qui connaîtrait la solution — la référence
+de tout le barème.
+
+**6. Retour dans `getLevel(n)` : l'habillage chiffré.**
+
+| Champ | D'où il vient |
+|---|---|
+| `starDrags` | `seuilsEtoiles(minDrags)` — `src/core/etoiles.js`, **seul endroit qui décide d'une note** |
+| `moveLimit` | `starDrags[1]` + une marge proportionnelle. Un **filet**, pas un barème : toujours au-dessus du seuil 2★, sinon une note promise devient inatteignable |
+| `timeLimit` | calé sur le nombre de blocs **jouables**, pas sur les gestes |
+| `objective` | `clear_all`, cible = blocs hors murs |
+| `solution` | conservée : elle sert aux tests, à `tools/balance.mjs` et aux indices |
+
+Le facteur `serre` resserre `moveLimit` et `timeLimit` sur **toute** la
+progression (−30 % du premier au dernier niveau), et non sur les vingt premiers.
+
+### Je veux changer… → je touche…
+
+| Besoin | Endroit |
+|---|---|
+| La taille de grille, le nombre de couleurs ou de portes d'un monde | la ligne du monde dans `REALMS` |
+| La quantité de murs / rails / ancres / encombrants / verrous | la rampe `[début, fin]` de cette ligne |
+| La densité, donc le nombre de blocs | `densite` sur la ligne, lu par `curve()` |
+| Interdire les petites pièces | `formesMin` sur la ligne |
+| Rendre un monde exigeant | `exigeant` / `exigenceCible` sur la ligne |
+| La forme des portes | `makeGates()`, ou `porteLarge` / `portesPartagees` sur la ligne |
+| La façon dont un bloc recule | la marche arrière dans `build()`, et `distanceALaPorte()` |
+| Le barème des étoiles | `src/core/etoiles.js` — **jamais ailleurs** |
+| La limite de coups ou de temps | fin de `getLevel()`, dans `src/core/levels.js` |
+| Le comptage des gestes de référence | `mesureGestes()` |
+
+### Après TOUTE modification du générateur
+
+```bash
+node tools/build-levels.mjs      # obligatoire — le jeu lit levels/, pas le générateur
+node tools/test.mjs --solveur    # la comparaison base/générateur et la résolubilité
+node tools/balance.mjs           # le tableau, et les alertes de densité
+node tools/publier.mjs           # resynchroniser docs/
+```
+
+`--solveur` se justifie ici, et seulement ici : c'est le cas exact où les deux
+passes coûteuses ont quelque chose à dire.
+
+### Ce qui casse en silence
+
+- **Toucher `REALMS` sans régénérer** n'a aucun effet sur le jeu.
+- **`shuffled(rng, …)` consomme le RNG même quand la boucle qui suit ne fait
+  rien.** Un tirage inutile décale toutes les grilles suivantes — d'où les
+  gardes `if (monde en demande)` avant chaque tirage optionnel.
+- **Rien de ce qui décide d'une grille ne doit dépendre de `TOTAL_LEVELS`**,
+  sinon ajouter des niveaux modifie tous les précédents.
+- **Un type qui bride le déplacement doit reculer sous la même bride**, sinon la
+  solution de référence n'est pas rejouable par le moteur.
 
 ---
 
@@ -170,6 +302,11 @@ Chacun a coûté une session de débogage. Les relire évite de les repayer.
 - **`level.number === 0`** signale une partie hors progression (éditeur, puzzle
   du jour). Ne jamais appeler `completeLevel()` dessus.
 - **Renommer une valeur de traduction** : ne pas toucher aux noms de clés.
+- **`makeGates()` ouvre les portes AVANT de poser le moindre bloc**, une par
+  couleur du monde. Si la pose à l'envers n'arrive jamais à faire entrer un bloc
+  par l'une d'elles, la porte reste sans clientèle — 125 portes sur 117 niveaux
+  servaient une couleur absente de leur grille. `portesUtiles()` fait le ménage
+  en fin de `build()`, et un test le vérifie sur toute la base.
 
 ---
 

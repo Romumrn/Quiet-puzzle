@@ -27,8 +27,9 @@
  * soit, et un `fetch` sur `file://` échouerait. Vide, on passe par le réseau.
  */
 import { t } from '../ui/i18n.js';
+import { seuilsEtoiles } from '../core/etoiles.js';
 
-export const EMBARQUE = { index: null, mondes: {} };
+export const EMBARQUE = { index: null, mondes: {}, calibration: null };
 
 const RACINE = 'levels';
 
@@ -51,7 +52,63 @@ async function lire(chemin, embarque) {
 export async function ouvrir() {
   if (index) return index;
   index = await lire('index.json', EMBARQUE.index);
+  if (index.calibration) await chargerCalibration(index.calibration);
   return index;
+}
+
+// --- Calibration du barème d'étoiles ---------------------------------------
+
+/**
+ * Référence corrigée par les parties réellement jouées : `levelId -> glissés`.
+ *
+ * Le glissé de référence d'un niveau vaut ce que vaut la solution trouvée à la
+ * génération. Ce n'est pas une borne : un joueur qui vide la grille en moins de
+ * coups prouve simplement que le générateur n'avait pas trouvé le mieux. Le
+ * barème doit alors suivre, sans quoi trois étoiles finissent par ne plus rien
+ * dire sur les niveaux que les joueurs ont appris à optimiser.
+ *
+ * La POLITIQUE — quel percentile des parties gagnées fait référence, à partir
+ * de combien de parties — appartient au serveur : c'est lui qui voit toutes les
+ * parties, le client n'en voit qu'une. Ici, on applique ce qu'on reçoit, avec
+ * deux garde-fous seulement.
+ *
+ * Ce recalage ne peut RIEN retirer : les étoiles enregistrées le sont par
+ * `Math.max` dans `api.completeLevel()`. Une référence resserrée rend un futur
+ * 3★ plus dur, jamais un 3★ déjà obtenu caduc.
+ *
+ * Aujourd'hui aucun fichier n'est servi et rien n'est chargé — pas même une
+ * requête : la base ne va le chercher que si son index l'annonce.
+ */
+const calibration = new Map();
+
+async function chargerCalibration(chemin) {
+  try {
+    const table = await lire(chemin, EMBARQUE.calibration);
+    for (const [levelId, glissés] of Object.entries(table)) calibration.set(levelId, glissés);
+  } catch {
+    // Une calibration absente ou illisible n'empêche pas de jouer : on garde
+    // les seuils livrés avec la base.
+  }
+}
+
+/**
+ * Applique la calibration à un niveau, en place.
+ *
+ * Elle ne touche QUE le barème. La limite de coups reste celle de la base :
+ * c'est le filet qui décide d'une défaite, donc du taux d'échec et de tout ce
+ * qui en dépend — l'écran de défaite, les offres. La déplacer d'après des
+ * mesures est une décision de jeu, pas une calibration, et elle ne se prend pas
+ * ici. Resserrer la seule référence est sans danger de ce côté : les seuils
+ * descendent, le filet ne bouge pas et reste donc au-dessus d'eux.
+ */
+function calibrer(level) {
+  const ref = calibration.get(level.levelId);
+  // Une valeur hors de tout sens — nulle, négative, ou au-delà de la limite de
+  // coups — ne dit rien du niveau : on garde ce que la base a livré.
+  if (!Number.isInteger(ref) || ref < 1 || ref > level.moveLimit) return level;
+  level.minDrags = ref;
+  level.starDrags = seuilsEtoiles(ref);
+  return level;
 }
 
 const exigeOuvert = () => {
@@ -98,7 +155,7 @@ export async function getLevel(n) {
   if (!parNumero.has(n)) await chargerMonde(realmDe(n).id);
   const niveau = parNumero.get(n);
   if (!niveau) throw new Error(`Niveau ${n} absent de la base`);
-  return structuredClone(niveau);
+  return calibrer(structuredClone(niveau));
 }
 
 /** Précharge un monde entier — pour lisser l'entrée dans un nouveau décor. */

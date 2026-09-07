@@ -62,6 +62,11 @@ export function contexteNiveau(level, { essai = 1, board = null, duree = null } 
     attempt: essai,
     duration: duree,
     moves: board ? board.dragsUsed() : null,
+    // La référence EN VIGUEUR au moment de la partie. Sans elle, `moves` ne se
+    // compare à rien côté serveur : impossible de dire qu'un joueur a battu la
+    // solution connue, ni de repérer un client resté sur une ancienne
+    // calibration. C'est la mesure qui rendra le recalage du barème possible.
+    min_drags: level?.minDrags ?? null,
     stars: board ? board.stars() : null,
   };
 }

@@ -110,12 +110,14 @@ for (const chemin of [...new Set(audios)]) {
  * script remplit : le lecteur passe par lui quand il est garni, par le réseau
  * sinon. Aucune ligne du jeu ne change entre les deux modes.
  */
-const base = { index: null, mondes: {} };
+const base = { index: null, mondes: {}, calibration: null };
 base.index = JSON.parse(read('levels/index.json'));
 for (const monde of base.index.realms) base.mondes[monde.fichier] = JSON.parse(read(`levels/${monde.fichier}`));
+// La calibration du barème n'existe que si la base l'annonce (voir levelStore).
+if (base.index.calibration) base.calibration = JSON.parse(read(`levels/${base.index.calibration}`));
 const poidsBase = JSON.stringify(base).length;
 bundle = bundle.replace(
-  'const EMBARQUE = { index: null, mondes: {} };',
+  'const EMBARQUE = { index: null, mondes: {}, calibration: null };',
   `const EMBARQUE = ${JSON.stringify(base)};`,
 );
 if (!bundle.includes('const EMBARQUE = {"index"')) {

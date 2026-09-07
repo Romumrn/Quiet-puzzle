@@ -16,9 +16,10 @@
  * Chaque objet respecte la forme de `GET /api/level/{levelNumber}` (doc §6.1).
  */
 
-import { SHAPES, KIND, coutCapacite } from './block.js';
+import { SHAPES, KIND, coutCapacite, couleursDe } from './block.js';
 import { Board, SIDES as VECTEURS_SORTIE } from './board.js';
 import { resoudre } from './solver.js';
+import { seuilsEtoiles } from './etoiles.js';
 
 /**
  * Un monde tient sur vingt niveaux et se définit par une seule ligne de la
@@ -647,6 +648,37 @@ function makeGates({ W, H, colorCount, gateCount, porteLarge, portesPartagees },
 }
 
 /**
+ * Ne garde que les portes qu'un bloc posé peut réellement emprunter.
+ *
+ * Les portes sont ouvertes AVANT le moindre bloc — une par couleur du monde —
+ * et la pose à l'envers part d'elles. Quand elle n'arrive jamais à faire entrer
+ * un bloc par l'une d'elles (murs, capacité, forme trop grande, ou quota de
+ * blocs atteint avant son tour), la porte reste sans clientèle. Ce n'est pas
+ * une difficulté mais un FAUX INDICE : le joueur cherche des blocs d'une
+ * couleur qui n'est pas dans la grille. Il y en avait 125, sur 117 niveaux.
+ *
+ * Les retirer ne peut rien casser : une porte qu'aucun bloc n'accepte
+ * n'apparaît dans aucune solution — les étapes désignent un CÔTÉ, pas un
+ * index — et la capacité est provisionnée porte par porte.
+ *
+ * Un joker sort par n'importe quelle porte : sa présence les rend toutes
+ * utiles, et il n'y a rien à retirer.
+ */
+function portesUtiles(gates, blocks) {
+  if (blocks.some((b) => b.kind === KIND.JOKER)) return gates;
+  const couleurs = new Set();
+  for (const b of blocks) {
+    if (b.kind === KIND.WALL) continue;
+    for (const c of couleursDe(b)) if (c >= 0) couleurs.add(c);
+  }
+  const utiles = gates.filter((g) => couleursDe(g).some((c) => couleurs.has(c)));
+  // Garde-fou : une grille sans porte ne se joue pas. Le cas ne peut pas se
+  // produire — tout bloc est entré par une porte — mais l'invariant coûte une
+  // ligne et la panne coûterait un niveau injouable.
+  return utiles.length ? utiles : gates;
+}
+
+/**
  * Distance d'une forme à sa porte, en cases. C'est la mesure que la marche
  * arrière cherche à maximiser : un bloc posé juste devant sa porte ne pose
  * aucune question au joueur.
@@ -1110,7 +1142,10 @@ function build(n) {
     const charge = poses.length / p.blockCount;
     const note = densite + eloignementMoyen / 8 + charge / 3
       - 1.6 * Math.max(0, dominante - 0.4);
-    const candidate = { W, H, gates, blocks, solution, occupees, note, eloignementMoyen, dominante, colorCount: p.colorCount };
+    // Le filtre s'applique AVANT la mesure de difficulté : ce que le solveur
+    // pèse doit être exactement la grille qui sera livrée.
+    const candidate = { W, H, gates: portesUtiles(gates, blocks), blocks, solution,
+      occupees, note, eloignementMoyen, dominante, colorCount: p.colorCount };
     if (!meilleure || note > meilleure.note) meilleure = candidate;
 
     if (p.exigeant) {
@@ -1166,13 +1201,7 @@ export function getLevel(n) {
   // avant la fin du premier monde et n'avait plus rien à donner ensuite.
   const serre = 1 - 0.3 * ((n - 1) / (TOTAL_LEVELS - 1));
 
-  /**
-   * Barème des étoiles, indexé sur la solution de référence. Une fraction de
-   * `moveLimit` ne marchait pas : la limite de coups se resserrant avec la
-   * progression, un joueur parfait plafonnait à 2★ passé le niveau 7. Ici,
-   * bien jouer paie à tout niveau.
-   */
-  const starDrags = [Math.ceil(g.minDrags * 1.3), Math.ceil(g.minDrags * 1.8)];
+  const starDrags = seuilsEtoiles(g.minDrags);
 
   /**
    * La limite de coups est un FILET, pas un barème — c'est le chrono qui porte
