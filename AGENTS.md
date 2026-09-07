@@ -11,6 +11,8 @@ modules ES.
 ```
 prototype/          les sources — c'est ici qu'on travaille
 prototype/levels/   la base de niveaux en JSON — ce que le jeu lit vraiment
+prototype/images/   les décors de la carte, une branche par monde
+prototype/docs/     les manuels : création de niveaux, décor de la carte
 docs/               le site publié — sources modulaires, produit par tools/publier.mjs
 media/              captures du README
 ```
@@ -54,6 +56,8 @@ media/              captures du README
 | Glisser au doigt | `src/input/input.js` |
 | Écran de résultat (victoire / défaite) | `src/ui/resultScreen.js` |
 | Carte des niveaux | `src/ui/mapScreen.js` |
+| Décor de la carte (les branches qui défilent) | `styles/main.css` — `.realm::before` et les trente règles `nth-child` ; les images sont dans `images/branches/`, produites par `tools/gen_30.py`. **Voir [docs/decor-de-la-carte.md](prototype/docs/decor-de-la-carte.md)** |
+| Nom d'un monde | `src/core/levels.js` — champ `nom` de `REALMS` ; **relancer `build-levels.mjs`**, le nom est recopié dans chaque niveau |
 | HUD en partie (temps, blocs, étoiles) | `src/ui/gameplayUI.js` |
 | Couleurs, thèmes, teintes | `src/ui/theme.js` + `src/meta/themes.js` |
 | Éditeur de niveaux | `src/ui/editor.js` |
