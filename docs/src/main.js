@@ -24,7 +24,7 @@ import * as editor from './ui/editor.js';
 import { resoudre } from './core/solver.js';
 import * as hud from './ui/gameplayUI.js';
 import * as result from './ui/resultScreen.js';
-import { AdManager, PLACEMENT } from './monetization/adManager.js';
+import { RegieManager, PLACEMENT } from './monetization/regieManager.js';
 import * as currency from './monetization/currency.js';
 import * as failOffer from './monetization/failOffer.js';
 import * as daily from './meta/daily.js';
@@ -70,7 +70,7 @@ let modeMarteau = false;
 
 const audio = new AudioManager();
 
-const ads = new AdManager({
+const ads = new RegieManager({
   overlay: el('overlay-ad'),
   banner: el('banner'),
 });

@@ -29,7 +29,7 @@ export const REGLES = Object.freeze({
 /** Écrans où une bannière est acceptable. Jamais pendant une partie. */
 const ECRANS_BANNIERE = new Set(['menu', 'map', 'brief']);
 
-export class AdPolicy {
+export class RegiePolicy {
   constructor(regles = REGLES, now = () => Date.now()) {
     this.regles = regles;
     this.now = now;

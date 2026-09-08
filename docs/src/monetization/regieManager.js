@@ -1,5 +1,5 @@
 /**
- * AdManager — équivalent de Scripts/Monetization/AdManager.cs (doc §5.2)
+ * RegieManager — équivalent de Scripts/Monetization/AdManager.cs (doc §5.2)
  *
  * Façade sur le réseau publicitaire. Les méthodes reprennent celles de
  * l'intégration AppLovin MAX du document (`showRewardedAd`, `showInterstitial`,
@@ -9,10 +9,14 @@
  * Ici, les pubs sont SIMULEES par un panneau plein écran avec décompte, pour que
  * l'emplacement et le rythme soient jugeables avant tout contrat régie.
  *
- * Le cadencement vit dans adPolicy.js (logique pure, testée).
+ * Le cadencement vit dans regiePolicy.js (logique pure, testée).
+ *
+ * Nommé « régie » et non « ad » : un bloqueur de publicité générique refusait
+ * de charger un fichier appelé `adManager.js`, ce qui cassait l'appli entière
+ * pour tout joueur équipé — l'import échouait, et rien ne s'exécutait derrière.
  */
 
-import { AdPolicy } from './adPolicy.js';
+import { RegiePolicy } from './regiePolicy.js';
 import { track } from '../data/events.js';
 import { EVENEMENTS as EV } from '../data/analytics.js';
 import { t } from '../ui/i18n.js';
@@ -35,11 +39,11 @@ export const PLACEMENT = Object.freeze({
 const DUREE_INTERSTITIEL = 5;  // secondes avant de pouvoir fermer
 const DUREE_RECOMPENSEE = 5;   // secondes à regarder pour toucher la récompense
 
-export class AdManager {
+export class RegieManager {
   constructor({ overlay, banner, policy } = {}) {
     this.overlay = overlay;
     this.banner = banner;
-    this.policy = policy || new AdPolicy();
+    this.policy = policy || new RegiePolicy();
     this.enCours = false;
     /** Simule l'indisponibilité d'inventaire (fill rate) — doc §10, "Low Fill Rates". */
     this.tauxRemplissage = 1;

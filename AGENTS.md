@@ -71,8 +71,8 @@ media/              captures du README
 |---|---|---|
 | Prix, packs, pubs → éclats | `src/monetization/currency.js` | `PRIX`, `PACKS`, `PUB_RECOMPENSE` |
 | Gains par niveau | `src/data/api.js` | `PIECES_PAR_ETOILE`, `piecesPour()` |
-| Quand une pub s'affiche | `src/monetization/adPolicy.js` | `REGLES` |
-| Lecture des pubs (simulées) | `src/monetization/adManager.js` | `PLACEMENT`, `AdManager` |
+| Quand une pub s'affiche | `src/monetization/regiePolicy.js` | `REGLES` |
+| Lecture des pubs (simulées) | `src/monetization/regieManager.js` | `PLACEMENT`, `RegieManager` |
 | Écran de défaite / continuer | `src/monetization/failOffer.js` | `proposer()`, `BONUS` |
 | Boutique | `src/main.js` | `majBoutique()` (~l. 944) |
 
@@ -311,6 +311,13 @@ Chacun a coûté une session de débogage. Les relire évite de les repayer.
   par l'une d'elles, la porte reste sans clientèle — 125 portes sur 117 niveaux
   servaient une couleur absente de leur grille. `portesUtiles()` fait le ménage
   en fin de `build()`, et un test le vérifie sur toute la base.
+- **Un fichier appelé `adManager.js` ou `adPolicy.js` se fait bloquer par les
+  bloqueurs de pub génériques** (`net::ERR_BLOCKED_BY_CLIENT`) — même quand les
+  pubs qu'il gère sont entièrement simulées. L'import statique de `main.js`
+  échoue alors, et l'appli entière reste inerte, boutons compris, chez tout
+  joueur équipé. D'où `src/monetization/regieManager.js` /
+  `regiePolicy.js` : « régie » ne matche aucun filtre. Le même risque plane sur
+  tout futur fichier dont le nom contiendrait `ad`, `banner` ou `pub` en anglais.
 
 ---
 

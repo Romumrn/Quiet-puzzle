@@ -599,9 +599,9 @@ console.log('\n== Nomenclature des évènements ==');
 
 console.log('\n== Cadencement publicitaire ==');
 {
-  const { AdPolicy, REGLES } = await import('../src/monetization/adPolicy.js');
+  const { RegiePolicy, REGLES } = await import('../src/monetization/regiePolicy.js');
   let t = 1_000_000;
-  const p = new AdPolicy(REGLES, () => t);
+  const p = new RegiePolicy(REGLES, () => t);
   const ctx = (o = {}) => ({ niveau: 10, noAds: false, premiereDefaiteDuNiveau: false, ...o });
 
   // Assez de fins de niveau pour être éligible

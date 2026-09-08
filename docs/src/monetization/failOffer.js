@@ -15,7 +15,7 @@
  */
 
 import * as currency from './currency.js';
-import { PLACEMENT } from './adManager.js';
+import { PLACEMENT } from './regieManager.js';
 import { track } from '../data/events.js';
 import { EVENEMENTS as EV } from '../data/analytics.js';
 import { t } from '../ui/i18n.js';

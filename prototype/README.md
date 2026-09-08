@@ -258,7 +258,7 @@ parties n'en voient jamais : celles de l'éditeur, le puzzle du jour, et un
 simple rejeu après échec.
 
 Le travail n'est pas l'intégration du SDK, qui est mécanique, mais le
-**cadencement** — `src/monetization/adPolicy.js`, logique pure et testée :
+**cadencement** — `src/monetization/regiePolicy.js`, logique pure et testée :
 
 - aucune interstitielle avant le niveau 3, ni sur la **première défaite** d'un
   niveau : c'est exactement le moment où le joueur veut recommencer, et
@@ -431,8 +431,8 @@ atteignables.
 | `src/input/input.js` | `Gameplay/InputHandler.cs` |
 | `src/render/boardView.js` | `Animation/BlockAnimator.cs` + `VFXManager.cs` |
 | `src/core/solver.js` | — (outil d'auteur, pas de portage requis) |
-| `src/monetization/adManager.js` | `Monetization/AdManager.cs` |
-| `src/monetization/adPolicy.js` | — (cadencement, à porter dans `AdManager`) |
+| `src/monetization/regieManager.js` | `Monetization/AdManager.cs` |
+| `src/monetization/regiePolicy.js` | — (cadencement, à porter dans `AdManager`) |
 | `src/monetization/failOffer.js` | `Monetization/FailOfferController.cs` |
 | `src/monetization/currency.js` | `Monetization/CurrencyManager.cs` |
 | `src/data/events.js` | `Backend/EventTracker.cs` |
