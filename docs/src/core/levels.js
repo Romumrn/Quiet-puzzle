@@ -49,7 +49,7 @@ export const REALMS = [
     palette: ['#eb9aad', '#93bde4', '#97cfb6', '#e9cd8c', '#bdaadd', '#f0b18b'],
     nouveaute: null,
     apporte: { fr: 'Les blocs et leurs portes', en: 'Blocks and their gates', es: 'Los bloques y sus puertas', it: 'I blocchi e le loro porte', zh: '方块与它们的门' },
-    W: 5, H: 6, colorCount: 3, gateCount: 3,
+    W: 5, H: 5, colorCount: 3, gateCount: 3,
     murs: [0, 0], verrous: [0, 0], rails: [0, 0], ancres: [0, 0], encombrants: [0, 0],
     jokers: 0, marge: null, scelleCouleur: false,
   },
@@ -97,7 +97,7 @@ export const REALMS = [
     palette: ['#dd9b95', '#96b6cc', '#9fc9a4', '#d9bd7f', '#b2a6c9', '#e0a97f'],
     nouveaute: KIND.JOKER,
     apporte: { fr: 'Le joker, qui sort par où il veut', en: 'The joker, which leaves by any gate', es: 'El comodín, que sale por donde quiere', it: 'Il jolly, che esce da dove vuole', zh: '万能方块，任意门皆可' },
-    W: 7, H: 8, colorCount: 5, gateCount: 5,
+    W: 6, H: 8, colorCount: 5, gateCount: 5,
     murs: [2, 4], verrous: [1, 3], rails: [4, 9], ancres: [0, 0], encombrants: [0, 0],
     jokers: 1, marge: 2, scelleCouleur: false,
   },
@@ -109,7 +109,7 @@ export const REALMS = [
     palette: ['#ec9cc0', '#8ec7d9', '#93cf8e', '#dfd083', '#c1a3dc', '#efb28f'],
     nouveaute: KIND.ANCRE,
     apporte: { fr: 'Ancres, qui n’avancent que vers leur porte', en: 'Anchors, which only move towards their gate', es: 'Anclas, que solo avanzan hacia su puerta', it: 'Ancore, che avanzano solo verso la loro porta', zh: '锚块，只朝自己的门前进' },
-    W: 7, H: 9, colorCount: 6, gateCount: 6,
+    W: 7, H: 8, colorCount: 6, gateCount: 6,
     murs: [2, 5], verrous: [1, 3], rails: [4, 9], ancres: [1, 4], encombrants: [0, 0],
     jokers: 1, marge: 1, scelleCouleur: false,
   },
@@ -121,7 +121,7 @@ export const REALMS = [
     palette: ['#d792bb', '#8bacdf', '#8ecdc0', '#e6cd90', '#a99ae0', '#e5a3a0'],
     nouveaute: KIND.ENCOMBRANT,
     apporte: { fr: 'Encombrants, qui coûtent double à leur porte', en: 'Heavy blocks, which cost their gate double', es: 'Voluminosos, que cuestan el doble a su puerta', it: 'Ingombranti, che costano il doppio alla loro porta', zh: '笨重方块，占用双倍容量' },
-    W: 8, H: 9, colorCount: 6, gateCount: 6,
+    W: 7, H: 8, colorCount: 6, gateCount: 6,
     murs: [3, 5], verrous: [2, 3], rails: [5, 10], ancres: [2, 5], encombrants: [1, 4],
     jokers: 1, marge: 1, scelleCouleur: false,
   },
@@ -133,7 +133,7 @@ export const REALMS = [
     palette: ['#ef8fa6', '#85b8e8', '#8ad4b1', '#f0cd7e', '#b99ae6', '#f4ab84'],
     nouveaute: 'scelle-couleur',
     apporte: { fr: 'Des scellés qui attendent qu’une couleur ait disparu', en: 'Seals that wait for a whole colour to be gone', es: 'Sellos que esperan a que un color desaparezca', it: 'Sigilli che attendono la scomparsa di un colore', zh: '颜色封印：某色清空才解锁' },
-    W: 8, H: 10, colorCount: 6, gateCount: 7,
+    W: 8, H: 8, colorCount: 6, gateCount: 7,
     murs: [3, 6], verrous: [2, 4], rails: [6, 12], ancres: [3, 6], encombrants: [2, 5],
     // Ce monde fermait autrefois le jeu, et son réglage le disait : plus de
     // joker, plus un pouce de marge. Devenu le huitième sur dix-huit, ce pic au
@@ -150,7 +150,7 @@ export const REALMS = [
     palette: ['#e0a08e', '#8fb9d6', '#a3ca9a', '#e3c37f', '#b7a4d4', '#dfa77f'],
     nouveaute: KIND.DOUBLE,
     apporte: { fr: 'Blocs bicolores, qui hésitent entre deux portes', en: 'Two-colour blocks, torn between two gates', es: 'Bloques bicolores, que dudan entre dos puertas', it: 'Blocchi bicolori, indecisi fra due porte', zh: '双色方块，可走两种门' },
-    W: 8, H: 10, colorCount: 6, gateCount: 7,
+    W: 8, H: 8, colorCount: 6, gateCount: 7,
     murs: [3, 6], verrous: [2, 4], rails: [6, 12],
     ancres: [3, 6], encombrants: [2, 5], doubles: [1, 4],
     jokers: 1, marge: 1, scelleCouleur: false,
@@ -163,7 +163,7 @@ export const REALMS = [
     palette: ['#dd8f96', '#8aa9cc', '#93c197', '#dcbd7c', '#ac9ccc', '#dc9d84'],
     nouveaute: 'porte-etroite',
     apporte: { fr: 'Des portes de deux cases, jamais plus', en: 'Gates two cells wide, never more', es: 'Puertas de dos casillas, nunca más', it: 'Porte di due caselle, mai di più', zh: '门宽只有两格' },
-    W: 8, H: 10, colorCount: 6, gateCount: 7,
+    W: 8, H: 8, colorCount: 6, gateCount: 7,
     murs: [4, 6], verrous: [3, 4], rails: [7, 12],
     ancres: [4, 7], encombrants: [3, 6], doubles: [1, 3],
     porteLarge: 0.0,
@@ -177,7 +177,7 @@ export const REALMS = [
     palette: ['#d18fa8', '#7fa4d8', '#87c3ae', '#d9c084', '#a396d6', '#d59a94'],
     nouveaute: 'grosses-formes',
     apporte: { fr: 'Plus une seule pièce d’une case', en: 'Not a single one-cell piece left', es: 'Ni una sola pieza de una casilla', it: 'Non più un solo pezzo da una casella', zh: '不再有单格方块' },
-    W: 8, H: 10, colorCount: 6, gateCount: 7,
+    W: 9, H: 8, colorCount: 6, gateCount: 7,
     murs: [3, 6], verrous: [3, 4], rails: [7, 13],
     ancres: [4, 7], encombrants: [3, 6], doubles: [1, 3],
     formesMin: 2, densite: [0.26, 0.33],
@@ -191,7 +191,7 @@ export const REALMS = [
     palette: ['#cf94a4', '#84b4cc', '#8fc98f', '#d4c286', '#a89dd0', '#d9a68a'],
     nouveaute: 'porte-partagee',
     apporte: { fr: 'Des portes qui servent deux couleurs à la fois', en: 'Gates serving two colours at once', es: 'Puertas que sirven a dos colores a la vez', it: 'Porte che servono due colori insieme', zh: '一门通两色' },
-    W: 8, H: 10, colorCount: 6, gateCount: 7,
+    W: 9, H: 8, colorCount: 6, gateCount: 7,
     murs: [4, 6], verrous: [3, 5], rails: [7, 13],
     ancres: [4, 7], encombrants: [3, 6], doubles: [1, 3],
     portesPartagees: [1, 3],
@@ -205,7 +205,7 @@ export const REALMS = [
     palette: ['#d68fb0', '#8ba6d4', '#8ccbb4', '#dfc57f', '#ab97d8', '#e0a292'],
     nouveaute: 'cle',
     apporte: { fr: 'Une clé, dont la sortie ouvre tous les verrous', en: 'A key whose exit opens every lock', es: 'Una llave cuya salida abre todos los cerrojos', it: 'Una chiave la cui uscita apre tutte le serrature', zh: '一把钥匙，出门即开所有锁' },
-    W: 8, H: 10, colorCount: 6, gateCount: 7,
+    W: 9, H: 9, colorCount: 6, gateCount: 7,
     murs: [4, 6], verrous: [3, 5], rails: [7, 13],
     ancres: [4, 7], encombrants: [3, 6], doubles: [1, 3],
     portesPartagees: [2, 3], densite: [0.26, 0.34],
@@ -219,7 +219,7 @@ export const REALMS = [
     palette: ['#cd8c9e', '#7fa8c8', '#84c2a4', '#d3bd7a', '#a291cc', '#d29a88'],
     nouveaute: null,
     apporte: { fr: 'Des grilles remplies aux trois quarts', en: 'Grids packed three quarters full', es: 'Cuadrículas llenas en tres cuartos', it: 'Griglie piene per tre quarti', zh: '棋盘塞满四分之三' },
-    W: 9, H: 10, colorCount: 6, gateCount: 8,
+    W: 9, H: 9, colorCount: 6, gateCount: 8,
     murs: [4, 7], verrous: [3, 5], rails: [8, 14],
     ancres: [5, 8], encombrants: [3, 7], doubles: [1, 3],
     portesPartagees: [1, 2], densite: [0.27, 0.35],
@@ -233,7 +233,7 @@ export const REALMS = [
     palette: ['#dba38c', '#8fb2c4', '#9ec69b', '#dcc07e', '#b19dc8', '#d9a17e'],
     nouveaute: null,
     apporte: { fr: 'Tous les blocs du jeu, dans la même grille', en: 'Every block in the game, on one grid', es: 'Todos los bloques del juego en una misma cuadrícula', it: 'Tutti i blocchi del gioco, nella stessa griglia', zh: '所有方块类型齐聚一盘' },
-    W: 9, H: 10, colorCount: 6, gateCount: 8,
+    W: 9, H: 9, colorCount: 6, gateCount: 8,
     murs: [5, 7], verrous: [4, 6], rails: [9, 15],
     ancres: [5, 9], encombrants: [4, 8], doubles: [2, 4],
     portesPartagees: [1, 3],
@@ -261,7 +261,7 @@ export const REALMS = [
     palette: ['#c88fa0', '#7ea6cc', '#7fc3a2', '#ccba7c', '#9c8ecd', '#cd9885'],
     nouveaute: null,
     apporte: { fr: 'Les plus vastes grilles du jeu', en: 'The largest grids in the game', es: 'Las cuadrículas más amplias del juego', it: 'Le griglie più vaste del gioco', zh: '全游戏最大的棋盘' },
-    W: 9, H: 11, colorCount: 6, gateCount: 8,
+    W: 9, H: 10, colorCount: 6, gateCount: 8,
     murs: [5, 8], verrous: [4, 6], rails: [10, 16],
     ancres: [6, 10], encombrants: [5, 9], doubles: [2, 4],
     portesPartagees: [2, 3], porteLarge: 0.2, formesMin: 2, densite: [0.26, 0.33],
@@ -1138,9 +1138,17 @@ function build(n) {
       // sur sa porte d'origine, l'envoyer ailleurs affamerait cette autre porte
       // et rendrait le niveau infaisable — sans que le joueur puisse le prévoir.
       // On provisionne donc sa taille sur TOUTES les portes.
+      //
+      // Sur TOUTES, sans exception : une porte que la solution de référence
+      // n'emprunte jamais (deux portes de la même couleur, une seule retenue
+      // par la pose à l'envers) restait sans capacité — illimitée pour le
+      // moteur. Le joueur pouvait alors vider n'importe quel bloc de cette
+      // couleur par cette porte libre, contournant toute l'énigme de
+      // capacité. Dès qu'une porte du niveau est limitée, aucune ne doit
+      // rester sans compteur.
       for (const g of gates) {
         const besoin = demande.get(g) || 0;
-        if (besoin > 0) g.capacity = besoin + quotaJokers + p.marge;
+        g.capacity = besoin + quotaJokers + p.marge;
       }
     }
 

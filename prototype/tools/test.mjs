@@ -266,6 +266,17 @@ console.log('\n== Portes et couleurs ==');
     orphelines.length === 0, orphelines.slice(0, 5).join(' · '));
   check('toute couleur posée a une porte pour sortir',
     sansPorte.length === 0, sansPorte.slice(0, 5).join(' · '));
+
+  // Une porte sans capacité est illimitée pour le moteur : si une seule
+  // porte du niveau est limitée, en laisser une autre libre permet de
+  // contourner toute l'énigme de capacité par elle.
+  const capacitesMixtes = [];
+  for (const L of niveaux.values()) {
+    const limitees = L.gates.filter((g) => g.capacity !== undefined).length;
+    if (limitees > 0 && limitees < L.gates.length) capacitesMixtes.push(L.number);
+  }
+  check('un niveau à portes limitées ne laisse aucune porte illimitée',
+    capacitesMixtes.length === 0, capacitesMixtes.slice(0, 5).join(', '));
 }
 
 console.log('\n== Résolubilité vérifiée indépendamment ==');
