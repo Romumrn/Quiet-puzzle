@@ -20,7 +20,7 @@ const racine = join(dirname(fileURLToPath(import.meta.url)), '..');
 const cible = process.argv[2] || join(racine, '..', 'docs');
 
 /** Ce que le navigateur demande réellement. Rien d'autre n'a à être publié. */
-const CONTENU = ['index.html', 'src', 'styles', 'levels', 'audio'];
+const CONTENU = ['index.html', 'src', 'styles', 'levels', 'audio', 'images'];
 
 rmSync(cible, { recursive: true, force: true });
 mkdirSync(cible, { recursive: true });
