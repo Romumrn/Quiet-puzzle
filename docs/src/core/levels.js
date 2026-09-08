@@ -16,7 +16,7 @@
  * Chaque objet respecte la forme de `GET /api/level/{levelNumber}` (doc §6.1).
  */
 
-import { SHAPES, KIND, coutCapacite, couleursDe } from './block.js';
+import { SHAPES, GRANDES_FORMES, KIND, coutCapacite, couleursDe } from './block.js';
 import { Board, SIDES as VECTEURS_SORTIE } from './board.js';
 import { resoudre } from './solver.js';
 import { seuilsEtoiles } from './etoiles.js';
@@ -63,7 +63,7 @@ export const REALMS = [
     apporte: { fr: 'Blocs sur glissière, portes à capacité', en: 'Blocks on rails, gates with a capacity', es: 'Bloques sobre raíles, puertas con capacidad', it: 'Blocchi su binario, porte con capienza', zh: '滑轨方块，限量的门' },
     W: 6, H: 6, colorCount: 4, gateCount: 4,
     murs: [0, 1], verrous: [0, 0], rails: [1, 5], ancres: [0, 0], encombrants: [0, 0],
-    jokers: 0, marge: 3, scelleCouleur: false,
+    jokers: 0, marge: 1, scelleCouleur: false,
   },
   {
     id: 2,
@@ -75,7 +75,7 @@ export const REALMS = [
     apporte: { fr: 'Blocs scellés, immobiles', en: 'Sealed blocks that never move', es: 'Bloques sellados, inmóviles', it: 'Blocchi sigillati, immobili', zh: '封死不动的方块' },
     W: 6, H: 7, colorCount: 4, gateCount: 4,
     murs: [1, 4], verrous: [0, 0], rails: [2, 6], ancres: [0, 0], encombrants: [0, 0],
-    jokers: 0, marge: 3, scelleCouleur: false,
+    jokers: 0, marge: 1, scelleCouleur: false,
   },
   {
     id: 3,
@@ -87,7 +87,7 @@ export const REALMS = [
     apporte: { fr: 'Verrous à décompte', en: 'Locks with a countdown', es: 'Cerrojos con cuenta atrás', it: 'Serrature con conto alla rovescia', zh: '带计数的锁' },
     W: 6, H: 8, colorCount: 5, gateCount: 5,
     murs: [1, 4], verrous: [1, 3], rails: [3, 7], ancres: [0, 0], encombrants: [0, 0],
-    jokers: 0, marge: 2, scelleCouleur: false,
+    jokers: 0, marge: 0, scelleCouleur: false,
   },
   {
     id: 4,
@@ -99,7 +99,7 @@ export const REALMS = [
     apporte: { fr: 'Le joker, qui sort par où il veut', en: 'The joker, which leaves by any gate', es: 'El comodín, que sale por donde quiere', it: 'Il jolly, che esce da dove vuole', zh: '万能方块，任意门皆可' },
     W: 6, H: 8, colorCount: 5, gateCount: 5,
     murs: [2, 4], verrous: [1, 3], rails: [4, 9], ancres: [0, 0], encombrants: [0, 0],
-    jokers: 1, marge: 2, scelleCouleur: false,
+    jokers: 1, marge: 0, scelleCouleur: false,
   },
   {
     id: 5,
@@ -111,7 +111,7 @@ export const REALMS = [
     apporte: { fr: 'Ancres, qui n’avancent que vers leur porte', en: 'Anchors, which only move towards their gate', es: 'Anclas, que solo avanzan hacia su puerta', it: 'Ancore, che avanzano solo verso la loro porta', zh: '锚块，只朝自己的门前进' },
     W: 7, H: 8, colorCount: 6, gateCount: 6,
     murs: [2, 5], verrous: [1, 3], rails: [4, 9], ancres: [1, 4], encombrants: [0, 0],
-    jokers: 1, marge: 1, scelleCouleur: false,
+    jokers: 1, marge: 0, scelleCouleur: false,
   },
   {
     id: 6,
@@ -123,7 +123,7 @@ export const REALMS = [
     apporte: { fr: 'Encombrants, qui coûtent double à leur porte', en: 'Heavy blocks, which cost their gate double', es: 'Voluminosos, que cuestan el doble a su puerta', it: 'Ingombranti, che costano il doppio alla loro porta', zh: '笨重方块，占用双倍容量' },
     W: 7, H: 8, colorCount: 6, gateCount: 6,
     murs: [3, 5], verrous: [2, 3], rails: [5, 10], ancres: [2, 5], encombrants: [1, 4],
-    jokers: 1, marge: 1, scelleCouleur: false,
+    jokers: 1, marge: 0, scelleCouleur: false,
   },
   {
     id: 7,
@@ -140,7 +140,7 @@ export const REALMS = [
     // milieu du parcours rendait les quatre mondes suivants plus faciles que
     // lui. La capacité exacte revient donc au tout dernier monde, à qui elle
     // appartient.
-    jokers: 1, marge: 1, scelleCouleur: true,
+    jokers: 1, marge: 0, scelleCouleur: true,
   },
   {
     id: 8,
@@ -153,7 +153,7 @@ export const REALMS = [
     W: 8, H: 8, colorCount: 6, gateCount: 7,
     murs: [3, 6], verrous: [2, 4], rails: [6, 12],
     ancres: [3, 6], encombrants: [2, 5], doubles: [1, 4],
-    jokers: 1, marge: 1, scelleCouleur: false,
+    jokers: 1, marge: 0, scelleCouleur: false,
   },
   {
     id: 9,
@@ -167,7 +167,7 @@ export const REALMS = [
     murs: [4, 6], verrous: [3, 4], rails: [7, 12],
     ancres: [4, 7], encombrants: [3, 6], doubles: [1, 3],
     porteLarge: 0.0,
-    jokers: 1, marge: 1, scelleCouleur: false,
+    jokers: 1, marge: 0, scelleCouleur: false,
   },
   {
     id: 10,
@@ -181,7 +181,7 @@ export const REALMS = [
     murs: [3, 6], verrous: [3, 4], rails: [7, 13],
     ancres: [4, 7], encombrants: [3, 6], doubles: [1, 3],
     formesMin: 2, densite: [0.26, 0.33],
-    jokers: 1, marge: 1, scelleCouleur: false,
+    jokers: 1, marge: 0, scelleCouleur: false,
   },
   {
     id: 11,
@@ -195,7 +195,7 @@ export const REALMS = [
     murs: [4, 6], verrous: [3, 5], rails: [7, 13],
     ancres: [4, 7], encombrants: [3, 6], doubles: [1, 3],
     portesPartagees: [1, 3],
-    jokers: 1, marge: 1, scelleCouleur: false,
+    jokers: 1, marge: 0, scelleCouleur: false,
   },
   {
     id: 12,
@@ -209,7 +209,7 @@ export const REALMS = [
     murs: [4, 6], verrous: [3, 5], rails: [7, 13],
     ancres: [4, 7], encombrants: [3, 6], doubles: [1, 3],
     portesPartagees: [2, 3], densite: [0.26, 0.34],
-    jokers: 1, marge: 1, scelleCouleur: false, cle: true,
+    jokers: 1, marge: 0, scelleCouleur: false, cle: true, grandesFormes: true,
   },
   {
     id: 13,
@@ -223,7 +223,7 @@ export const REALMS = [
     murs: [4, 7], verrous: [3, 5], rails: [8, 14],
     ancres: [5, 8], encombrants: [3, 7], doubles: [1, 3],
     portesPartagees: [1, 2], densite: [0.27, 0.35],
-    jokers: 1, marge: 1, scelleCouleur: false,
+    jokers: 1, marge: 0, scelleCouleur: false, grandesFormes: true,
   },
   {
     id: 14,
@@ -237,7 +237,7 @@ export const REALMS = [
     murs: [5, 7], verrous: [4, 6], rails: [9, 15],
     ancres: [5, 9], encombrants: [4, 8], doubles: [2, 4],
     portesPartagees: [1, 3],
-    jokers: 1, marge: 1, scelleCouleur: true, cle: true,
+    jokers: 1, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 16, grandesFormes: true,
   },
   {
     id: 15,
@@ -251,7 +251,7 @@ export const REALMS = [
     murs: [5, 7], verrous: [4, 6], rails: [9, 15],
     ancres: [6, 9], encombrants: [4, 8], doubles: [2, 4],
     portesPartagees: [2, 3], porteLarge: 0.2,
-    jokers: 0, marge: 1, scelleCouleur: true, cle: true,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 20, grandesFormes: true,
   },
   {
     id: 16,
@@ -265,7 +265,7 @@ export const REALMS = [
     murs: [5, 8], verrous: [4, 6], rails: [10, 16],
     ancres: [6, 10], encombrants: [5, 9], doubles: [2, 4],
     portesPartagees: [2, 3], porteLarge: 0.2, formesMin: 2, densite: [0.26, 0.33],
-    jokers: 0, marge: 1, scelleCouleur: true, cle: true,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 26, grandesFormes: true,
   },
   {
     id: 17,
@@ -279,7 +279,7 @@ export const REALMS = [
     murs: [5, 8], verrous: [5, 7], rails: [10, 16],
     ancres: [7, 10], encombrants: [5, 9], doubles: [2, 4],
     portesPartagees: [2, 4], porteLarge: 0.15, formesMin: 2, densite: [0.27, 0.34],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 32, grandesFormes: true,
   },
   {
     id: 18,
@@ -293,7 +293,7 @@ export const REALMS = [
     murs: [4, 7], verrous: [4, 6], rails: [10, 16],
     ancres: [7, 11], encombrants: [5, 9], doubles: [0, 2],
     portesPartagees: [2, 4], porteLarge: 0.15, formesMin: 2, densite: [0.26, 0.32],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigeant: true,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 40, grandesFormes: true,
   },
   {
     id: 19,
@@ -307,7 +307,7 @@ export const REALMS = [
     murs: [5, 8], verrous: [5, 7], rails: [12, 18],
     ancres: [8, 12], encombrants: [6, 10], doubles: [0, 1],
     portesPartagees: [3, 5], porteLarge: 0.1, formesMin: 2, densite: [0.27, 0.33],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigeant: true,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 48, grandesFormes: true,
   },
   {
     id: 20,
@@ -321,7 +321,7 @@ export const REALMS = [
     murs: [7, 10], verrous: [3, 5], rails: [8, 13],
     ancres: [5, 8], encombrants: [4, 7], doubles: [0, 2],
     portesPartagees: [2, 3], porteLarge: 0.12, formesMin: 2, densite: [0.22, 0.28],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 16,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 56, grandesFormes: true,
   },
   {
     id: 21,
@@ -335,7 +335,7 @@ export const REALMS = [
     murs: [4, 7], verrous: [6, 9], rails: [8, 13],
     ancres: [5, 9], encombrants: [4, 7], doubles: [0, 2],
     portesPartagees: [2, 4], porteLarge: 0.12, formesMin: 2, densite: [0.22, 0.28],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 20,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 64, grandesFormes: true,
   },
   {
     id: 22,
@@ -349,7 +349,7 @@ export const REALMS = [
     murs: [4, 6], verrous: [4, 6], rails: [13, 19],
     ancres: [9, 14], encombrants: [3, 6], doubles: [0, 2],
     portesPartagees: [2, 3], porteLarge: 0.12, formesMin: 2, densite: [0.22, 0.28],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 24,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 72, grandesFormes: true,
   },
   {
     id: 23,
@@ -363,7 +363,7 @@ export const REALMS = [
     murs: [4, 7], verrous: [4, 6], rails: [8, 12],
     ancres: [5, 9], encombrants: [9, 14], doubles: [0, 2],
     portesPartagees: [2, 4], porteLarge: 0.12, formesMin: 2, densite: [0.22, 0.28],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 28,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 80, grandesFormes: true,
   },
   {
     id: 24,
@@ -377,7 +377,7 @@ export const REALMS = [
     murs: [4, 7], verrous: [4, 6], rails: [9, 14],
     ancres: [6, 10], encombrants: [5, 8], doubles: [0, 2],
     portesPartagees: [5, 7], porteLarge: 0.12, formesMin: 2, densite: [0.22, 0.28],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 32,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 88, grandesFormes: true,
   },
   {
     id: 25,
@@ -391,7 +391,7 @@ export const REALMS = [
     murs: [7, 10], verrous: [4, 6], rails: [9, 14],
     ancres: [7, 11], encombrants: [5, 9], doubles: [0, 2],
     portesPartagees: [3, 5], porteLarge: 0.12, formesMin: 2, densite: [0.22, 0.28],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 36,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 96, grandesFormes: true,
   },
   {
     id: 26,
@@ -405,7 +405,7 @@ export const REALMS = [
     murs: [4, 7], verrous: [5, 7], rails: [15, 21],
     ancres: [11, 16], encombrants: [4, 8], doubles: [0, 2],
     portesPartagees: [3, 5], porteLarge: 0.12, formesMin: 2, densite: [0.22, 0.28],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 42,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 104, grandesFormes: true,
   },
   {
     id: 27,
@@ -419,7 +419,7 @@ export const REALMS = [
     murs: [5, 8], verrous: [5, 7], rails: [10, 15],
     ancres: [8, 12], encombrants: [6, 10], doubles: [0, 2],
     portesPartagees: [3, 5], porteLarge: 0.12, formesMin: 2, densite: [0.22, 0.28],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 48,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 112, grandesFormes: true,
   },
   {
     id: 28,
@@ -433,7 +433,7 @@ export const REALMS = [
     murs: [6, 9], verrous: [6, 8], rails: [12, 18],
     ancres: [9, 14], encombrants: [7, 11], doubles: [0, 2],
     portesPartagees: [4, 6], porteLarge: 0.12, formesMin: 2, densite: [0.22, 0.28],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 56,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 122, grandesFormes: true,
   },
   {
     id: 29,
@@ -447,7 +447,7 @@ export const REALMS = [
     murs: [6, 9], verrous: [6, 9], rails: [13, 19],
     ancres: [10, 15], encombrants: [8, 12], doubles: [0, 2],
     portesPartagees: [4, 7], porteLarge: 0.12, formesMin: 2, densite: [0.22, 0.28],
-    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 64,
+    jokers: 0, marge: 0, scelleCouleur: true, cle: true, exigenceCible: 135, grandesFormes: true,
   },
 ];
 
@@ -521,13 +521,20 @@ function curve(n) {
   // grandir. Une forme fait 2,3 cases en moyenne, d'où les coefficients.
   const [densiteBasse, densiteHaute] = R.densite || [0.24, 0.33];
   const formesMin = R.formesMin ?? 1;
+  // Bâton de 4, pavé de 6 cases : réservés aux mondes qui l'annoncent — sur
+  // une petite grille, une seule de ces pièces barre une rangée entière.
+  const grandesFormes = R.grandesFormes === true;
+  const formeAutorisee = (f) => grandesFormes || !GRANDES_FORMES.has(f.key);
 
   // Le nombre de blocs se déduit de la SURFACE, mais il faut le corriger par la
   // TAILLE des pièces disponibles : interdire les pièces d'une case fait monter
   // la moyenne, et viser le même compte revenait à demander une grille remplie
   // à 97 % — le générateur n'y arrivait pas et rendait le niveau introuvable.
+  // La même correction s'applique aux grandes formes, quand un monde les
+  // exclut : sans elle, leur seule présence dans `SHAPES` aurait faussé le
+  // calibrage de densité de tous les mondes qui ne les utilisent pourtant pas.
   const taille = (min) => {
-    const dispo = SHAPES.filter((f) => f.cells.length >= min);
+    const dispo = SHAPES.filter((f) => f.cells.length >= min && formeAutorisee(f));
     return dispo.reduce((somme, f) => somme + f.cells.length, 0) / dispo.length;
   };
   const correction = taille(1) / taille(formesMin);
@@ -548,6 +555,7 @@ function curve(n) {
     // leviers qui ne coûtent rien au moteur et resserrent beaucoup la grille.
     porteLarge: R.porteLarge ?? 0.35,
     formesMin: R.formesMin ?? 1,
+    grandesFormes,
     cle: R.cle === true,
     // Un monde « exigeant » fait départager ses grilles par le solveur : on y
     // retient celle qui demande le plus de retours en arrière, et non la plus
@@ -816,8 +824,10 @@ function build(n) {
 
   // Formes autorisées. Interdire les petites pièces est un levier à part
   // entière : une case isolée se faufile partout et sert de bouche-trou, alors
-  // qu'un tétromino doit trouver un passage à sa mesure.
-  const formes = SHAPES.filter((f) => f.cells.length >= p.formesMin);
+  // qu'un tétromino doit trouver un passage à sa mesure. Le bâton de 4 et le
+  // pavé de 6 restent en plus réservés aux mondes qui les annoncent.
+  const formes = SHAPES.filter((f) =>
+    f.cells.length >= p.formesMin && (p.grandesFormes || !GRANDES_FORMES.has(f.key)));
 
   // On explore plusieurs grilles et on garde la PLUS DENSE : la difficulté de
   // ce genre vient de l'encombrement, et se contenter de la première grille
@@ -999,7 +1009,12 @@ function build(n) {
       poses.push({ id, gate, chemin });
     }
 
-    if (poses.length < Math.max(5, p.blockCount - 6)) continue;
+    // Élargi de 6 à 10 : les grandes formes (bâton de 4, pavé de 6) occupent
+    // plus de place par pièce posée, et sur les mondes déjà les plus
+    // contraints (murs, rails, ancres, encombrants au maximum) quelques
+    // graines n'atteignaient plus jamais le compte plein — sans cette marge,
+    // 3 niveaux sur 600 ne trouvaient aucune grille valide du tout.
+    if (poses.length < Math.max(5, p.blockCount - 10)) continue;
 
     // Solution de référence : dernier posé sorti en premier.
     const solution = [...poses].reverse().map(({ id, gate, chemin }) => ({
@@ -1266,27 +1281,32 @@ export function getLevel(n) {
   // Les marges se resserrent sur TOUTE la progression, pas sur ses vingt
   // premiers niveaux : indexé sur un nombre absolu, ce facteur touchait le fond
   // avant la fin du premier monde et n'avait plus rien à donner ensuite.
-  const serre = 1 - 0.3 * ((n - 1) / (TOTAL_LEVELS - 1));
+  // Resserrement poussé au maximum : jusqu'à 60 % en moins au dernier niveau,
+  // pour que l'échec — et l'offre de continuer contre une pub — redevienne
+  // fréquent même en fin de partie.
+  const serre = 1 - 0.6 * ((n - 1) / (TOTAL_LEVELS - 1));
 
   const starDrags = seuilsEtoiles(g.minDrags);
 
   /**
    * La limite de coups est un FILET, pas un barème — c'est le chrono qui porte
-   * la tension. Elle se cale donc au-dessus du seuil 1★ : sous ce seuil, un
+   * la tension. Elle se cale donc au-dessus du seuil 2★ : sous ce seuil, un
    * joueur laborieux perdait au lieu de décrocher une étoile, et l'écran de
    * résultat promettait une note qu'aucune partie ne pouvait obtenir. Le
-   * précédent plancher fixe (`minDrags + 5`) le garantissait tant que la
-   * solution tenait en quinze glissés ; au-delà il passait sous le seuil 3★, et
-   * toute victoire valait alors trois étoiles. La marge est désormais
-   * proportionnelle, `serre` la resserrant au fil de la progression.
+   * plancher (`+1`) est le minimum qui garde ce seuil atteignable : la marge
+   * est réduite au strict nécessaire pour que l'échec sanctionne le moindre
+   * geste de trop, plutôt que d'absorber confortablement les tâtonnements.
    */
-  const moveLimit = starDrags[1] + Math.max(2, Math.round(g.minDrags * 0.4 * serre));
+  const moveLimit = starDrags[1] + Math.max(1, Math.round(g.minDrags * 0.15 * serre));
   // Le temps se joue sur la réflexion, pas sur le nombre de gestes : on le cale
-  // sur le nombre de blocs à sortir. Registre casual : une à deux minutes.
+  // sur le nombre de blocs à sortir. Resserré au maximum, mais jamais sous
+  // 3 secondes par glissé de la solution de référence — en dessous, ce n'est
+  // plus un temps serré, c'est un temps qu'aucun doigt ne peut tenir, quel
+  // que soit le niveau de jeu. `tools/balance.mjs` vérifie ce plancher sur
+  // toute la base.
   const jouables = g.blocks.filter((b) => b.kind !== KIND.WALL).length;
-  // Le plafond suit la taille des grilles : à 120 s, les vingt-six blocs du
-  // dernier monde laissaient moins de cinq secondes par sortie, geste compris.
-  const timeLimit = Math.min(180, Math.max(40, Math.round((jouables * 7 + 15) * serre / 5) * 5));
+  const timeLimit = Math.max(3 * g.minDrags,
+    Math.min(120, Math.max(25, Math.round((jouables * 4 + 8) * serre / 5) * 5)));
 
   const level = {
     levelId: `lvl_${String(n).padStart(3, '0')}`,

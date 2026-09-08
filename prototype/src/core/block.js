@@ -111,11 +111,21 @@ export const SHAPES = Object.freeze([
   { key: 'l3c', cells: [[0, 0], [1, 0], [0, 1]] },
   { key: 'l3d', cells: [[0, 0], [1, 0], [1, 1]] },
   { key: 't4', cells: [[0, 0], [1, 0], [2, 0], [1, 1]] },
+  // Grandes formes : réservées aux mondes avancés (voir GRANDES_FORMES et
+  // `grandesFormes` dans REALMS, src/core/levels.js) — sur une petite grille
+  // un bâton de 4 ou un pavé de 6 cases occupe toute une rangée à lui seul.
+  { key: 'i4h', cells: [[0, 0], [1, 0], [2, 0], [3, 0]] },
+  { key: 'i4v', cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
+  { key: 'r6h', cells: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]] },
+  { key: 'r6v', cells: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]] },
 ].map((s) => ({
   ...s,
   w: Math.max(...s.cells.map((c) => c[0])) + 1,
   h: Math.max(...s.cells.map((c) => c[1])) + 1,
 })));
+
+/** Clés des formes réservées aux mondes avancés — voir `grandesFormes`. */
+export const GRANDES_FORMES = new Set(['i4h', 'i4v', 'r6h', 'r6v']);
 
 let nextId = 1;
 
