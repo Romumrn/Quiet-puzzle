@@ -41,6 +41,9 @@ export function render(onSelect) {
       const node = document.createElement('button');
       node.className = 'map-node';
       node.style.transform = `translateX(${OFFSETS[(n - 1) % OFFSETS.length] * 92}px)`;
+      // Le dernier niveau du monde est nettement plus dur que les autres : la
+      // teinte pleine du monde le signale avant même de l'ouvrir.
+      if (n === monde.dernier) node.classList.add('boss');
       if (locked) node.classList.add('locked');
       else if (n === unlocked) {
         node.classList.add('current');

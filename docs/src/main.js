@@ -189,6 +189,12 @@ async function showBrief(n) {
   nouveaute.hidden = !entreeDeMonde;
   if (entreeDeMonde) nouveaute.textContent = t('brief.new', { quoi: i18n.texteMonde(levels.realmDe(n), 'apporte') });
   el('brief-best').textContent = rec.bestScore ? `${rec.bestScore} coups` : '—';
+  // Le dernier niveau d'un monde est sensiblement plus dur que les autres
+  // (voir levels.js) : l'écran de pré-niveau le dit avant que le joueur ne s'y
+  // engage, plutôt que de le laisser le découvrir en pleine partie.
+  const estFinal = n === levels.realmDe(n).dernier;
+  el('brief-final').hidden = !estFinal;
+  el('brief-card').classList.toggle('final', estFinal);
   theme.appliquer(n);
   screens.show('brief');
   majBanniere('brief');
@@ -456,6 +462,8 @@ async function finishLevel() {
     coinsEarned: res.coinsEarned,
     raison: board.failReason,
     restants: board.remaining(),
+    noAds: currency.aSupprimeLesPubs(),
+    onBannerShown: () => track('ad_impression', { adType: 'banner', placement: PLACEMENT.BANNIERE_RESULTAT }),
     onDouble: async () => {
       const vue = await ads.montrerRecompensee(PLACEMENT.RECOMPENSE_DOUBLER);
       if (!vue) return false;

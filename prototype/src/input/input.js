@@ -8,7 +8,17 @@
  * La position visée est recalculée à chaque mouvement à partir de la case
  * saisie au départ, et non du dernier pas : sinon le bloc dérive quand le doigt
  * passe sur des cases occupées.
+ *
+ * Un relâchement rapide prolonge le geste : le bloc continue dans l'axe où il
+ * venait déjà, jusqu'à son prochain obstacle — comme s'il avait été lancé.
  */
+
+/** Fenêtre récente sur laquelle la vitesse de relâchement est mesurée. */
+const FENETRE_LANCER_MS = 120;
+/** Vitesse à partir de laquelle un relâchement compte comme un lancer, en cases/ms. */
+const SEUIL_LANCER = 1 / 90;
+/** Distance visée par un lancer — au-delà de toute grille jouable, le premier obstacle arrête le bloc. */
+const PORTEE_LANCER = 24;
 
 export class InputHandler {
   /**
@@ -54,6 +64,7 @@ export class InputHandler {
       saisieX: saisie.x, saisieY: saisie.y,
       origineX: bloc.x, origineY: bloc.y,
       bouge: false,
+      historique: [{ x: saisie.x, y: saisie.y, t: ev.timeStamp }],
     };
     this.view.setGrabbed(id, true);
   }
@@ -79,13 +90,41 @@ export class InputHandler {
     // Puis le bloc penche vers le doigt, y compris quand il ne peut plus avancer.
     const apres = this.view.board.blocks.get(this.drag.id);
     if (apres) this.view.setLean(this.drag.id, flotX - apres.x, flotY - apres.y);
+
+    // Historique glissant, pour mesurer la vitesse au relâchement.
+    const hist = this.drag.historique;
+    hist.push({ x: p.x, y: p.y, t: ev.timeStamp });
+    while (hist.length > 1 && ev.timeStamp - hist[0].t > FENETRE_LANCER_MS) hist.shift();
   }
 
-  _onUp() {
+  _onUp(ev) {
     if (!this.drag) return;
     const { id, bouge } = this.drag;
+    if (bouge) this._lancer(ev);
     this.drag = null;
     this.view.setGrabbed(id, false);
     this.hooks.onEnd(id, bouge);
+  }
+
+  /**
+   * Un relâchement assez rapide continue le geste dans son axe dominant,
+   * jusqu'au prochain obstacle — sans ça, un glissé rapide s'arrête pile où
+   * le doigt a quitté l'écran, souvent une case trop tôt.
+   */
+  _lancer(ev) {
+    const { id, historique } = this.drag;
+    const depart = historique[0];
+    const dt = ev.timeStamp - depart.t;
+    if (dt <= 0) return;
+
+    const p = this.view.cellFromPointFloat(ev.clientX, ev.clientY);
+    const vx = (p.x - depart.x) / dt, vy = (p.y - depart.y) / dt;
+    if (Math.max(Math.abs(vx), Math.abs(vy)) < SEUIL_LANCER) return;
+
+    const bloc = this.view.board.blocks.get(id);
+    if (!bloc) return;
+    const cibleX = Math.abs(vx) >= Math.abs(vy) ? bloc.x + Math.sign(vx) * PORTEE_LANCER : bloc.x;
+    const cibleY = Math.abs(vx) >= Math.abs(vy) ? bloc.y : bloc.y + Math.sign(vy) * PORTEE_LANCER;
+    this.hooks.onDrag(id, cibleX, cibleY);
   }
 }

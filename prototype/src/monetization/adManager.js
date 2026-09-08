@@ -29,6 +29,7 @@ export const PLACEMENT = Object.freeze({
   RECOMPENSE_ANNULER: 'rewarded_undo',
   RECOMPENSE_PIECES: 'rewarded_coin_shop',
   BANNIERE: 'banner_menu',
+  BANNIERE_RESULTAT: 'banner_level_complete',
 });
 
 const DUREE_INTERSTITIEL = 5;  // secondes avant de pouvoir fermer

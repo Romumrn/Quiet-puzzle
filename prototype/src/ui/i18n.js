@@ -98,7 +98,7 @@ const TEXTES = {
 
     'brief.objective': 'Faire sortir les {n} blocs',
     'brief.moves': 'Coups', 'brief.difficulty': 'Difficulté', 'brief.record': 'Record',
-    'brief.new': 'Nouveau : {quoi}', 'brief.start': 'Jouer',
+    'brief.new': 'Nouveau : {quoi}', 'brief.start': 'Jouer', 'brief.final': 'Niveau final',
 
     'hud.time': 'Temps', 'hud.blocks': 'Blocs', 'hud.stars': 'Étoiles',
     'hud.moves': '{n} coups',
@@ -233,7 +233,7 @@ const TEXTES = {
 
     'brief.objective': 'Clear all {n} blocks',
     'brief.moves': 'Moves', 'brief.difficulty': 'Difficulty', 'brief.record': 'Best',
-    'brief.new': 'New: {quoi}', 'brief.start': 'Play',
+    'brief.new': 'New: {quoi}', 'brief.start': 'Play', 'brief.final': 'Final level',
 
     'hud.time': 'Time', 'hud.blocks': 'Blocks', 'hud.stars': 'Stars',
     'hud.moves': '{n} moves',
@@ -368,7 +368,7 @@ const TEXTES = {
 
     'brief.objective': 'Saca los {n} bloques',
     'brief.moves': 'Movimientos', 'brief.difficulty': 'Dificultad', 'brief.record': 'Récord',
-    'brief.new': 'Nuevo: {quoi}', 'brief.start': 'Jugar',
+    'brief.new': 'Nuevo: {quoi}', 'brief.start': 'Jugar', 'brief.final': 'Nivel final',
 
     'hud.time': 'Tiempo', 'hud.blocks': 'Bloques', 'hud.stars': 'Estrellas',
     'hud.moves': '{n} movimientos',
@@ -503,7 +503,7 @@ const TEXTES = {
 
     'brief.objective': 'Fai uscire i {n} blocchi',
     'brief.moves': 'Mosse', 'brief.difficulty': 'Difficoltà', 'brief.record': 'Record',
-    'brief.new': 'Novità: {quoi}', 'brief.start': 'Gioca',
+    'brief.new': 'Novità: {quoi}', 'brief.start': 'Gioca', 'brief.final': 'Livello finale',
 
     'hud.time': 'Tempo', 'hud.blocks': 'Blocchi', 'hud.stars': 'Stelle',
     'hud.moves': '{n} mosse',
@@ -638,7 +638,7 @@ const TEXTES = {
 
     'brief.objective': '清空全部 {n} 个方块',
     'brief.moves': '步数', 'brief.difficulty': '难度', 'brief.record': '纪录',
-    'brief.new': '新元素：{quoi}', 'brief.start': '开始',
+    'brief.new': '新元素：{quoi}', 'brief.start': '开始', 'brief.final': '最终关卡',
 
     'hud.time': '时间', 'hud.blocks': '方块', 'hud.stars': '星星',
     'hud.moves': '{n} 步',

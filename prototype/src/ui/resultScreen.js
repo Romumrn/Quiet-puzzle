@@ -92,6 +92,12 @@ export function show(r) {
   el('btn-result-map').onclick = r.onMap;
   el('btn-result-retry').onclick = r.onRetry;
   next.onclick = r.onNext;
+
+  const banniere = el('result-banner');
+  const montrerBanniere = r.won && !r.noAds;
+  banniere.hidden = !montrerBanniere;
+  if (montrerBanniere) r.onBannerShown?.();
+
   el('overlay-result').hidden = false;
 }
 

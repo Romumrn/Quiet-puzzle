@@ -22,6 +22,9 @@ import { t, nomCouleur } from '../ui/i18n.js';
  */
 const avecGlyphes = () => document.getElementById('app')?.classList.contains('avec-glyphes');
 
+/** Fraction de case au-delà de laquelle une saisie rattrape la case voisine. */
+const MARGE_SAISIE = 0.22;
+
 const BASE_TIMING = { MOVE: 95, POP: 130, EXIT: 300, UNLOCK: 420, BUMP: 130 };
 export const TIMING = { ...BASE_TIMING };
 
@@ -592,10 +595,26 @@ export class BoardView {
     };
   }
 
+  /**
+   * Case sous un point, avec un rattrapage : un doigt qui rate un bloc de peu
+   * — case vide, mur, porte — retombe sur la case voisine s'il en est tout
+   * près. Le bloc lui-même ne grandit pas, seule sa zone de saisie déborde.
+   */
   blockIdFromPoint(clientX, clientY) {
-    const { x, y } = this.cellFromPoint(clientX, clientY);
-    if (!this.board.inside(x, y)) return null;
-    return this.board.blockAt(x, y)?.id ?? null;
+    const essai = (x, y) => (this.board.inside(x, y) ? this.board.blockAt(x, y)?.id : undefined);
+
+    const f = this.cellFromPointFloat(clientX, clientY);
+    const cx = Math.floor(f.x), cy = Math.floor(f.y);
+    let id = essai(cx, cy);
+    if (id !== undefined) return id;
+
+    const rx = f.x - cx, ry = f.y - cy;
+    const dx = rx < MARGE_SAISIE ? -1 : rx > 1 - MARGE_SAISIE ? 1 : 0;
+    const dy = ry < MARGE_SAISIE ? -1 : ry > 1 - MARGE_SAISIE ? 1 : 0;
+    if (dx && (id = essai(cx + dx, cy)) !== undefined) return id;
+    if (dy && (id = essai(cx, cy + dy)) !== undefined) return id;
+    if (dx && dy && (id = essai(cx + dx, cy + dy)) !== undefined) return id;
+    return null;
   }
 }
 

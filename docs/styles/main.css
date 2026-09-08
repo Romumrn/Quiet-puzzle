@@ -370,6 +370,18 @@ body { display: grid; place-items: center; }
 .map-node.locked b::after { content: '·'; }
 .map-node.done { border-color: hsl(var(--h) 40% 82%); }
 
+/* Dernier niveau d'un monde : sensiblement plus dur, la case le porte en
+   pleine teinte du monde plutôt qu'en simple liséré — le même traitement que
+   `.current`, à la couleur du monde près. `:not(.current)` laisse la place à
+   l'accent d'usage tant que ce niveau est aussi le prochain à jouer —
+   l'information « à jouer » prime sur « c'est le corsé ». */
+.map-node.boss:not(.current) {
+  background: hsl(var(--h) 55% 58%); border-color: transparent; color: #fff;
+  box-shadow: 0 6px 16px hsl(var(--h) 50% 45% / 0.35);
+}
+.map-node.boss:not(.current) .stars i { color: rgba(255, 255, 255, 0.4); }
+.map-node.boss:not(.current) .stars i.on { color: #fff; }
+
 /* ---------- Pré-niveau ---------- */
 
 #screen-brief { justify-content: flex-start; }
@@ -385,6 +397,26 @@ body { display: grid; place-items: center; }
   font: 400 25px var(--font-ui);
   box-shadow: 0 8px 20px hsl(var(--h) 50% 70% / 0.4);
 }
+
+/* Dernier niveau d'un monde : le badge passe à la couleur du monde et respire
+   d'un anneau qui pulse — le même signal qu'on vient de voir sur la carte,
+   repris ici pour que le joueur comprenne où il met les pieds avant de jouer. */
+.brief-card.final .brief-badge {
+  background: hsl(var(--h) 55% 55%);
+  animation: brief-final-glow 1.8s ease-in-out infinite;
+}
+.brief-final {
+  display: inline-block; margin: 0 0 14px; padding: 5px 14px;
+  border-radius: 999px; background: hsl(var(--h) 55% 93%); color: hsl(var(--h) 55% 36%);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+  animation: brief-final-pop 0.5s 0.1s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes brief-final-pop { from { transform: scale(0.6); opacity: 0; } }
+@keyframes brief-final-glow {
+  0%, 100% { box-shadow: 0 8px 20px hsl(var(--h) 50% 70% / 0.4), 0 0 0 0 hsl(var(--h) 60% 60% / 0.5); }
+  50% { box-shadow: 0 8px 20px hsl(var(--h) 50% 70% / 0.4), 0 0 0 9px hsl(var(--h) 60% 60% / 0); }
+}
+
 .brief-objective { font-size: 17px; margin: 18px 0 20px; color: var(--ink); }
 .brief-meta { display: flex; justify-content: space-around; margin-bottom: 24px; }
 .brief-meta dt { color: var(--ink-faint); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; }
@@ -1143,6 +1175,10 @@ body { display: grid; place-items: center; }
   font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
 }
 .app.with-banner .screen { padding-bottom: 62px; }
+.banner-result {
+  position: static; transform: none; width: auto; margin-top: 18px;
+  border: 1px solid var(--line); border-radius: 12px;
+}
 
 /* ---------- Toast ---------- */
 

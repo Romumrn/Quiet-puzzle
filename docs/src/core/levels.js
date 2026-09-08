@@ -804,6 +804,16 @@ function build(n) {
   const p = curve(n);
   const { W, H } = p;
 
+  /**
+   * Dernier niveau d'un monde : environ 50 % de gestes en plus que ce que CE
+   * niveau aurait rendu sans ce traitement, à taille et nombre de blocs
+   * inchangés — on ne fait que choisir, parmi les grilles déjà explorées pour
+   * la même position dans le monde, celle qui en réclame le plus. Dépend de
+   * `LEVELS_PER_REALM`, jamais de `TOTAL_LEVELS` : ajouter un monde ne doit
+   * rien changer aux niveaux déjà publiés.
+   */
+  const dernierDuMonde = (n - 1) % LEVELS_PER_REALM === LEVELS_PER_REALM - 1;
+
   // Formes autorisées. Interdire les petites pièces est un levier à part
   // entière : une case isolée se faufile partout et sert de bouche-trou, alors
   // qu'un tétromino doit trouver un passage à sa mesure.
@@ -831,11 +841,32 @@ function build(n) {
   // derniers mondes, une grille sur dix seulement atteint le niveau demandé.
   const FINALISTES = p.exigeant ? Math.min(60, 20 + Math.round(p.exigenceCible)) : 30;
 
+  /**
+   * Sélection sur les GESTES, pour le dernier niveau de chaque monde.
+   *
+   * `mesureGestes` ne coûte qu'une simulation — pas le solveur — donc on peut
+   * se permettre de la faire tourner sur CHAQUE candidate valide plutôt que sur
+   * un palmarès restreint par la note : c'est justement en dehors de ce
+   * palmarès (grilles dont l'ordre de sortie se gêne plus que la moyenne) que
+   * se trouvent les candidates qui réclament vraiment plus de gestes. Les
+   * limiter au haut du panier par note les excluait systématiquement, et le
+   * meilleur trouvé plafonnait à 20-25 % de mieux au lieu de 50.
+   *
+   * On les garde toutes (candidate, gestes, blocs jouables) plutôt que de ne
+   * suivre que la meilleure au fil de l'eau : le plancher « pas moins de blocs
+   * que la normale » se lit sur `meilleure`, qui n'est connue qu'à la fin de
+   * la boucle — la filtrer trop tôt aurait écarté toute grille tant que la
+   * référence n'était pas encore fixée.
+   */
+  const candidatsDifficiles = [];
+
   // Un monde exigeant a besoin d'un vivier : sur des grilles très contraintes,
   // la plupart des tentatives n'aboutissent pas, et sans tentatives
   // supplémentaires il ne reste qu'une ou deux candidates à départager — le
-  // départage ne départage alors plus rien.
-  const TENTATIVES = p.exigeant ? 700 : 220;
+  // départage ne départage alors plus rien. Le dernier niveau d'un monde en a
+  // besoin pour la même raison : chercher plus dur que la moyenne suppose
+  // d'avoir de quoi choisir.
+  const TENTATIVES = dernierDuMonde ? 2000 : p.exigeant ? 700 : 220;
   for (let tentative = 0; tentative < TENTATIVES; tentative++) {
     const grille = new Grille(W, H);
     const gates = makeGates(p, rng);
@@ -1148,6 +1179,11 @@ function build(n) {
       occupees, note, eloignementMoyen, dominante, colorCount: p.colorCount };
     if (!meilleure || note > meilleure.note) meilleure = candidate;
 
+    if (dernierDuMonde) {
+      const gestes = mesureGestes({ width: W, height: H, gates: candidate.gates, blocks: candidate.blocks, solution: candidate.solution });
+      candidatsDifficiles.push({ candidate, gestes, jouables: poses.length });
+    }
+
     if (p.exigeant) {
       // On accumule d'abord, on mesure ensuite. Évaluer au fil de l'eau
       // dépensait le budget de solveur sur les premières grilles venues :
@@ -1158,7 +1194,10 @@ function build(n) {
       if (finalistes.length > FINALISTES) finalistes.length = FINALISTES;
       continue;
     }
-    if (densite >= 0.6 && eloignementMoyen >= 3.2 && dominante <= 0.4 && charge >= 0.9) break;
+    // Le dernier niveau d'un monde a besoin de tout le vivier de tentatives :
+    // s'arrêter tôt sur la première grille acceptable, comme le fait un niveau
+    // ordinaire, le priverait des candidates les plus dures.
+    if (!dernierDuMonde && densite >= 0.6 && eloignementMoyen >= 3.2 && dominante <= 0.4 && charge >= 0.9) break;
   }
 
   /**
@@ -1177,6 +1216,26 @@ function build(n) {
     }
     meilleure = retenue;
     meilleure.exigence = exigenceMax;
+  }
+
+  /**
+   * Dernier niveau d'un monde : on retient, parmi les candidates qui égalent
+   * au moins le nombre de blocs jouables de ce que ce niveau aurait été sans
+   * ce traitement (`meilleure`, choisie par densité — ou par exigence pour un
+   * monde qui l'est — comme n'importe quel niveau), celle qui réclame le plus
+   * de gestes. On ne la remplace que si on trouve mieux ; à défaut, `meilleure`
+   * reste le meilleur essai honnête plutôt qu'un choix au hasard — la cible de
+   * 50 % en plus est un objectif, pas une garantie.
+   */
+  if (dernierDuMonde && candidatsDifficiles.length) {
+    const referenceJouables = meilleure.blocks.filter((b) => b.kind !== KIND.WALL).length;
+    let retenue = meilleure;
+    let gestesRetenus = mesureGestes({ width: W, height: H, gates: meilleure.gates, blocks: meilleure.blocks, solution: meilleure.solution });
+    for (const { candidate, gestes, jouables } of candidatsDifficiles) {
+      if (jouables < referenceJouables) continue;
+      if (gestes > gestesRetenus) { retenue = candidate; gestesRetenus = gestes; }
+    }
+    meilleure = retenue;
   }
 
   if (!meilleure) return null;
