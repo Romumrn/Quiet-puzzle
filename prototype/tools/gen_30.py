@@ -25,17 +25,41 @@ NEG = ("two plants, several stems, duplicated, repeated, mirrored, tiled, grid, 
        "text, watermark, signature, logo, frame, border, person, face, building, "
        "blurry, low quality, cluttered, messy")
 
-def papier(img, cible):
-    """Le modele ramene tout au creme : la couleur du papier est imposee apres coup."""
-    a = np.asarray(img.convert("RGB"), dtype=float)
-    l = a.mean(axis=2, keepdims=True)
-    bas, haut = np.percentile(l, 30), np.percentile(l, 60)
-    poids = np.clip((l - bas) / max(haut - bas, 1e-6), 0, 1)
-    actuel = np.array([np.percentile(a[..., k], 90) for k in range(3)])
-    out = np.clip(a + poids * (np.array(cible, float) - actuel), 0, 255)
-    return Image.fromarray(out.astype(np.uint8))
+def papier(img, cible, fondu=260):
+    """Aplatit le fond, lui impose `cible`, puis eteint la fin de l'image.
 
-for i, (cle, nom, fleur, palette, rvb) in enumerate(MONDES):
+    Le modele peint souvent un degrade vertical dans le fond : sur une image de
+    ginkgo, il allait de (232, 213, 180) en haut a (245, 239, 223) en bas, soit
+    43 points d'ecart sur le bleu, ce qui se lit comme deux couleurs. Un simple
+    decalage global conservait ce degrade. On estime donc le fond ligne par
+    ligne et on le ramene a plat, ce qui laisse a l'encre son ecart au fond.
+
+    Le fondu final sert deux fois : il raccorde l'image a l'aplat CSS qui
+    complete la hauteur du monde, et il eteint proprement une plante qui
+    toucherait le bord au lieu de la laisser coupee net.
+    """
+    a = np.asarray(img.convert("RGB"), dtype=float)
+    h = a.shape[0]
+
+    # fond par ligne, lisse : la marge laterale est large, le percentile haut
+    # y decrit le papier et non la plante
+    fond = np.percentile(a, 90, axis=1)                     # (h, 3)
+    noyau = 121
+    pad = np.pad(fond, ((noyau // 2, noyau // 2), (0, 0)), mode="edge")
+    lisse = np.stack([np.convolve(pad[:, k], np.ones(noyau) / noyau, mode="valid")
+                      for k in range(3)], axis=1)           # (h, 3)
+
+    out = a - lisse[:, None, :] + np.array(cible, float)
+
+    # extinction des dernieres lignes vers le papier pur
+    poids = np.ones((h, 1, 1))
+    poids[h - fondu:, 0, 0] = np.linspace(1, 0, fondu)
+    out = out * poids + np.array(cible, float) * (1 - poids)
+
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+
+
+for i, (cle, nom, fleur, palette, (rvb, _teinte)) in enumerate(MONDES):
     cible = os.path.join(OUT, f"branche-{cle}.webp")
     if os.path.exists(cible):
         print("deja la", cle, flush=True); continue
@@ -43,7 +67,7 @@ for i, (cle, nom, fleur, palette, rvb) in enumerate(MONDES):
         "prompt": BASE.format(fleur=fleur, palette=palette),
         "negative_prompt": NEG,
         "steps": 30, "cfg_scale": 7.0,
-        "width": 512, "height": 1792,
+        "width": 512, "height": 2304,
         "sampler_name": "DPM++ 2M", "scheduler": "Karras",
         "seed": 1000 + i * 13, "batch_size": 1,
         "override_settings": {"sd_model_checkpoint": "DreamShaper_8_pruned"},

@@ -17,12 +17,12 @@ local, puis retouchées par le script pour imposer la couleur du papier.
 ```
 prototype/
   images/branches/
-    branche-01.webp   Peaceful Sakura   512 × 1792
-    branche-02.webp   Blush Plum
+    branche-01.webp   Peaceful Sakura   512 × 2304
+    branche-02.webp   Wisteria Veil
     …
-    branche-30.webp   Apple Blossom
+    branche-30.webp   Silver Mist
   tools/
-    mondes.py         la table : nom, sujet, palette, couleur du papier
+    mondes.py         la table : nom, sujet, palette, papier et teinte
     gen_30.py         le script de génération
   styles/main.css     `.realm::before` et les trente règles `nth-child`
 ```
@@ -34,10 +34,19 @@ branche à l'autre tombe mécaniquement sur la frontière entre deux mondes,
 c'est-à-dire là où s'affiche le titre. Aucun calcul de position n'est nécessaire,
 une règle `nth-child` suffit.
 
-L'ordre des trente plantes fait **tourner la teinte** — rose, mauve, bleu, givre,
-vert, doré, ambre, rouge, puis blanc, qui reboucle sur le rose du premier monde.
-La table `tools/mondes.py` est la source de cet ordre ; les noms des mondes dans
-`src/core/levels.js` la suivent.
+La couleur change **à chaque monde**, sur un cycle court de dix teintes : rose,
+violet, bleu, bleu ciel, vert, jaune, doré, orange, rouge, blanc. Trente mondes
+font donc exactement trois tours, et le trentième reboucle sur le rose du
+premier.
+
+`tools/mondes.py` est la source de cet ordre, et porte pour chaque monde son
+papier (RVB) **et sa teinte HSL**. Cette teinte alimente `teinte` dans `REALMS`,
+donc `--h` : sans elle, un monde vert garderait le halo rose de l'ancienne
+organisation. Elle ne touche pas aux couleurs des blocs, qui viennent du champ
+`palette`, indépendant.
+
+Trois fichiers doivent donc rester alignés dans le même ordre : `tools/mondes.py`,
+`REALMS` dans `src/core/levels.js`, et les règles `nth-child` du CSS.
 
 ### Ce que le CSS fait, et pourquoi
 
@@ -55,12 +64,13 @@ La table `tools/mondes.py` est la source de cet ordre ; les noms des mondes dans
 
 Quatre décisions méritent leur explication.
 
-**`no-repeat` et `--papier`.** Une image de 1792 px affichée sur la largeur de la
-carte mesure environ 1242 px, alors qu'un monde en fait 1605. Il manque donc
-360 px. On les remplit avec `background-color: var(--papier)`, la couleur de fond
-propre à cette branche : le bas de l'image se fond dans un aplat de sa propre
-teinte, et la fin de l'image ne se voit pas. Répéter l'image à la place ferait
-réapparaître une couture au bout de 1242 px.
+**`no-repeat` et `--papier`.** Une image de 2304 px affichée sur la largeur de la
+carte mesure environ 1597 px, alors qu'un monde en fait 1605 : il ne manque que
+8 px. On les remplit avec `background-color: var(--papier)`, la couleur de fond
+propre à cette branche, si bien que la fin de l'image ne se voit pas. La marge
+compte quand même : sur un écran plus étroit, l'image rétrécit et l'aplat prend
+le relais sur d'autant plus de hauteur. Répéter l'image à la place ferait
+réapparaître une couture.
 
 **Le masque en dégradé.** Sans lui, le bord supérieur du décor se lit comme une
 ligne nette juste **au-dessus** du titre — le fond du monde commence avant son
@@ -105,26 +115,28 @@ régénérer une seule branche revient à supprimer son fichier puis à le relan
 | Réglage | Valeur | Pourquoi |
 |---|---|---|
 | Modèle | `DreamShaper_8_pruned` | SD 1.5 ; c'est lui qui donne l'aquarelle douce |
-| Taille | 512 × 1792 | voir « la hauteur » ci-dessous |
+| Taille | 512 × 2304 | voir « la hauteur » ci-dessous |
 | Steps | 30 | au-delà, aucun gain visible sur ce style |
 | CFG | 7.0 | plus haut durcit le trait et sature |
 | Sampler | DPM++ 2M, Karras | |
 | Seed | `1000 + index × 13` | déterministe : relancer redonne la même image |
-| Export | WebP qualité 78 | ~65 Ko en moyenne, 2,0 Mo pour les trente |
+| Export | WebP qualité 78 | ~34 Ko en moyenne, 1,0 Mo pour les trente |
 
-Compter environ **86 secondes par image** sur cette machine, soit trois quarts
-d'heure pour les trente. Ne rien lancer d'autre de lourd en parallèle : pendant
+Compter environ **136 secondes par image** sur cette machine, soit une heure
+pour les trente. Ne rien lancer d'autre de lourd en parallèle : pendant
 la régénération de la base de niveaux, le temps par image est monté à 153 s.
 
-### La hauteur : pourquoi 1792
+### La hauteur : pourquoi 2304
 
 Le format a été trouvé par essais successifs.
 
 - **768** puis **1024** : propres, mais bien trop courts. À 1024, l'image ne
   couvre que 710 px des 1605 px d'un monde.
-- **1792** : testé sur quatre plantes, **aucune duplication**, et le dessin est
-  meilleur qu'en 1024 — tige plus fine, rameaux mieux répartis. C'est le format
-  retenu.
+- **1792** : aucune duplication, dessin meilleur qu'en 1024. Restait à combler
+  360 px sous l'image.
+- **2304** : le format retenu. Toujours aucune duplication, et surtout l'image
+  couvre **1597 px des 1605 px** d'un monde : il ne reste que 8 px à combler.
+  Le dessin y est plus épuré qu'en 1792, ce qui sert le propos.
 - **Au-delà**, rien n'a été vérifié. SD 1.5 duplique les sujets quand on
   s'éloigne trop de sa résolution d'entraînement ; si vous montez, regardez
   chaque image plutôt que de faire confiance au lot.
@@ -144,19 +156,30 @@ demande. C'est mesuré : en réclamant un papier bleuté `(226, 234, 242)`, on
 obtient `(240, 231, 227)` — soit l'exact opposé, un fond chaud. Lui fournir une
 image de départ déjà bleutée en img2img ne suffit pas davantage.
 
-Le script laisse donc le modèle faire ce qu'il fait bien — la plante — et impose
-la couleur du papier en post-traitement, où elle est déterministe :
+Pire, le fond peint n'est pas uni : le modèle y laisse un **dégradé vertical**.
+Sur une image de ginkgo, il allait de (232, 213, 180) en haut à (245, 239, 223)
+en bas, soit 43 points d'écart sur le bleu — ce qui se lit franchement comme
+deux couleurs. Un simple décalage global le conservait tel quel.
+
+Le script laisse donc le modèle faire ce qu'il fait bien — la plante — et
+reprend le fond en post-traitement, où tout est déterministe. Il estime le
+papier **ligne par ligne** (percentile 90, lissé sur 121 lignes), le ramène à
+plat, puis éteint les 260 dernières lignes vers la couleur cible :
 
 ```python
-bas, haut = np.percentile(l, 30), np.percentile(l, 60)
-poids = np.clip((l - bas) / (haut - bas), 0, 1)   # 1 sur le papier, 0 sur l'encre
-out = a + poids * (cible - actuel)
+fond  = np.percentile(a, 90, axis=1)          # la couleur du papier, ligne à ligne
+lisse = moyenne_glissante(fond, 121)
+out   = a - lisse[:, None, :] + cible         # fond à plat, l'encre garde son écart
 ```
 
-Les seuils sont **bas et rapprochés** exprès, pour que le masque sature à 1 sur
-tout le fond, vignettage compris. Une première version, calée sur les
-percentiles 50 et 95, suivait le fond de trop près et laissait des zones
-inégalement teintées — un coin bleu et le reste crème.
+Le fondu final sert deux fois : il raccorde l'image à l'aplat CSS qui complète la
+hauteur du monde, et il éteint proprement une plante qui toucherait le bord.
+
+**Le résultat est mesurable**, et c'est le bon contrôle à refaire après toute
+modification du script : sur les trente images, la dérive du fond entre le haut
+et le bas ne dépasse pas **3 points sur 255** (elle montait à 43), et le
+contraste de la plante au bord inférieur reste sous **2,6** (il montait à 57 sur
+l'eucalyptus, dont la branche était visiblement tronquée).
 
 ---
 
@@ -215,3 +238,21 @@ branche, le gamma ne déplace que les tons moyens : l'écart entre l'encre et le
 papier n'en dépend pas. C'est la luminosité de la teinte cible qui le pilote. Le
 repère utile : la base de référence a un écart encre/papier de **38 sur 255**, et
 les valeurs retenues tombent entre 31 et 40.
+
+**Le cache du navigateur ment sur ce que vous voyez.** Les images et la feuille
+de style gardent leurs noms d'un lot à l'autre : après une régénération, un
+simple rechargement continue d'afficher les anciennes. Le symptôme est
+déroutant — les valeurs venues du JavaScript (`--h`, lu depuis `index.json`)
+sont à jour tandis que celles du CSS (`--papier`) datent de la veille, et un
+monde « Blue Lys » s'affiche en rose. Avant de conclure quoi que ce soit sur un
+rendu, forcer le rechargement en ajoutant un paramètre aux URL :
+
+```js
+// la feuille
+lien.href = lien.href.split('?')[0] + '?t=' + Date.now();
+// les images, dans chaque règle portant --branche
+r.style.setProperty('--branche', v.replace(/\.webp'\)/, `.webp?t=${Date.now()}')`));
+```
+
+Le point ne concerne que le prototype servi en local ; une application packagée
+embarque ses fichiers et n'a pas ce problème.

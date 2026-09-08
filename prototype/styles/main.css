@@ -296,37 +296,42 @@ body { display: grid; place-items: center; }
                                       #000 calc(100% - 96px), transparent);
 }
 
-/* Une branche par monde, la teinte tournant du rose au blanc pour reboucler. */
-.realm:nth-child(1) { --branche: url('../images/branches/branche-01.webp'); --papier: #f7ecea; }  /* Peaceful Sakura */
-.realm:nth-child(2) { --branche: url('../images/branches/branche-02.webp'); --papier: #f6e9ec; }  /* Blush Plum */
-.realm:nth-child(3) { --branche: url('../images/branches/branche-03.webp'); --papier: #f7eaee; }  /* Quiet Camellia */
-.realm:nth-child(4) { --branche: url('../images/branches/branche-04.webp'); --papier: #f8ecf0; }  /* Wild Rose */
-.realm:nth-child(5) { --branche: url('../images/branches/branche-05.webp'); --papier: #f6eaf1; }  /* Soft Peony */
-.realm:nth-child(6) { --branche: url('../images/branches/branche-06.webp'); --papier: #f2eaf3; }  /* Lilac Drift */
-.realm:nth-child(7) { --branche: url('../images/branches/branche-07.webp'); --papier: #eee8f4; }  /* Wisteria Veil */
-.realm:nth-child(8) { --branche: url('../images/branches/branche-08.webp'); --papier: #ece8f5; }  /* Violet Iris */
-.realm:nth-child(9) { --branche: url('../images/branches/branche-09.webp'); --papier: #eae9f6; }  /* Lavender Field */
-.realm:nth-child(10) { --branche: url('../images/branches/branche-10.webp'); --papier: #e4eaf5; }  /* Blue Lys */
-.realm:nth-child(11) { --branche: url('../images/branches/branche-11.webp'); --papier: #e2ecf5; }  /* Morning Glory */
-.realm:nth-child(12) { --branche: url('../images/branches/branche-12.webp'); --papier: #e3eef5; }  /* Forget Me Not */
-.realm:nth-child(13) { --branche: url('../images/branches/branche-13.webp'); --papier: #e6eff5; }  /* Winter Frost */
-.realm:nth-child(14) { --branche: url('../images/branches/branche-14.webp'); --papier: #ebf0f3; }  /* Snow Willow */
-.realm:nth-child(15) { --branche: url('../images/branches/branche-15.webp'); --papier: #eef0f0; }  /* Silver Mist */
-.realm:nth-child(16) { --branche: url('../images/branches/branche-16.webp'); --papier: #e9f1ed; }  /* Eucalyptus Calm */
-.realm:nth-child(17) { --branche: url('../images/branches/branche-17.webp'); --papier: #e8f1e8; }  /* Sage Fern */
-.realm:nth-child(18) { --branche: url('../images/branches/branche-18.webp'); --papier: #eaf2e6; }  /* Green Maple */
-.realm:nth-child(19) { --branche: url('../images/branches/branche-19.webp'); --papier: #ecf2e4; }  /* Bamboo Breeze */
-.realm:nth-child(20) { --branche: url('../images/branches/branche-20.webp'); --papier: #f0f1e2; }  /* Olive Grove */
-.realm:nth-child(21) { --branche: url('../images/branches/branche-21.webp'); --papier: #f4eede; }  /* Golden Ginkgo */
-.realm:nth-child(22) { --branche: url('../images/branches/branche-22.webp'); --papier: #f6eedb; }  /* Mimosa Sun */
-.realm:nth-child(23) { --branche: url('../images/branches/branche-23.webp'); --papier: #f7efde; }  /* Honey Acacia */
-.realm:nth-child(24) { --branche: url('../images/branches/branche-24.webp'); --papier: #f7ede0; }  /* Amber Birch */
-.realm:nth-child(25) { --branche: url('../images/branches/branche-25.webp'); --papier: #f8ebe2; }  /* Apricot Branch */
-.realm:nth-child(26) { --branche: url('../images/branches/branche-26.webp'); --papier: #f8eae3; }  /* Autumn Elm */
-.realm:nth-child(27) { --branche: url('../images/branches/branche-27.webp'); --papier: #f8e9e4; }  /* Copper Beech */
-.realm:nth-child(28) { --branche: url('../images/branches/branche-28.webp'); --papier: #f7e9e6; }  /* Winter Maple */
-.realm:nth-child(29) { --branche: url('../images/branches/branche-29.webp'); --papier: #f8eae8; }  /* Red Berry */
-.realm:nth-child(30) { --branche: url('../images/branches/branche-30.webp'); --papier: #f8eeea; }  /* Apple Blossom */
+/* Une branche par monde. La couleur change à chaque monde sur un cycle court
+   de dix teintes — rose, violet, bleu, bleu ciel, vert, jaune, doré, orange,
+   rouge, blanc — soit trois tours pour les trente mondes, le dernier
+   revenant sur le rose du premier. `--papier` complète la hauteur sous
+   l'image ; la teinte `--h` du monde suit le même cycle, réglée dans REALMS.
+   La table de référence des trois est tools/mondes.py. */
+.realm:nth-child(1) { --branche: url('../images/branches/branche-01.webp'); --papier: #f8eaee; }  /* Peaceful Sakura */
+.realm:nth-child(2) { --branche: url('../images/branches/branche-02.webp'); --papier: #f0e8f6; }  /* Wisteria Veil */
+.realm:nth-child(3) { --branche: url('../images/branches/branche-03.webp'); --papier: #e4e9f6; }  /* Blue Lys */
+.realm:nth-child(4) { --branche: url('../images/branches/branche-04.webp'); --papier: #e2eff7; }  /* Forget Me Not */
+.realm:nth-child(5) { --branche: url('../images/branches/branche-05.webp'); --papier: #e6f2e9; }  /* Eucalyptus Calm */
+.realm:nth-child(6) { --branche: url('../images/branches/branche-06.webp'); --papier: #f7f3db; }  /* Mimosa Sun */
+.realm:nth-child(7) { --branche: url('../images/branches/branche-07.webp'); --papier: #f6ecd6; }  /* Golden Ginkgo */
+.realm:nth-child(8) { --branche: url('../images/branches/branche-08.webp'); --papier: #fae8da; }  /* Autumn Elm */
+.realm:nth-child(9) { --branche: url('../images/branches/branche-09.webp'); --papier: #fae6e4; }  /* Winter Maple */
+.realm:nth-child(10) { --branche: url('../images/branches/branche-10.webp'); --papier: #f6f2ec; }  /* Apple Blossom */
+.realm:nth-child(11) { --branche: url('../images/branches/branche-11.webp'); --papier: #f8eaee; }  /* Quiet Camellia */
+.realm:nth-child(12) { --branche: url('../images/branches/branche-12.webp'); --papier: #f0e8f6; }  /* Lilac Drift */
+.realm:nth-child(13) { --branche: url('../images/branches/branche-13.webp'); --papier: #e4e9f6; }  /* Cornflower Blue */
+.realm:nth-child(14) { --branche: url('../images/branches/branche-14.webp'); --papier: #e2eff7; }  /* Morning Glory */
+.realm:nth-child(15) { --branche: url('../images/branches/branche-15.webp'); --papier: #e6f2e9; }  /* Sage Fern */
+.realm:nth-child(16) { --branche: url('../images/branches/branche-16.webp'); --papier: #f7f3db; }  /* Honey Acacia */
+.realm:nth-child(17) { --branche: url('../images/branches/branche-17.webp'); --papier: #f6ecd6; }  /* Amber Birch */
+.realm:nth-child(18) { --branche: url('../images/branches/branche-18.webp'); --papier: #fae8da; }  /* Apricot Branch */
+.realm:nth-child(19) { --branche: url('../images/branches/branche-19.webp'); --papier: #fae6e4; }  /* Red Berry */
+.realm:nth-child(20) { --branche: url('../images/branches/branche-20.webp'); --papier: #f6f2ec; }  /* Snow Willow */
+.realm:nth-child(21) { --branche: url('../images/branches/branche-21.webp'); --papier: #f8eaee; }  /* Blush Plum */
+.realm:nth-child(22) { --branche: url('../images/branches/branche-22.webp'); --papier: #f0e8f6; }  /* Lavender Field */
+.realm:nth-child(23) { --branche: url('../images/branches/branche-23.webp'); --papier: #e4e9f6; }  /* Blue Hydrangea */
+.realm:nth-child(24) { --branche: url('../images/branches/branche-24.webp'); --papier: #e2eff7; }  /* Winter Frost */
+.realm:nth-child(25) { --branche: url('../images/branches/branche-25.webp'); --papier: #e6f2e9; }  /* Bamboo Breeze */
+.realm:nth-child(26) { --branche: url('../images/branches/branche-26.webp'); --papier: #f7f3db; }  /* Yellow Broom */
+.realm:nth-child(27) { --branche: url('../images/branches/branche-27.webp'); --papier: #f6ecd6; }  /* Wheat Field */
+.realm:nth-child(28) { --branche: url('../images/branches/branche-28.webp'); --papier: #fae8da; }  /* Copper Beech */
+.realm:nth-child(29) { --branche: url('../images/branches/branche-29.webp'); --papier: #fae6e4; }  /* Crimson Vine */
+.realm:nth-child(30) { --branche: url('../images/branches/branche-30.webp'); --papier: #f6f2ec; }  /* Silver Mist */
 
 .realm-label {
   display: flex; align-items: center; gap: 12px;
