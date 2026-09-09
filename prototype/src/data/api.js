@@ -110,11 +110,43 @@ export async function getDailyLeaderboard() {
   return dailyPuzzle.classement();
 }
 
+// ---------------------------------------------------------------------------
+// Sync Supabase — fire-and-forget, jamais bloquant
+// ---------------------------------------------------------------------------
+
+/**
+ * Envoie le résultat d'un niveau terminé à Supabase en arrière-plan.
+ * Échoue silencieusement si le réseau est absent, le niveau pas encore en
+ * base, ou l'utilisateur non authentifié.
+ */
+async function _syncCompleteLevel(n, { score, failed, timeMs }) {
+  // Import dynamique : échoue silencieusement sous Node (tests), transparent
+  // dans le navigateur où le CDN est accessible.
+  let sb;
+  try {
+    sb = await import('./supabaseClient.js');
+  } catch {
+    return;
+  }
+
+  const levelCode = `lvl_${String(n).padStart(3, '0')}`;
+  const levelDbId = await sb.getLevelDbId(levelCode);
+  if (!levelDbId) return;
+
+  await sb.supabase.rpc('complete_level', {
+    p_level_id:          levelDbId,
+    p_moves:             score,
+    p_time_ms:           timeMs ?? 0,
+    p_completed:         !failed,
+    p_client_attempt_id: crypto.randomUUID(),
+  });
+}
+
 /**
  * POST /api/level/{levelNumber}/complete
  * @returns {{stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems}}
  */
-export async function completeLevel(n, { score, stars, failed }) {
+export async function completeLevel(n, { score, stars, failed, timeMs }) {
   const d = store.load();
   d.lastPlayedAt = new Date().toISOString();
 
@@ -140,5 +172,6 @@ export async function completeLevel(n, { score, stars, failed }) {
   if (nextLevelUnlocked) d.unlockedLevel = n + 1;
 
   store.save(d);
+  _syncCompleteLevel(n, { score, failed, timeMs }).catch(() => {});
   return { stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems: [] };
 }

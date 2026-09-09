@@ -34,6 +34,8 @@ import { EVENEMENTS as EV, contexteNiveau } from './data/analytics.js';
 import * as feedback from './meta/feedback.js';
 import { track, recent, subscribe } from './data/events.js';
 import { AudioManager } from './audio/audioManager.js';
+import { supabase } from './data/supabase.js';
+import { createLoginScreen } from './ui/loginScreen.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -446,7 +448,7 @@ async function finishLevel() {
     return;
   }
 
-  const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won });
+  const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won, timeMs: duree * 1000 });
 
   // L'interstitielle ne se joue plus ICI mais à l'ouverture du niveau suivant
   // (voir `startLevel`). On se contente d'avancer le compteur de la politique :
@@ -617,6 +619,7 @@ async function majPanneau() {
   construireChoixLangue();
   majThemes();
   majPastilleSon();
+  await majStatusAuth();
 }
 
 /** L'état « son coupé » se lit sur le bouton fermé, sinon il est invisible. */
@@ -1078,6 +1081,35 @@ el('opt-noads').onchange = (ev) => {
   screens.toast(t(ev.target.checked ? 'toast.ads.off' : 'toast.ads.on'));
 };
 
+/** Gestion de la déconnexion. */
+el('btn-logout').onclick = async () => {
+  if (!confirm('Se déconnecter ?')) return;
+  try {
+    await supabase.auth.signOut();
+    ouvrirPanneau(false);
+    // L'écouteur onAuthStateChange gère le reste
+  } catch (err) {
+    console.error('Erreur lors de la déconnexion :', err);
+    screens.toast('Erreur lors de la déconnexion');
+  }
+};
+
+/** Affiche le statut d'authentification. */
+async function majStatusAuth() {
+  const { data: { session } } = await supabase.auth.getSession();
+  const logoutBtn = el('btn-logout');
+  const statusText = el('auth-status-text');
+
+  if (session?.user) {
+    logoutBtn.hidden = false;
+    const email = session.user.email || session.user.user_metadata?.email || 'Utilisateur';
+    statusText.textContent = `Connecté en tant que ${email}`;
+  } else {
+    logoutBtn.hidden = true;
+    statusText.textContent = 'Mode hors ligne - données locales';
+  }
+}
+
 el('btn-reset').onclick = () => {
   if (!confirm(t('user.reset.confirm'))) return;
   store.reset();
@@ -1273,13 +1305,80 @@ function refreshDebug() {
     return;
   }
 
-  // Série quotidienne, puis menu.
-  const premiereFois = !store.load().lastPlayedAt && !store.load().lastPlayDay;
-  track(EV.APP_OPEN, {});
-  if (premiereFois) track(EV.FIRST_OPEN, {});
-  const session = daily.ouvrirSession();
-  if (session.nouveauJour) track(EV.DAILY_OPEN, { streak: session.streak });
-  verserRecompensesSerie();
-  window.addEventListener('pagehide', () => track('session_ended', {}));
-  showMenu();
+  // 2. VÉRIFICATION DE LA SESSION SUPABASE
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    // AUCUN UTILISATEUR CONNECTÉ -> Afficher l'écran de login et bloquer le jeu
+    console.log("Aucune session détectée. Affichage du Login.");
+    const loginScreen = createLoginScreen(() => {
+      console.log("Mode hors ligne activé.");
+      startGameLoopAfterAuth();
+    });
+    document.body.appendChild(loginScreen);
+
+    // Écouter les changements d'état (connexion ou déconnexion)
+    supabase.auth.onAuthStateChange(async (event, authSession) => {
+      console.log("Changement d'état:", event, authSession?.user?.id);
+
+      if (event === 'SIGNED_IN' && authSession) {
+        // Connexion réussie
+        const loginContainer = document.getElementById('login-container');
+        if (loginContainer) loginContainer.remove();
+        console.log("Utilisateur connecté, démarrage du jeu.");
+        startGameLoopAfterAuth();
+      } else if (event === 'SIGNED_OUT') {
+        // Déconnexion
+        console.log("Déconnexion détectée.");
+        const loginContainer = document.getElementById('login-container');
+        if (!loginContainer) {
+          document.body.appendChild(createLoginScreen(() => {
+            console.log("Mode hors ligne activé après déconnexion.");
+            startGameLoopAfterAuth();
+          }));
+        }
+        stopGameLoop();
+      } else if (event === 'INITIALIZE') {
+        // Phase d'initialisation, on attend juste que le reste se charge
+      }
+    });
+  } else {
+    // UTILISATEUR DÉJÀ CONNECTÉ -> Lancer le jeu immédiatement
+    console.log("Session active détectée. Démarrage direct.");
+    startGameLoopAfterAuth();
+
+    // Écouter la déconnexion pour remettre l'écran de login si nécessaire
+    supabase.auth.onAuthStateChange((event, authSession) => {
+      if (event === 'SIGNED_OUT') {
+        console.log("Déconnexion lors du jeu.");
+        document.body.appendChild(createLoginScreen(() => {
+          console.log("Mode hors ligne activé après déconnexion.");
+          startGameLoopAfterAuth();
+        }));
+        stopGameLoop();
+      }
+    });
+  }
+
+  // Fonction utilitaire pour démarrer le jeu après vérification de l'auth
+  function startGameLoopAfterAuth() {
+    const premiereFois = !store.load().lastPlayedAt && !store.load().lastPlayDay;
+    track(EV.APP_OPEN, {});
+    if (premiereFois) track(EV.FIRST_OPEN, {});
+    
+    const session = daily.ouvrirSession();
+    if (session.nouveauJour) track(EV.DAILY_OPEN, { streak: session.streak });
+    verserRecompensesSerie();
+    
+    window.addEventListener('pagehide', () => track('session_ended', {}));
+    showMenu();
+  }
+
+  // Fonction utilitaire pour arrêter proprement le jeu lors d'une déconnexion
+  function stopGameLoop() {
+    stopChrono();
+    if (board) { board.gameState = 'IDLE'; hud.update(board); }
+    if (input) { input.locked = true; busy = false; }
+    screens.show('menu'); // Retour forcé au menu si déconnecté en cours de partie
+  }
 })();

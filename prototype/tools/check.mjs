@@ -9,7 +9,8 @@ import { readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const NAVIGATEUR_SEUL = ['boardView.js', 'input.js', 'screens.js', 'mapScreen.js',
-                         'gameplayUI.js', 'resultScreen.js', 'main.js', 'save.js', 'api.js'];
+                         'gameplayUI.js', 'resultScreen.js', 'main.js', 'save.js', 'api.js',
+                         'supabaseClient.js', 'auth.js'];
 
 function* walk(dir) {
   for (const e of readdirSync(dir)) {
