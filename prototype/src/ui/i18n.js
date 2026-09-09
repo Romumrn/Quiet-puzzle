@@ -123,7 +123,7 @@ const TEXTES = {
     'user.glyphs.note': 'Ajoute un symbole à chaque couleur, pour ne pas avoir à s’y fier.',
     'user.language': 'Langue',
     ‘user.ads’: ‘Publicité’, ‘user.noads’: ‘Supprimer les pubs’,
-    ‘user.ads.note’: ‘Achat simulé — aucune régie n’est branchée.’,
+    ‘user.ads.note’: "Achat simulé — aucune régie n’est branchée.",
     ‘user.account’: ‘Compte’, ‘user.logout’: ‘Se déconnecter’,
     ‘user.status.online’: ‘Connecté en tant que {email}’,
     ‘user.status.offline’: ‘Mode hors ligne - données locales’,
