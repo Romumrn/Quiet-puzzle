@@ -34,7 +34,7 @@ import { EVENEMENTS as EV, contexteNiveau } from './data/analytics.js';
 import * as feedback from './meta/feedback.js';
 import { track, recent, subscribe } from './data/events.js';
 import { AudioManager } from './audio/audioManager.js';
-import { supabase } from './data/supabase.js';
+import { supabase } from './data/supabaseClient.js';
 import { createLoginScreen } from './ui/loginScreen.js';
 
 const el = (id) => document.getElementById(id);

@@ -1,0 +1,52 @@
+name: Albert
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Albert Qwen3 Coder 30B
+    provider: openai
+    model: Qwen/Qwen3-Coder-30B-A3B-Instruct
+    apiBase: https://albert.api.etalab.gouv.fr/v1
+    apiKey: sk-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMTM1OSwidG9rZW5faWQiOjUxMDkzLCJleHBpcmVzIjoxODA4MjU4NDAwfQ.27HeTOD_Nc4OAZLAEJJ7a0AKPodCRRht5lCzJEiW_Ds
+    roles:
+      - chat
+      - edit
+      - apply
+    capabilities:
+      - tool_use
+    
+  - name: Albert GPToss120
+    provider: openai
+    model: openai/gpt-oss-120b
+    apiBase: https://albert.api.etalab.gouv.fr/v1
+    apiKey: sk-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMTM1OSwidG9rZW5faWQiOjUxMDkzLCJleHBpcmVzIjoxODA4MjU4NDAwfQ.27HeTOD_Nc4OAZLAEJJ7a0AKPodCRRht5lCzJEiW_Ds
+    roles:
+      - chat
+      - edit
+      - apply
+    capabilities:
+      - tool_use
+
+  - name: Albert DeepSeek-V4-Flash
+    provider: openai
+    model: deepseek-ai/DeepSeek-V4-Flash-0731
+    apiBase: https://albert.api.etalab.gouv.fr/v1
+    apiKey: sk-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMTM1OSwidG9rZW5faWQiOjUxMDkzLCJleHBpcmVzIjoxODA4MjU4NDAwfQ.27HeTOD_Nc4OAZLAEJJ7a0AKPodCRRht5lCzJEiW_Ds
+    roles:
+      - chat
+      - edit
+      - apply
+    capabilities:
+      - tool_use
+    
+  - name: Albert Qwen3-VL-Embedding-8B
+    provider: openai
+    model: Qwen/Qwen3-VL-Embedding-8B
+    apiBase: https://albert.api.etalab.gouv.fr/v1
+    apiKey: sk-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMTM1OSwidG9rZW5faWQiOjUxMDkzLCJleHBpcmVzIjoxODA4MjU4NDAwfQ.27HeTOD_Nc4OAZLAEJJ7a0AKPodCRRht5lCzJEiW_Ds
+    roles:
+      - embed
+    
+
+    
+

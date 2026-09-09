@@ -95,6 +95,47 @@ media/              captures du README
 | Sauvegarde locale (tout l'état joueur) | `src/data/save.js` — `EMPTY()` liste tous les champs |
 | Façade « API » (futur backend) | `src/data/api.js` |
 
+### Authentification & Supabase
+
+| Besoin | Fichier | Repère |
+|---|---|---|
+| Client Supabase | `src/data/supabaseClient.js` | Créé une seule fois, initialise le SDK avec URL + clé anon |
+| Écran de login | `src/ui/loginScreen.js` | OAuth Google/Meta, mode hors ligne, statuts de connexion |
+| Gestion de session | `src/main.js` | Vérifie session au démarrage, lance jeu ou affiche login |
+| Déconnexion | `src/main.js` — `majPanneau()` | Bouton dans le menu utilisateur, affiche statut auth |
+
+**Supabase — Flow d'authentification :**
+
+```
+1. App démarre → getSession() → check localStorage
+   ├─ Session trouvée → Lance le jeu
+   └─ Pas de session → Affiche écran login
+
+2. Utilisateur clique « Google » → signInWithOAuth('google')
+   ├─ Redirige vers Supabase → Redirige vers Google
+   ├─ Après OAuth → Redirige vers https://vwriqaufkrihmxrvykec.supabase.co/auth/v1/callback
+   └─ Puis redirige vers http://localhost:8123 (ou domaine prod)
+
+3. Page recharge → getSession() récupère token valide → Lance jeu
+
+4. Utilisateur clique « Se déconnecter » → signOut() → Écran login
+```
+
+**Configuration Google OAuth :**
+
+1. **Google Cloud Console** → Identifiants → Client OAuth
+   - `Authorized redirect URIs` : `https://vwriqaufkrihmxrvykec.supabase.co/auth/v1/callback`
+2. **Supabase** → Authentication → Providers → Google
+   - Mettez Client ID + Secret
+3. **Supabase** → Settings → Authentication → Redirect URLs
+   - Ajoutez `http://localhost:8123` (local) et domaine prod
+
+**Sécurité des clés :**
+
+- Clés Supabase `anon` stockées en dur dans `supabaseClient.js` (publiques par design)
+- RLS (Row Level Security) protège les données côté base de données
+- À migrer vers **variables d'environnement** pour la prod
+
 ---
 
 ## La génération d'un niveau, pas à pas
