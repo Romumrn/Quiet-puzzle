@@ -1,122 +1,121 @@
 /**
- * Série quotidienne et cadeau du jour.
+ * Daily streak and daily gift.
  *
- * Le levier de rétention le plus efficace du casual, et le plus honnête : il
- * récompense le fait de revenir, sans rien retirer à qui ne revient pas. Aucune
- * pénalité, aucun compte à rebours anxiogène — juste une récompense croissante
- * qui repart à zéro après un jour manqué.
+ * The most effective retention lever in casual games, and the most honest: it
+ * rewards coming back without taking anything away from those who do not. No
+ * penalty, no anxiety-inducing countdown — just a growing reward that resets
+ * after a missed day.
  */
 
 import * as store from '../data/save.js';
 import { track } from '../data/events.js';
 import * as currency from '../monetization/currency.js';
 
-/** Paliers de récompense selon l'ancienneté de la série. */
-// Paliers de la série quotidienne, alignés sur les gains de fin de niveau
-// (divisés par quatre en même temps qu'eux). Un cadeau plus généreux que
-// plusieurs niveaux réunis aurait fait de la connexion, et non du jeu, la
-// meilleure façon de gagner des pièces.
-const PALIERS = [12, 18, 25, 38, 50, 75, 125];
+/** Reward tiers according to how old the streak is. */
+// Daily streak tiers, aligned with end-of-level payouts (divided by four at the
+// same time as them). A gift more generous than several levels put together
+// would have made logging in, rather than playing, the best way to earn coins.
+const TIERS = [12, 18, 25, 38, 50, 75, 125];
 
-const jour = (decalage = 0) => {
+const day = (offset = 0) => {
   const d = new Date();
-  d.setDate(d.getDate() + decalage);
+  d.setDate(d.getDate() + offset);
   return d.toISOString().slice(0, 10);
 };
 
-/** À appeler au démarrage. Met la série à jour et signale un nouveau jour. */
-export function ouvrirSession() {
+/** Call at startup. Updates the streak and signals a new day. */
+export function openSession() {
   const d = store.load();
-  const aujourdhui = jour();
-  if (d.lastPlayDay === aujourdhui) {
-    track('session_started', { streak: d.streak, nouveauJour: false });
-    return { streak: d.streak, nouveauJour: false };
+  const today = day();
+  if (d.lastPlayDay === today) {
+    track('session_started', { streak: d.streak, newDay: false });
+    return { streak: d.streak, newDay: false };
   }
-  const continue_ = d.lastPlayDay === jour(-1);
-  d.streak = continue_ ? d.streak + 1 : 1;
-  // Une série repartie de zéro n'a plus rien versé : sans cette remise, un
-  // joueur qui revient après un mois toucherait tous les paliers d'un coup.
-  if (!continue_) d.paliersSerie = [];
-  track(continue_ ? 'streak_continued' : 'streak_started', { streak: d.streak });
-  d.lastPlayDay = aujourdhui;
+  const continues = d.lastPlayDay === day(-1);
+  d.streak = continues ? d.streak + 1 : 1;
+  // A streak restarted from scratch has paid out nothing: without this reset, a
+  // player coming back after a month would collect every tier at once.
+  if (!continues) d.streakTiers = [];
+  track(continues ? 'streak_continued' : 'streak_started', { streak: d.streak });
+  d.lastPlayDay = today;
   store.save(d);
-  track('session_started', { streak: d.streak, nouveauJour: true });
-  return { streak: d.streak, nouveauJour: true };
+  track('session_started', { streak: d.streak, newDay: true });
+  return { streak: d.streak, newDay: true };
 }
 
-export function serie() { return store.load().streak; }
+export function streak() { return store.load().streak; }
 
-export function recompenseDuJour() {
-  return PALIERS[Math.min(Math.max(1, serie()) - 1, PALIERS.length - 1)];
+export function todaysReward() {
+  return TIERS[Math.min(Math.max(1, streak()) - 1, TIERS.length - 1)];
 }
 
-export function peutReclamer() {
-  return store.load().dailyClaimedOn !== jour();
+export function canClaim() {
+  return store.load().dailyClaimedOn !== day();
 }
 
-/** @returns {number|0} montant crédité, 0 si déjà réclamé aujourd'hui. */
-export function reclamer() {
-  if (!peutReclamer()) return 0;
+/** @returns {number|0} amount credited, 0 if already claimed today. */
+export function claim() {
+  if (!canClaim()) return 0;
   const d = store.load();
-  d.dailyClaimedOn = jour();
+  d.dailyClaimedOn = day();
   store.save(d);
-  const montant = recompenseDuJour();
-  currency.crediter(montant, 'daily_reward');
-  track('daily_reward_claimed', { streak: d.streak, montant });
-  return montant;
+  const amount = todaysReward();
+  currency.credit(amount, 'daily_reward');
+  track('daily_reward_claimed', { streak: d.streak, amount });
+  return amount;
 }
 
 /**
- * Paliers de série : le badge affiché, et ce qu'on touche en l'atteignant.
+ * Streak tiers: the badge shown, and what reaching one pays out.
  *
- * Les récompenses sont de NATURES différentes — éclats, thème, indices, badge —
- * et c'est voulu : une série qui ne verse que de la monnaie se compare à la
- * monnaie qu'on gagne en jouant, et perd toujours. Un thème ne se gagne nulle
- * part ailleurs.
+ * The rewards are of DIFFERENT natures — coins, a theme, hints, a badge — and
+ * that is deliberate: a streak that only pays currency gets compared to the
+ * currency earned by playing, and always loses. A theme cannot be earned
+ * anywhere else.
  */
-export const PALIERS_SERIE = Object.freeze([
-  { jours: 1, badge: '🔥' },
-  { jours: 2, badge: '🔥' },
-  { jours: 3, badge: '🔥', recompense: { type: 'eclats', montant: 50 } },
-  { jours: 7, badge: '🔥', recompense: { type: 'theme', id: 'sakura' } },
-  { jours: 14, badge: '🔥', recompense: { type: 'indices', montant: 3 } },
-  { jours: 30, badge: '🏅', recompense: { type: 'badge', id: 'fidele' } },
+export const STREAK_TIERS = Object.freeze([
+  { days: 1, badge: '🔥' },
+  { days: 2, badge: '🔥' },
+  { days: 3, badge: '🔥', reward: { type: 'coins', amount: 50 } },
+  { days: 7, badge: '🔥', reward: { type: 'theme', id: 'sakura' } },
+  { days: 14, badge: '🔥', reward: { type: 'hints', amount: 3 } },
+  { days: 30, badge: '🏅', reward: { type: 'badge', id: 'loyal' } },
 ]);
 
-/** Le palier atteint par une série de `n` jours. */
-export function palierDe(n = serie()) {
-  let atteint = PALIERS_SERIE[0];
-  for (const p of PALIERS_SERIE) if (n >= p.jours) atteint = p;
-  return atteint;
+/** The tier reached by a streak of `n` days. */
+export function tierFor(n = streak()) {
+  let reached = STREAK_TIERS[0];
+  for (const p of STREAK_TIERS) if (n >= p.days) reached = p;
+  return reached;
 }
 
-/** Le prochain palier à viser, ou null quand tout est atteint. */
-export function palierSuivant(n = serie()) {
-  return PALIERS_SERIE.find((p) => p.jours > n) || null;
+/** The next tier to aim for, or null when they are all reached. */
+export function nextTier(n = streak()) {
+  return STREAK_TIERS.find((p) => p.days > n) || null;
 }
 
 /**
- * Récompenses de série encore dues.
+ * Streak rewards still owed.
  *
- * On note ce qui a été versé plutôt que de se fier au seul compteur du jour :
- * une série interrompue puis reprise ne doit pas reverser ce qui l'a déjà été,
- * et un joueur qui manque le jour exact d'un palier ne doit pas le perdre.
+ * We record what has been paid rather than trusting the day counter alone: a
+ * streak broken and picked up again must not pay out twice, and a player who
+ * misses the exact day of a tier must not lose it.
  */
-export function recompensesDues() {
+export function rewardsDue() {
   const d = store.load();
-  const versees = d.paliersSerie || [];
-  return PALIERS_SERIE.filter((p) => p.recompense && d.streak >= p.jours && !versees.includes(p.jours));
+  const paid = d.streakTiers || [];
+  return STREAK_TIERS.filter((p) => p.reward && d.streak >= p.days && !paid.includes(p.days));
 }
 
-/** Marque un palier comme versé. */
-export function noterPalierVerse(jours) {
+/** Marks a tier as paid. */
+export function markTierPaid(days) {
   const d = store.load();
-  d.paliersSerie = [...new Set([...(d.paliersSerie || []), jours])];
+  d.streakTiers = [...new Set([...(d.streakTiers || []), days])];
   store.save(d);
-  track('streak_reward_granted', { jours, streak: d.streak });
+  track('streak_reward_granted', { days, streak: d.streak });
 }
 
-/** Récompense qu'aurait le joueur demain — sert à donner envie de revenir. */
-export function recompenseDeDemain() {
-  return PALIERS[Math.min(serie(), PALIERS.length - 1)];
+/** The reward the player would get tomorrow — makes coming back worthwhile. */
+export function tomorrowsReward() {
+  return TIERS[Math.min(streak(), TIERS.length - 1)];
 }

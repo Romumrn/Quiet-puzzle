@@ -1,11 +1,10 @@
 /**
- * APIClient — équivalent de Scripts/Backend/APIClient.cs (doc §4)
+ * APIClient — equivalent of Scripts/Backend/APIClient.cs (tech doc §4)
  *
- * Façade sur les endpoints du doc §6.1, implémentée en local (localStorage).
- * Les méthodes portent le nom et la forme de réponse des vraies routes REST et
- * renvoient toutes des Promises : brancher le backend Node reviendra à
- * remplacer le CORPS de ces fonctions par un `fetch`, sans toucher à un seul
- * appelant.
+ * A façade over the endpoints of doc §6.1, implemented locally (localStorage).
+ * The methods carry the name and response shape of the real REST routes and all
+ * return Promises: wiring up the Node backend will amount to replacing the BODY
+ * of these functions with a `fetch`, without touching a single caller.
  */
 
 import * as store from './save.js';
@@ -13,27 +12,27 @@ import * as levels from './levelStore.js';
 import * as dailyPuzzle from '../meta/dailyPuzzle.js';
 
 /**
- * Niveau global du joueur, dérivé de l'XP. Palier fixe de 100 XP : simple à
- * lire pour le joueur, et l'XP est déjà versée par completeLevel (doc §6.1).
+ * The player's global level, derived from XP. A flat 100 XP tier: easy for the
+ * player to read, and XP is already granted by completeLevel (doc §6.1).
  */
-export const XP_PAR_NIVEAU = 100;
+export const XP_PER_LEVEL = 100;
 
-export function niveauJoueur(xp) {
-  const niveau = 1 + Math.floor(xp / XP_PAR_NIVEAU);
-  const dans = xp % XP_PAR_NIVEAU;
-  return { niveau, dans, requis: XP_PAR_NIVEAU };
+export function playerLevelFor(xp) {
+  const level = 1 + Math.floor(xp / XP_PER_LEVEL);
+  const into = xp % XP_PER_LEVEL;
+  return { level, into, required: XP_PER_LEVEL };
 }
 
 /** GET /api/user/profile */
 export async function getProfile() {
   const d = store.load();
-  const progression = niveauJoueur(d.xp);
+  const progress = playerLevelFor(d.xp);
   return {
     coins: d.coins,
     xpTotal: d.xp,
-    playerLevel: progression.niveau,
-    xpDansNiveau: progression.dans,
-    xpRequis: progression.requis,
+    playerLevel: progress.level,
+    xpIntoLevel: progress.into,
+    xpRequired: progress.required,
     levelsCompleted: Object.values(d.levels).filter((l) => l.stars > 0).length,
     currentLevel: d.unlockedLevel,
     highestLevel: d.unlockedLevel,
@@ -43,85 +42,85 @@ export async function getProfile() {
 }
 
 /**
- * Ce que rapporte un niveau réussi, selon les étoiles décrochées.
+ * What a completed level pays out, according to the stars earned.
  *
- * Le barème est plat et lisible : le joueur sait ce qu'il gagne avant de jouer,
- * et vise trois étoiles pour cinq fois plus qu'une seule.
+ * The scale is flat and legible: the player knows what they are getting before
+ * playing, and aims for three stars to earn five times more than one.
  *
- * Rejouer un niveau sans faire mieux ne rapporte qu'une pièce. Ce n'est pas une
- * punition : sans ce garde-fou, le premier niveau du jeu — quelques secondes,
- * trois étoiles les yeux fermés — devient la façon la plus rapide de s'enrichir,
- * et tout le reste de l'économie perd son sens.
+ * Replaying a level without doing better pays a single coin. This is not a
+ * punishment: without that safeguard the first level of the game — a few
+ * seconds, three stars with your eyes shut — becomes the fastest way to get
+ * rich, and the rest of the economy loses its meaning.
  */
-export const PIECES_PAR_ETOILE = Object.freeze({ 1: 2, 2: 5, 3: 10 });
-const PIECES_REJEU = 1;
+export const COINS_PER_STAR = Object.freeze({ 1: 2, 2: 5, 3: 10 });
+const COINS_REPLAY = 1;
 
-export function piecesPour(stars, progres = true) {
+export function coinsFor(stars, progressed = true) {
   if (!stars) return 0;
-  return progres ? (PIECES_PAR_ETOILE[stars] ?? 0) : PIECES_REJEU;
+  return progressed ? (COINS_PER_STAR[stars] ?? 0) : COINS_REPLAY;
 }
 
 /**
  * GET /api/level/{levelNumber}
  *
- * Lit la base de niveaux. Le jour où un vrai serveur sert les niveaux, seul le
- * corps de `levelStore` change : les appelants, eux, voient déjà une Promise.
+ * Reads the level database. The day a real server serves the levels, only the
+ * body of `levelStore` changes: callers already see a Promise.
  */
 export async function getLevel(n) {
   return levels.getLevel(n);
 }
 
 // ---------------------------------------------------------------------------
-// Puzzle du jour — grilles proposées par les joueurs
+// Daily puzzle — grids submitted by players
 // ---------------------------------------------------------------------------
 
 /**
  * POST /api/daily-puzzle
  *
- * Dépose une grille dans la file des propositions. Le niveau doit avoir été
- * VÉRIFIÉ par l'appelant : c'est l'éditeur qui passe le solveur, et lui seul
- * sait si la grille tient debout.
+ * Drops a grid into the submission queue. The level must have been VERIFIED by
+ * the caller: it is the editor that runs the solver, and it alone knows whether
+ * the grid holds up.
  */
-export async function submitDailyPuzzle(niveau, titre) {
-  return dailyPuzzle.proposer(niveau, titre);
+export async function submitDailyPuzzle(level, title) {
+  return dailyPuzzle.submit(level, title);
 }
 
-/** GET /api/daily-puzzle — la grille du jour, ou null si la file est vide. */
+/** GET /api/daily-puzzle — today's grid, or null if the queue is empty. */
 export async function getDailyPuzzle() {
-  return dailyPuzzle.duJour();
+  return dailyPuzzle.ofTheDay();
 }
 
 /**
  * POST /api/daily-puzzle/score
  *
- * Le score est recalculé ICI, à partir des chiffres de la partie, et non repris
- * de ce que l'appelant annonce. Le jour où ce corps deviendra un `fetch`, c'est
- * le serveur qui le calculera pour la même raison : un score que le client
- * fournit est un score qu'il choisit.
+ * The score is recomputed HERE, from the game's own figures, rather than taken
+ * from what the caller announces. The day this body becomes a `fetch`, the
+ * server will compute it for the same reason: a score the client supplies is a
+ * score the client chooses.
  */
-export async function submitDailyScore({ drags, minDrags, secondes }) {
-  const score = dailyPuzzle.calculerScore({ drags, minDrags, secondes });
-  const { ameliore } = dailyPuzzle.enregistrerScore({ score, drags, secondes });
-  return { score, ameliore, classement: dailyPuzzle.classement() };
+export async function submitDailyScore({ drags, minDrags, seconds }) {
+  const score = dailyPuzzle.computeScore({ drags, minDrags, seconds });
+  const { improved } = dailyPuzzle.recordScore({ score, drags, seconds });
+  return { score, improved, leaderboard: dailyPuzzle.leaderboard() };
 }
 
 /** GET /api/daily-puzzle/leaderboard */
 export async function getDailyLeaderboard() {
-  return dailyPuzzle.classement();
+  return dailyPuzzle.leaderboard();
 }
 
 // ---------------------------------------------------------------------------
-// Sync Supabase — fire-and-forget, jamais bloquant
+// Supabase sync — fire-and-forget, never blocking
 // ---------------------------------------------------------------------------
 
 /**
- * Envoie le résultat d'un niveau terminé à Supabase en arrière-plan.
- * Échoue silencieusement si le réseau est absent, le niveau pas encore en
- * base, ou l'utilisateur non authentifié.
+ * Sends the result of a finished level to Supabase in the background.
+ * Fails silently if the network is down, the level is not in the database yet,
+ * or the user is not authenticated.
  */
 async function _syncCompleteLevel(n, { score, failed, timeMs }) {
-  // Import dynamique : échoue silencieusement sous Node (tests), transparent
-  // dans le navigateur où le CDN est accessible.
+  // Dynamic import: fails silently under Node (tests), transparent in the
+  // browser where the CDN is reachable.
   let sb;
   try {
     sb = await import('./supabaseClient.js');
@@ -157,13 +156,13 @@ export async function completeLevel(n, { score, stars, failed, timeMs }) {
 
   const prev = d.levels[n] || { stars: 0, bestScore: 0 };
   const isNewStars = stars > prev.stars;
-  // `score` est ici un nombre de glissés : le meilleur record est le PLUS PETIT.
+  // `score` is a drag count here: the best record is the SMALLEST one.
   d.levels[n] = {
     stars: Math.max(prev.stars, stars),
     bestScore: prev.bestScore ? Math.min(prev.bestScore, score) : score,
   };
 
-  const coinsEarned = piecesPour(stars, isNewStars);
+  const coinsEarned = coinsFor(stars, isNewStars);
   const xpEarned = stars * 10;
   d.coins += coinsEarned;
   d.xp += xpEarned;

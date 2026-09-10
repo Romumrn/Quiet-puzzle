@@ -1,18 +1,18 @@
 /**
- * Thèmes : les habillages que le joueur débloque et choisit.
+ * Themes: the skins the player unlocks and picks.
  *
- * Jusqu'ici, la teinte de l'interface était imposée par le monde en cours, et
- * changeait sous les pieds du joueur au fil de la progression. Un thème est
- * l'inverse : un choix qui reste. Les deux coexistent — sans thème choisi, on
- * garde la teinte du monde, qui reste le comportement d'origine.
+ * Until now the interface hue was imposed by the current realm, and shifted
+ * under the player's feet as they progressed. A theme is the opposite: a choice
+ * that sticks. The two coexist — with no theme chosen we keep the realm's hue,
+ * which is the original behaviour.
  *
- * Chaque thème pose une teinte d'interface et une palette de blocs, exactement
- * comme un monde : c'est le même mécanisme, appliqué à la demande du joueur
- * plutôt qu'à l'avancement.
+ * Each theme sets an interface hue and a block palette, exactly like a realm:
+ * it is the same mechanism, applied on the player's request rather than on
+ * their progress.
  *
- * Les conditions de déblocage sont de natures DIFFÉRENTES à dessein — niveaux,
- * étoiles, série, achat. Un thème qui ne dépendrait que de la progression
- * n'apprendrait rien sur le joueur qui le porte.
+ * The unlock conditions are DIFFERENT in nature on purpose — levels, stars,
+ * streak, purchase. A theme depending only on progress would teach nothing
+ * about the player wearing it.
  */
 
 import * as store from '../data/save.js';
@@ -20,68 +20,69 @@ import { track } from '../data/events.js';
 
 export const THEMES = Object.freeze([
   {
-    id: 'sakura', emoji: '🌸', teinte: 345,
+    id: 'sakura', emoji: '🌸', hue: 345,
     palette: ['#eb9aad', '#93bde4', '#97cfb6', '#e9cd8c', '#bdaadd', '#f0b18b'],
-    // Le thème d'origine : acquis d'emblée, il sert de repli et de repère.
-    condition: { type: 'toujours' },
+    // The original theme: owned from the start, it acts as a fallback and a
+    // point of reference.
+    condition: { type: 'always' },
   },
   {
-    id: 'ocean', emoji: '🌊', teinte: 202,
+    id: 'ocean', emoji: '🌊', hue: 202,
     palette: ['#e0919f', '#7fb6dd', '#7fc9c4', '#dcc98a', '#a3aade', '#e2a487'],
-    condition: { type: 'niveaux', valeur: 20 },
+    condition: { type: 'levels', value: 20 },
   },
   {
-    id: 'forest', emoji: '🌲', teinte: 138,
+    id: 'forest', emoji: '🌲', hue: 138,
     palette: ['#d99aa0', '#8bb6c4', '#84c48f', '#d3c586', '#aaa1cf', '#dba983'],
-    condition: { type: 'niveaux', valeur: 60 },
+    condition: { type: 'levels', value: 60 },
   },
   {
-    id: 'sunset', emoji: '🌅', teinte: 22,
+    id: 'sunset', emoji: '🌅', hue: 22,
     palette: ['#ef9a86', '#8fb0cf', '#a6c894', '#f0c579', '#c2a0cc', '#eda775'],
-    condition: { type: 'etoiles', valeur: 150 },
+    condition: { type: 'stars', value: 150 },
   },
   {
-    id: 'night', emoji: '🌙', teinte: 258,
+    id: 'night', emoji: '🌙', hue: 258,
     palette: ['#cf90b4', '#8ea3dd', '#84c3b4', '#d9c184', '#ab97dc', '#cf9a92'],
-    condition: { type: 'etoiles', valeur: 400 },
+    condition: { type: 'stars', value: 400 },
   },
   {
-    id: 'zen', emoji: '🍵', teinte: 96,
+    id: 'zen', emoji: '🍵', hue: 96,
     palette: ['#d29aa2', '#95b8c8', '#a8c894', '#d8c98d', '#b3a6cd', '#d9a98d'],
-    condition: { type: 'serie', valeur: 7 },
+    condition: { type: 'streak', value: 7 },
   },
   {
-    id: 'snow', emoji: '❄️', teinte: 210,
+    id: 'snow', emoji: '❄️', hue: 210,
     palette: ['#dda3ae', '#9cc3e2', '#96cfcc', '#dfd39b', '#b3b6e0', '#d9b8a6'],
     condition: { type: 'premium' },
   },
 ]);
 
-export const parId = (id) => THEMES.find((t) => t.id === id) || null;
+export const byId = (id) => THEMES.find((t) => t.id === id) || null;
 
 /**
- * Ce thème est-il acquis ? Les conditions sont évaluées CHAQUE FOIS plutôt que
- * notées une bonne fois : un joueur qui remet sa progression à zéro doit
- * reperdre ce qu'elle lui avait ouvert, et un thème offert par une série reste
- * acquis parce qu'il est, lui, enregistré.
+ * Is this theme owned? Conditions are evaluated EVERY TIME rather than recorded
+ * once and for all: a player who resets their progress must lose again what it
+ * had opened, and a theme granted by a streak stays owned because that one is
+ * actually stored.
  */
-export function estDebloque(theme, profil = null) {
+export function isUnlocked(theme, profile = null) {
   const d = store.load();
   if ((d.themes || []).includes(theme.id)) return true;
   const c = theme.condition;
-  if (c.type === 'toujours') return true;
+  if (c.type === 'always') return true;
   if (c.type === 'premium') return d.noAds === true;
-  if (c.type === 'niveaux') return (d.unlockedLevel - 1) >= c.valeur;
-  if (c.type === 'serie') return (d.streak || 0) >= c.valeur;
-  if (c.type === 'etoiles') return (profil?.totalStars ?? etoilesTotales(d)) >= c.valeur;
+  if (c.type === 'levels') return (d.unlockedLevel - 1) >= c.value;
+  if (c.type === 'streak') return (d.streak || 0) >= c.value;
+  if (c.type === 'stars') return (profile?.totalStars ?? totalStars(d)) >= c.value;
   return false;
 }
 
-const etoilesTotales = (d) =>
-  Object.values(d.levels || {}).reduce((somme, l) => somme + (l.stars || 0), 0);
+const totalStars = (d) =>
+  Object.values(d.levels || {}).reduce((sum, l) => sum + (l.stars || 0), 0);
 
-/** Ouvre un thème sans condition — récompense de série, achat. */
-export function debloquer(id, source) {
+/** Opens a theme unconditionally — streak reward, purchase. */
+export function unlock(id, source) {
   const d = store.load();
   if ((d.themes || []).includes(id)) return false;
   d.themes = [...(d.themes || []), id];
@@ -90,20 +91,20 @@ export function debloquer(id, source) {
   return true;
 }
 
-/** Le thème choisi, ou null quand le joueur suit la teinte des mondes. */
-export const choisi = () => store.load().theme || null;
+/** The chosen theme, or null when the player follows the realms' hues. */
+export const chosen = () => store.load().theme || null;
 
-export function choisir(id) {
+export function choose(id) {
   const d = store.load();
   d.theme = id;
   store.save(d);
-  track('theme_selected', { theme: id || 'mondes' });
+  track('theme_selected', { theme: id || 'realms' });
 }
 
-/** Ce qu'il manque pour ouvrir ce thème, en clair. */
-export function conditionLisible(theme, t) {
+/** What is missing to open this theme, in plain words. */
+export function conditionLabel(theme, t) {
   const c = theme.condition;
-  if (c.type === 'toujours') return '';
+  if (c.type === 'always') return '';
   if (c.type === 'premium') return t('theme.cond.premium');
-  return t(`theme.cond.${c.type}`, { n: c.valeur });
+  return t(`theme.cond.${c.type}`, { n: c.value });
 }

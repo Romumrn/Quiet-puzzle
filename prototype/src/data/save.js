@@ -1,10 +1,10 @@
 /**
- * DataManager — équivalent de Scripts/Utilities/DataManager.cs (doc §4)
+ * DataManager — equivalent of Scripts/Utilities/DataManager.cs (tech doc §4)
  *
- * Sauvegarde locale. Dans le jeu final, ce store est le cache local que
- * CloudSaveManager synchronise avec le backend ; ici il fait autorité.
- * Tous les accès sont protégés : navigation privée, quota plein ou stockage
- * bloqué ne doivent jamais casser le jeu.
+ * Local save. In the final game this store is the local cache that
+ * CloudSaveManager synchronises with the backend; here it is authoritative.
+ * Every access is guarded: private browsing, a full quota or blocked storage
+ * must never break the game.
  */
 
 const KEY = 'puzzlequest.save.v1';
@@ -12,35 +12,35 @@ const KEY = 'puzzlequest.save.v1';
 const EMPTY = () => ({
   version: 2,
   unlockedLevel: 1,
-  coins: 150,        // pécule de départ : le joueur peut goûter aux indices
+  coins: 150,        // starting purse: the player can taste the hints
   xp: 0,
-  levels: {},        // numéro -> { stars, bestScore }
-  noAds: false,      // achat "supprimer les pubs" (doc §5.3, PRODUCT_NO_ADS)
-  musique: true,
-  effets: true,
+  levels: {},        // number -> { stars, bestScore }
+  noAds: false,      // "remove ads" purchase (doc §5.3, PRODUCT_NO_ADS)
+  music: true,
+  sfx: true,
   /**
-   * Langue de l'interface, ou null tant que le joueur n'a pas choisi — auquel
-   * cas on suit celle du navigateur. Enregistrer un choix par défaut aurait figé
-   * la langue du premier chargement.
+   * Interface language, or null while the player has not chosen — in which case
+   * we follow the browser's. Storing a default choice would have frozen the
+   * language of the first load.
    */
-  langue: null,
+  language: null,
   /**
-   * Glyphes de famille sur les blocs et les portes. Les six familles se
-   * distinguent par leur couleur ; cette option leur rend leur symbole (●◆▲★■⬢),
-   * pour qui ne peut pas s'appuyer sur la teinte.
+   * Family glyphs on blocks and gates. The six families are told apart by their
+   * colour; this option gives them their symbol back (●◆▲★■⬢), for anyone who
+   * cannot rely on hue.
    */
-  glyphes: false,
-  /** Jeton d'auteur pour le puzzle du jour (voir meta/dailyPuzzle.js). */
-  auteurId: null,
-  /** Visionnages de pubs « pièces » : le jour en cours et leur nombre. */
-  pubsPiecesJour: null,
-  pubsPiecesCompte: 0,
-  streak: 0,         // jours consécutifs joués
-  paliersSerie: [],  // paliers de série déjà récompensés
-  themes: [],        // thèmes débloqués, en plus de celui d'origine
-  theme: null,       // thème choisi, ou null pour la teinte du monde
-  badges: [],        // badges obtenus
-  indices: 0,        // indices offerts, dépensés avant les éclats
+  glyphs: false,
+  /** Author token for the daily puzzle (see meta/dailyPuzzle.js). */
+  authorId: null,
+  /** Rewarded "coin" ad views: the current day and how many. */
+  coinAdsDay: null,
+  coinAdsCount: 0,
+  streak: 0,         // consecutive days played
+  streakTiers: [],   // streak tiers already rewarded
+  themes: [],        // unlocked themes, on top of the original one
+  theme: null,       // chosen theme, or null for the realm's hue
+  badges: [],        // badges earned
+  hints: 0,          // free hints, spent before coins
   lastPlayDay: null, // 'YYYY-MM-DD'
   dailyClaimedOn: null,
   createdAt: new Date().toISOString(),
@@ -65,7 +65,7 @@ export function save(data) {
   try {
     localStorage.setItem(KEY, JSON.stringify(data));
   } catch {
-    /* stockage indisponible : la partie en cours reste jouable */
+    /* storage unavailable: the game in progress stays playable */
   }
   return cached;
 }

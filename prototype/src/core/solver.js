@@ -1,17 +1,17 @@
 /**
- * Solveur — recherche d'un ordre de sortie qui vide la grille.
+ * Solver — searches for an exit order that clears the grid.
  *
- * Sert à deux choses :
- *  - l'éditeur, qui doit pouvoir dire si un niveau dessiné à la main tient
- *    debout AVANT qu'on le donne à un joueur ;
- *  - les tests, où il vérifie la résolubilité des niveaux générés SANS se
- *    servir de la solution de référence, donc de façon réellement indépendante.
+ * It serves two purposes:
+ *  - the editor, which must be able to say whether a hand-drawn level holds up
+ *    BEFORE it is handed to a player;
+ *  - the tests, where it checks that generated levels are solvable WITHOUT
+ *    using the reference solution, and therefore genuinely independently.
  *
- * Portée de la recherche : on cherche dans quel ORDRE sortir les blocs, chaque
- * bloc rejoignant sa porte par un chemin trouvé en largeur. On n'explore pas
- * les déplacements d'appoint — pousser un bloc de côté sans le sortir pour
- * dégager un passage. Un « non résolu » signifie donc « aucune solution de
- * cette forme », pas « insoluble » : le message le dit.
+ * Scope of the search: we look for the ORDER in which to clear the blocks, each
+ * block reaching its gate along a breadth-first path. Auxiliary moves — nudging
+ * a block aside without clearing it, to open a corridor — are not explored. So
+ * "unsolved" means "no solution of this shape", not "unsolvable": the message
+ * says as much.
  */
 
 import { KIND } from './block.js';
@@ -19,130 +19,131 @@ import { KIND } from './block.js';
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 /**
- * Toutes les portes que ce bloc peut rejoindre, une option par porte.
+ * Every gate this block can reach, one option per gate.
  *
- * Il faut bien les énumérer TOUTES : un joker sort par n'importe quelle porte,
- * et avec des portes à capacité le choix de la sortie change tout. Ne retenir
- * que la première porte trouvée faisait déclarer insolubles des niveaux qui ne
- * l'étaient pas.
+ * They really must ALL be enumerated: a joker exits through any gate, and with
+ * gates that have a capacity the choice of exit changes everything. Keeping
+ * only the first gate found made levels that were perfectly solvable be
+ * declared impossible.
  *
  * @returns {Array<{x,y,dx,dy,gate}>}
  */
-function sortiesPossibles(board, id) {
-  const bloc = board.blocks.get(id);
-  if (!bloc || !board.canMove(bloc)) return [];
+function possibleExits(board, id) {
+  const block = board.blocks.get(id);
+  if (!block || !board.canMove(block)) return [];
 
-  const depart = { x: bloc.x, y: bloc.y };
-  const vus = new Set([`${bloc.x},${bloc.y}`]);
-  const file = [[bloc.x, bloc.y]];
-  const parPorte = new Map();
+  const start = { x: block.x, y: block.y };
+  const seen = new Set([`${block.x},${block.y}`]);
+  const queue = [[block.x, block.y]];
+  const byGate = new Map();
 
-  while (file.length) {
-    const [x, y] = file.shift();
-    bloc.x = x; bloc.y = y;
+  while (queue.length) {
+    const [x, y] = queue.shift();
+    block.x = x; block.y = y;
     board._reindex();
 
     for (const [dx, dy] of DIRS) {
-      if (!board.accepteDirection(bloc, dx, dy)) continue;
+      if (!board.acceptsDirection(block, dx, dy)) continue;
 
-      const porte = board.sortiePossible(bloc, dx, dy);
-      if (porte) {
-        if (!parPorte.has(porte)) parPorte.set(porte, { x, y, dx, dy, gate: porte });
+      const gate = board.exitPossible(block, dx, dy);
+      if (gate) {
+        if (!byGate.has(gate)) byGate.set(gate, { x, y, dx, dy, gate });
         continue;
       }
 
-      const cible = bloc.absolute().map(([cx, cy]) => [cx + dx, cy + dy]);
-      if (cible.some(([cx, cy]) => !board.inside(cx, cy))) continue;
-      const libre = cible.every(([cx, cy]) => {
+      const target = block.absolute().map(([cx, cy]) => [cx + dx, cy + dy]);
+      if (target.some(([cx, cy]) => !board.inside(cx, cy))) continue;
+      const free = target.every(([cx, cy]) => {
         const occ = board._occupancy.get(board._key(cx, cy));
         return occ === undefined || occ === id;
       });
-      if (!libre) continue;
+      if (!free) continue;
 
       const k = `${x + dx},${y + dy}`;
-      if (!vus.has(k)) { vus.add(k); file.push([x + dx, y + dy]); }
+      if (!seen.has(k)) { seen.add(k); queue.push([x + dx, y + dy]); }
     }
   }
 
-  bloc.x = depart.x; bloc.y = depart.y;
+  block.x = start.x; block.y = start.y;
   board._reindex();
-  return [...parPorte.values()];
+  return [...byGate.values()];
 }
 
 /**
- * @param {Board} board  plateau à résoudre (restitué intact)
- * @returns {{resoluble:boolean, ordre:number[], etats:number, abandon:boolean}}
- *          `abandon` signale que la recherche a été coupée par la limite.
+ * Search budget for the offline tools (tests, balancing). Far larger than the
+ * default: the editor has to answer on click, whereas a command-line check can
+ * afford to think for a few seconds. The grids of the last realm, whose gates
+ * have no capacity slack left, open a tree of dead ends where an exhaustive
+ * search goes well beyond the interactive budget — without the level being hard
+ * to read for a player, who routes blocks by reading capacities instead of
+ * enumerating orders.
  */
+export const OFFLINE_BUDGET = 200000;
+
 /**
- * Budget de recherche des outils hors ligne (tests, équilibrage). Bien plus
- * large que le défaut : l'éditeur doit répondre au clic, une vérification en
- * ligne de commande peut réfléchir quelques secondes. Les grilles du dernier
- * monde, dont les portes n'ont plus aucune marge de capacité, ouvrent un arbre
- * d'impasses où la recherche exhaustive dépasse largement le budget interactif
- * — sans que le niveau soit pour autant difficile à lire pour un joueur, qui
- * route ses blocs en lisant les capacités au lieu d'énumérer les ordres.
+ * @param {Board} board  board to solve (restored untouched)
+ * @param {number} maxStates search budget, in explored states
+ * @returns {{solvable:boolean, order:number[], states:number, gaveUp:boolean}}
+ *          `gaveUp` signals that the search was cut short by the budget.
  */
-export const BUDGET_HORS_LIGNE = 200000;
+export function solve(board, maxStates = 40000) {
+  const start = board.snapshot();
+  const seen = new Set();
+  let states = 0;
+  let gaveUp = false;
 
-export function resoudre(board, maxEtats = 40000) {
-  const depart = board.snapshot();
-  const vus = new Set();
-  let etats = 0;
-  let abandon = false;
-
-  // La clé doit inclure la capacité restante des portes : deux configurations
-  // de blocs identiques mais avec des portes différemment entamées ne sont pas
-  // le même état.
-  const cle = () => [...board.blocks.values()]
+  // The key must include the gates' remaining capacity: two identical block
+  // layouts whose gates have been eaten into differently are not the same
+  // state.
+  const key = () => [...board.blocks.values()]
     .map((b) => `${b.id}:${b.x},${b.y}`).sort().join('|')
     + '#' + board.gates.map((g) => g.capacity ?? '-').join(',');
 
-  function explorer() {
+  function explore() {
     if (board.remaining() === 0) return [];
-    if (etats++ > maxEtats) { abandon = true; return null; }
-    const k = cle();
-    if (vus.has(k)) return null;
-    vus.add(k);
+    if (states++ > maxStates) { gaveUp = true; return null; }
+    const k = key();
+    if (seen.has(k)) return null;
+    seen.add(k);
 
     /**
-     * Les blocs LES PLUS CONTRAINTS d'abord.
+     * THE MOST CONSTRAINED blocks first.
      *
-     * L'ordre d'insertion faisait explorer en premier des blocs qui ont cinq
-     * portes possibles, alors qu'un bloc qui n'en a qu'une ne laisse aucun
-     * choix : le sortir tôt ferme l'arbre au lieu de le démultiplier. Sur les
-     * grilles à portes partagées, où chaque bloc vise plusieurs sorties, cette
-     * seule heuristique fait la différence entre une seconde et un abandon.
+     * Insertion order made the search start with blocks that have five possible
+     * gates, whereas a block with only one leaves no choice at all: clearing it
+     * early closes the tree instead of multiplying it. On grids with shared
+     * gates, where every block aims at several exits, this single heuristic is
+     * the difference between one second and giving up.
      *
-     * Un bloc SANS aucune sortie possible arrive en tête et coupe la branche
-     * immédiatement — il ne sortira pas tant que la grille n'aura pas changé,
-     * et rien ne changera si l'on ne sort personne.
+     * A block with NO possible exit comes first and prunes the branch
+     * immediately — it will not leave until the grid changes, and nothing will
+     * change if nobody leaves.
      */
-    const candidats = [];
-    for (const bloc of [...board.blocks.values()]) {
-      if (bloc.kind === KIND.WALL) continue;
-      candidats.push({ bloc, sorties: sortiesPossibles(board, bloc.id) });
+    const candidates = [];
+    for (const block of [...board.blocks.values()]) {
+      if (block.kind === KIND.WALL) continue;
+      candidates.push({ block, exits: possibleExits(board, block.id) });
     }
-    candidats.sort((a, b) => a.sorties.length - b.sorties.length);
+    candidates.sort((a, b) => a.exits.length - b.exits.length);
 
-    for (const { bloc, sorties } of candidats) {
-      for (const sortie of sorties) {
+    for (const { block, exits } of candidates) {
+      for (const exit of exits) {
         const snap = board.snapshot();
-        bloc.x = sortie.x; bloc.y = sortie.y;
+        block.x = exit.x; block.y = exit.y;
         board._reindex();
-        const r = board.step(bloc.id, sortie.dx, sortie.dy);
+        const r = board.step(block.id, exit.dx, exit.dy);
         if (!r.ok || r.event.type !== 'exit') { board.restore(snap); continue; }
 
-        const suite = explorer();
-        if (suite) return [bloc.id, ...suite];
+        const rest = explore();
+        if (rest) return [block.id, ...rest];
         board.restore(snap);
-        if (abandon) return null;
+        if (gaveUp) return null;
       }
     }
     return null;
   }
 
-  const ordre = explorer();
-  board.restore(depart);
-  return { resoluble: !!ordre, ordre: ordre || [], etats, abandon };
+  const order = explore();
+  board.restore(start);
+  return { solvable: !!order, order: order || [], states, gaveUp };
 }

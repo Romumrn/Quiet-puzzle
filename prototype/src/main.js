@@ -1,10 +1,10 @@
 /**
- * GameManager — équivalent de Scripts/Managers/GameManager.cs (doc §4)
+ * GameManager — equivalent of Scripts/Managers/GameManager.cs (tech doc §4)
  *
- * Point d'entrée et coordinateur : enchaîne les écrans, instancie le plateau,
- * relaie les gestes du joueur vers la logique puis les évènements vers le
- * rendu, et fait tourner le chrono. Toute la règle du jeu vit dans core/, tout
- * le DOM du plateau dans render/ : ce fichier ne fait que les brancher.
+ * Entry point and coordinator: sequences the screens, instantiates the board,
+ * relays the player's gestures to the logic and then the events to the
+ * rendering, and runs the clock. All the game rules live in core/, all the
+ * board's DOM in render/: this file only wires them together.
  */
 
 import { Board } from './core/board.js';
@@ -21,21 +21,23 @@ import * as screens from './ui/screens.js';
 import * as mapScreen from './ui/mapScreen.js';
 import * as theme from './ui/theme.js';
 import * as editor from './ui/editor.js';
-import { resoudre } from './core/solver.js';
+import { solve } from './core/solver.js';
 import * as hud from './ui/gameplayUI.js';
 import * as result from './ui/resultScreen.js';
-import { RegieManager, PLACEMENT } from './monetization/regieManager.js';
+import { AdBroker, PLACEMENT } from './monetization/brokerManager.js';
 import * as currency from './monetization/currency.js';
 import * as failOffer from './monetization/failOffer.js';
 import * as daily from './meta/daily.js';
 import * as dailyPuzzle from './meta/dailyPuzzle.js';
 import * as themes from './meta/themes.js';
-import { EVENEMENTS as EV, contexteNiveau } from './data/analytics.js';
+import { EVENTS as EV, levelContext } from './data/analytics.js';
 import * as feedback from './meta/feedback.js';
 import { track, recent, subscribe } from './data/events.js';
 import { AudioManager } from './audio/audioManager.js';
 import { supabase } from './data/supabaseClient.js';
 import { createLoginScreen } from './ui/loginScreen.js';
+import * as admin from './data/admin.js';
+import * as adminPanel from './ui/adminPanel.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -43,36 +45,36 @@ let view = null;
 let input = null;
 let board = null;
 let level = null;
-/** Proposition en cours quand on joue le puzzle du jour, sinon null. */
-let puzzleDuJour = null;
-/** Brouillon en cours quand on essaie une grille de l'éditeur, sinon null. */
-let essaiEditeur = null;
-let chrono = null;
+/** The current submission when playing the daily puzzle, otherwise null. */
+let dailyEntry = null;
+/** The current draft when trying out a grid from the editor, otherwise null. */
+let editorTrial = null;
+let clock = null;
 let busy = false;
-let offreUtilisee = false;   // l'offre de continuation ne vaut qu'une fois par tentative
-let echecsDuNiveau = 0;      // sert à ne pas couper la toute première défaite par une pub
-let debutNiveau = 0;
+let offerUsed = false;    // the continue offer is worth one use per attempt
+let levelFailures = 0;    // used so the very first defeat is never cut by an ad
+let levelStartedAt = 0;
 
 /**
- * Respiration entre le dernier bloc sorti et l'écran de réussite.
+ * Breathing room between the last block cleared and the success screen.
  *
- * Enchaîner immédiatement écrase le moment le plus gratifiant de la partie :
- * le joueur voit son dernier bloc franchir la porte, entend son carillon, et
- * l'écran lui tombe dessus avant qu'il ait pu en profiter. On laisse donc le
- * son et l'animation se poser, on ponctue par l'arpège de victoire, puis on
- * affiche.
+ * Cutting straight there crushes the most rewarding moment of the game: the
+ * player sees their last block cross the gate, hears its chime, and the screen
+ * lands on them before they have had time to enjoy it. So we let the sound and
+ * the animation settle, punctuate with the victory arpeggio, and only then
+ * display.
  */
-const PAUSE_AVANT_REUSSITE = 780;   // ms, après la sortie du dernier bloc
-const PAUSE_APRES_ARPEGE = 420;     // ms, entre l'arpège et l'écran
+const PAUSE_BEFORE_SUCCESS = 780;   // ms, after the last block leaves
+const PAUSE_AFTER_ARPEGGIO = 420;   // ms, between the arpeggio and the screen
 
-/** En arrière-plan on n'attend pas : les minuteurs y sont bridés à une seconde. */
+/** In the background we do not wait: timers there are throttled to one second. */
 const pause = (ms) => (document.hidden ? Promise.resolve() : new Promise((r) => setTimeout(r, ms)));
-let gesteMemorise = false;   // un seul instantané par geste, pour l'annulation
-let modeMarteau = false;
+let gestureRemembered = false;   // one snapshot per gesture, for undo
+let hammerMode = false;
 
 const audio = new AudioManager();
 
-const ads = new RegieManager({
+const ads = new AdBroker({
   overlay: el('overlay-ad'),
   banner: el('banner'),
 });
@@ -82,208 +84,249 @@ const ads = new RegieManager({
 // ---------------------------------------------------------------------------
 
 async function showMenu() {
-  stopChrono();
+  stopClock();
   const p = await api.getProfile();
   el('menu-stars').textContent = p.totalStars;
   el('menu-coins').textContent = p.coins;
-  // « 121 / 160 » plutôt que « 121 » : seul, le chiffre ne dit pas où l'on en
-  // est — il se lisait comme un score, alors qu'il mesure un avancement.
+  // "121 / 160" rather than "121": on its own, the number does not say where
+  // you are — it read like a score, when it measures progress.
   el('menu-progress').textContent = `${p.currentLevel}/${levels.totalLevels()}`;
-  await majMenuPuzzleDuJour();
-  majBadgeSerie();
-  majCadeauDuJour();
-  majPastilleSon();
-  theme.appliquer(p.currentLevel); // le menu prend la couleur d'où en est le joueur
+  await updateDailyPuzzleButton();
+  updateStreakBadge();
+  updateDailyGift();
+  updateMuteDot();
+  theme.apply(p.currentLevel); // the menu takes the colour of where the player is
   screens.show('menu');
-  audio.lancerMusique();
-  majBanniere('menu');
+  audio.startMusic();
+  updateBanner('menu');
 }
 
 /**
- * Badge de série, sur l'accueil. Il ne s'affiche qu'à partir du deuxième jour :
- * « série de 1 jour » ne récompense rien, elle constate qu'on est là.
+ * Streak badge, on the home screen. It only shows from the second day: "1 day
+ * streak" rewards nothing, it states that you are here.
  */
-function majBadgeSerie() {
+function updateStreakBadge() {
   const badge = el('streak-badge');
-  const jours = daily.serie();
-  badge.hidden = jours < 2;
+  const days = daily.streak();
+  badge.hidden = days < 2;
   if (badge.hidden) return;
-  const palier = daily.palierDe(jours);
-  const suivant = daily.palierSuivant(jours);
-  badge.textContent = `${palier.badge} ${t('streak.badge', { n: jours })}`;
-  badge.title = suivant
-    ? t('streak.next', { n: suivant.jours - jours, quoi: libelleRecompense(suivant.recompense) })
+  const tier = daily.tierFor(days);
+  const next = daily.nextTier(days);
+  badge.textContent = `${tier.badge} ${t('streak.badge', { n: days })}`;
+  badge.title = next
+    ? t('streak.next', { n: next.days - days, what: rewardLabel(next.reward) })
     : '';
 }
 
-const libelleRecompense = (r) => (r
-  ? t(`streak.reward.${r.type}`, { n: r.montant ?? '' })
+const rewardLabel = (r) => (r
+  ? t(`streak.reward.${r.type}`, { n: r.amount ?? '' })
   : '');
 
 /**
- * Verse les récompenses de série encore dues.
+ * Pays out the streak rewards still owed.
  *
- * Elles sont versées à l'ouverture de session et non au moment exact du palier :
- * un joueur qui ouvre le jeu le huitième jour sans l'avoir ouvert le septième
- * doit toucher ce qu'il a mérité, sinon la série punit ce qu'elle prétend
- * récompenser.
+ * They are paid when the session opens rather than at the exact moment of the
+ * tier: a player who opens the game on the eighth day without having opened it
+ * on the seventh must get what they earned, otherwise the streak punishes what
+ * it claims to reward.
  */
-function verserRecompensesSerie() {
-  for (const palier of daily.recompensesDues()) {
-    const r = palier.recompense;
-    if (r.type === 'eclats') currency.crediter(r.montant, 'streak_reward');
-    else if (r.type === 'theme') themes.debloquer(r.id, 'streak');
-    else if (r.type === 'indices') {
+function payStreakRewards() {
+  for (const tier of daily.rewardsDue()) {
+    const r = tier.reward;
+    if (r.type === 'coins') currency.credit(r.amount, 'streak_reward');
+    else if (r.type === 'theme') themes.unlock(r.id, 'streak');
+    else if (r.type === 'hints') {
       const d = store.load();
-      d.indices = (d.indices || 0) + r.montant;
+      d.hints = (d.hints || 0) + r.amount;
       store.save(d);
     } else if (r.type === 'badge') {
       const d = store.load();
       d.badges = [...new Set([...(d.badges || []), r.id])];
       store.save(d);
     }
-    daily.noterPalierVerse(palier.jours);
-    screens.toast(t('streak.granted', { jours: palier.jours, quoi: libelleRecompense(r) }));
+    daily.markTierPaid(tier.days);
+    screens.toast(t('streak.granted', { days: tier.days, what: rewardLabel(r) }));
   }
 }
 
-/** Cadeau du jour : visible seulement s'il est réclamable. */
-function majCadeauDuJour() {
-  const dispo = daily.peutReclamer();
-  el('btn-daily').hidden = !dispo;
-  if (!dispo) return;
+/**
+ * Daily gift: visible only while it can be claimed.
+ *
+ * `hidden` is set on both branches. Setting it only when the gift is available
+ * left the button on screen after it had been claimed — it kept its place, and
+ * a second tap did nothing at all, which reads as a broken button rather than
+ * as a gift already taken.
+ */
+function updateDailyGift() {
+  const button = el('btn-daily');
+  const available = daily.canClaim();
+  button.classList.remove('claimed');
+  button.disabled = false;
+  button.hidden = !available;
+  if (!available) return;
   el('daily-title').textContent = t('menu.daily');
-  el('daily-sub').textContent = t(daily.serie() > 1 ? 'menu.streak.plural' : 'menu.streak', { n: daily.serie() });
-  el('daily-amount').textContent = `+${daily.recompenseDuJour()}`;
+  el('daily-sub').textContent = t(daily.streak() > 1 ? 'menu.streak.plural' : 'menu.streak', { n: daily.streak() });
+  el('daily-amount').textContent = `+${daily.todaysReward()}`;
 }
 
-/** La bannière ne vit que hors partie — la politique tranche, pas l'appelant. */
-function majBanniere(ecran) {
-  ads.majBanniere(ecran);
+/**
+ * Claims the gift, then makes the button leave.
+ *
+ * It does not vanish on the spot: the coins have just been credited, and a
+ * button that disappears under the finger leaves the player unsure of what
+ * happened. So it acknowledges the tap (the `claimed` class scales it down and
+ * fades it out, and the CSS collapses its height), and is hidden for good once
+ * the animation has run. `animationend` would be more precise, but it never
+ * fires when the player has asked for reduced motion — a timer always does.
+ */
+const GIFT_EXIT_MS = 420;
+
+function claimDailyGift() {
+  const button = el('btn-daily');
+  if (button.disabled) return;
+  const amount = daily.claim();
+  if (!amount) { updateDailyGift(); return; }
+
+  button.disabled = true;
+  button.classList.add('claimed');
+  screens.toast(t('toast.daily', { n: amount, days: daily.streak() }));
+  updateMenuCounters();
+  updateStreakBadge();
+  setTimeout(() => {
+    button.hidden = true;
+    button.classList.remove('claimed');
+    button.disabled = false;
+  }, GIFT_EXIT_MS);
+}
+
+/** The banner only lives outside a game — the policy decides, not the caller. */
+function updateBanner(screen) {
+  ads.updateBanner(screen);
   el('app').classList.toggle('with-banner', !el('banner').hidden);
 }
 
 function showMap() {
-  stopChrono();
+  stopClock();
   result.hide();
   mapScreen.render(showBrief);
   screens.show('map');
-  majBanniere('map');
+  updateBanner('map');
 }
 
 async function showBrief(n) {
-  stopChrono();
+  stopClock();
   level = await api.getLevel(n);
   const rec = store.levelRecord(n);
-  // Le nom du monde vient du CATALOGUE, pas du niveau : la base le stocke
-  // dans les deux langues, alors que `level.realm` est figé à la génération.
-  el('brief-realm').textContent = i18n.texteMonde(levels.realmDe(n), 'nom');
+  // The realm name comes from the CATALOGUE, not from the level: the database
+  // stores it in every language, whereas `level.realm` is frozen at generation.
+  el('brief-realm').textContent = i18n.realmText(levels.realmOf(n), 'name');
   el('brief-number').textContent = n;
   screens.renderStars(el('brief-stars'), rec.stars);
   el('brief-objective').textContent = hud.labelFor(level);
   el('brief-moves').textContent = level.moveLimit;
-  el('brief-difficulty').textContent = i18n.texteMonde(levels.realmDe(n), 'difficulte');
-  // Nouveauté du monde, annoncée à son premier niveau seulement. Un type de
-  // bloc jamais vu doit être nommé une fois ; le répéter aux dix-neuf niveaux
-  // suivants transformerait l'encart en décor que plus personne ne lit.
-  const nouveaute = el('brief-nouveaute');
-  const entreeDeMonde = (n - 1) % levels.levelsPerRealm() === 0 && levels.realmDe(n).apporte;
-  nouveaute.hidden = !entreeDeMonde;
-  if (entreeDeMonde) nouveaute.textContent = t('brief.new', { quoi: i18n.texteMonde(levels.realmDe(n), 'apporte') });
-  el('brief-best').textContent = rec.bestScore ? `${rec.bestScore} coups` : '—';
-  // Le dernier niveau d'un monde est sensiblement plus dur que les autres
-  // (voir levels.js) : l'écran de pré-niveau le dit avant que le joueur ne s'y
-  // engage, plutôt que de le laisser le découvrir en pleine partie.
-  const estFinal = n === levels.realmDe(n).dernier;
-  el('brief-final').hidden = !estFinal;
-  el('brief-card').classList.toggle('final', estFinal);
-  theme.appliquer(n);
+  el('brief-difficulty').textContent = i18n.realmText(levels.realmOf(n), 'difficulty');
+  // The realm's novelty, announced at its first level only. A block kind never
+  // seen must be named once; repeating it across the next nineteen levels would
+  // turn the callout into scenery nobody reads any more.
+  const novelty = el('brief-novelty');
+  const realmEntry = (n - 1) % levels.levelsPerRealm() === 0 && levels.realmOf(n).introduces;
+  novelty.hidden = !realmEntry;
+  if (realmEntry) novelty.textContent = t('brief.new', { what: i18n.realmText(levels.realmOf(n), 'introduces') });
+  el('brief-best').textContent = rec.bestScore ? t('brief.best', { n: rec.bestScore }) : '—';
+  // The last level of a realm is noticeably harder than the others (see
+  // levels.js): the briefing screen says so before the player commits, rather
+  // than letting them find out mid-game.
+  const isFinale = n === levels.realmOf(n).last;
+  el('brief-final').hidden = !isFinale;
+  el('brief-card').classList.toggle('final', isFinale);
+  theme.apply(n);
   screens.show('brief');
-  majBanniere('brief');
+  updateBanner('brief');
 }
 
 // ---------------------------------------------------------------------------
-// Partie
+// Playing
 // ---------------------------------------------------------------------------
 
 /**
- * Interstitielle à l'OUVERTURE d'un niveau, et non plus à sa fin.
+ * Interstitial when a level OPENS, and no longer when it ends.
  *
- * Une pub qui tombe sur l'écran de réussite arrive au moment exact où le joueur
- * peut décider qu'il a fini sa session : on lui coupe sa récompense, et il
- * quitte. Placée avant la grille suivante, elle attrape quelqu'un qui a déjà
- * décidé de continuer — le même inventaire vendu au moment où il coûte le moins.
+ * An ad landing on the success screen arrives at the exact moment the player
+ * may decide they are done for the session: it cuts off their reward, and they
+ * leave. Placed before the next grid, it catches somebody who has already
+ * decided to carry on — the same inventory sold at the moment it costs least.
  *
- * Deux niveaux n'en montrent jamais : ceux de l'éditeur et le puzzle du jour.
- * Ils ne font pas partie de la progression, et une pub devant une grille qu'on
- * vient de dessiner soi-même serait absurde. Un simple rejeu après échec en est
- * exempt aussi : on ne fait pas payer une reprise.
+ * Two kinds of level never show one: the editor's and the daily puzzle. They
+ * are not part of the progression, and an ad in front of a grid you have just
+ * drawn yourself would be absurd. A plain retry after a failure is exempt too:
+ * we do not charge for a second go.
  */
-async function pubAvantNiveau() {
-  if (!level?.number || essaiEditeur || puzzleDuJour) return;
-  if (echecsDuNiveau > 0) return;
-  await ads.montrerInterstitiel({
-    niveau: level.number,
-    noAds: currency.aSupprimeLesPubs(),
-    premiereDefaiteDuNiveau: false,
+async function adBeforeLevel() {
+  if (!level?.number || editorTrial || dailyEntry) return;
+  if (levelFailures > 0) return;
+  await ads.showInterstitial({
+    level: level.number,
+    noAds: currency.hasRemovedAds(),
+    firstFailureOfLevel: false,
   });
 }
 
 async function startLevel() {
-  ouvrirPanneau(false);
+  openPanel(false);
   result.hide();
-  await pubAvantNiveau();
-  theme.appliquer(level.number);
-  audio.reinitialiserSerie();
-  offreUtilisee = false;
-  debutNiveau = Date.now();
-  const reprise = echecsDuNiveau > 0;
-  track(reprise ? EV.LEVEL_RESTARTED : EV.LEVEL_STARTED,
-    contexteNiveau(level, { essai: echecsDuNiveau + 1 }));
-  // Le premier niveau tient lieu de tutoriel : ce jeu n'en a pas d'autre, et
-  // l'entonnoir d'acquisition a besoin de ce repère.
-  if (level.number === 1 && !reprise) track(EV.TUTORIAL_STARTED, contexteNiveau(level));
+  await adBeforeLevel();
+  theme.apply(level.number);
+  audio.resetRun();
+  offerUsed = false;
+  levelStartedAt = Date.now();
+  const retry = levelFailures > 0;
+  track(retry ? EV.LEVEL_RESTARTED : EV.LEVEL_STARTED,
+    levelContext(level, { attempt: levelFailures + 1 }));
+  // The first level doubles as the tutorial: this game has no other, and the
+  // acquisition funnel needs that landmark.
+  if (level.number === 1 && !retry) track(EV.TUTORIAL_STARTED, levelContext(level));
   board = new Board(level);
-  board._solveur = { resoudre }; // niveaux de l'éditeur : pas de solution de référence
+  board._solver = { solve }; // editor levels: no reference solution
   hud.mount(level);
   hud.update(board);
   screens.show('game');
 
-  // Montage synchrone : surtout pas dans un requestAnimationFrame, qui ne se
-  // déclenche pas si l'onglet est en arrière-plan — le plateau resterait vide.
+  // Mounted synchronously: certainly not inside a requestAnimationFrame, which
+  // does not fire while the tab is in the background — the board would stay
+  // empty.
   if (!view) {
     view = new BoardView(el('board'));
-    input = new InputHandler(view, { onDrag, onEnd, canGrab, onRefus });
+    input = new InputHandler(view, { onDrag, onEnd, canGrab, onRefused });
   }
   view.mount(board);
   hud.update(board);
-  majBonus();
+  updateBoosters();
   busy = false;
   input.locked = false;
-  majBanniere('game');
-  startChrono();
+  updateBanner('game');
+  startClock();
 }
 
 /**
- * Etat de la barre de bonus. L'indice se paie en pièces tant qu'il y en a, et
- * bascule sur une pub récompensée quand le joueur est fauché — mieux vaut une
- * pub qu'un joueur bloqué qui désinstalle. Les trois autres bonus s'obtiennent
- * uniquement contre une pub récompensée.
+ * State of the booster bar. A hint is paid in coins while there are any, and
+ * falls back on a rewarded ad when the player is broke — better an ad than a
+ * stuck player who uninstalls. The other three boosters are only ever obtained
+ * in exchange for a rewarded ad.
  */
-function majBonus() {
-  const gratuit = !currency.peutPayer(currency.PRIX.INDICE);
-  const cout = el('hint-cost');
-  cout.textContent = gratuit ? 'Pub' : currency.PRIX.INDICE;
-  cout.classList.toggle('ad', gratuit);
-  el('btn-undo').disabled = !board || !board.peutAnnuler();
+function updateBoosters() {
+  const free = !currency.canAfford(currency.PRICES.HINT);
+  const cost = el('hint-cost');
+  cost.textContent = free ? t('ad.badge') : currency.PRICES.HINT;
+  cost.classList.toggle('ad', free);
+  el('btn-undo').disabled = !board || !board.canUndo();
 }
 
-/** Regarde une pub récompensée pour un bonus. Le chrono est suspendu pendant. */
-async function bonusParPub(placement) {
-  stopChrono();
-  const vue = await ads.montrerRecompensee(placement);
-  if (board?.gameState === GameState.PLAYING) startChrono();
-  return vue;
+/** Watches a rewarded ad for a booster. The clock is suspended meanwhile. */
+async function boosterByAd(placement) {
+  stopClock();
+  const watched = await ads.showRewarded(placement);
+  if (board?.gameState === GameState.PLAYING) startClock();
+  return watched;
 }
 
 function canGrab(id) {
@@ -291,49 +334,49 @@ function canGrab(id) {
   return !!b && board.canMove(b);
 }
 
-/** Refus de saisie : on explique pourquoi plutôt que de ne rien faire. */
-function onRefus(id) {
+/** Grab refused: explain why rather than doing nothing. */
+function onRefused(id) {
   const b = board.blocks.get(id);
   if (!b) return;
   view.bump(id);
   if (b.kind === KIND.WALL) screens.toast(t('toast.sealed'));
-  else if (b.kind === KIND.LOCKED) screens.toast(t('toast.locked', { quoi: conditionLabel(b.condition, board) }));
+  else if (b.kind === KIND.LOCKED) screens.toast(t('toast.locked', { what: conditionLabel(b.condition, board) }));
 }
 
-/** Un mouvement de doigt : renvoie vrai si le bloc a effectivement avancé. */
+/** One finger movement: returns true if the block actually advanced. */
 function onDrag(id, x, y) {
   if (busy || board.gameState !== GameState.PLAYING) return false;
-  const avant = gesteMemorise ? null : board.snapshot();
+  const before = gestureRemembered ? null : board.snapshot();
   const { events } = board.dragTowards(id, x, y);
   if (!events.length) return false;
-  for (const e of events) if (e.type === 'exit') audio.sortie();
-  if (!gesteMemorise) { board.memoriser(avant); gesteMemorise = true; }
+  for (const e of events) if (e.type === 'exit') audio.exit();
+  if (!gestureRemembered) { board.remember(before); gestureRemembered = true; }
   view.apply(events);
   hud.update(board);
   return true;
 }
 
-/** Fin de geste : c'est là qu'un coup est décompté. */
-async function onEnd(id, aBouge) {
-  gesteMemorise = false;
-  majBonus();
-  if (!aBouge || board.gameState !== GameState.PLAYING) return;
+/** End of gesture: this is where a move is spent. */
+async function onEnd(id, hasMoved) {
+  gestureRemembered = false;
+  updateBoosters();
+  if (!hasMoved || board.gameState !== GameState.PLAYING) return;
   const events = board.endGesture(true);
   await view.apply(events);
   view.refreshLocks();
   view.refreshGates();
   hud.update(board);
-  majBonus();
+  updateBoosters();
   if (board.gameState !== GameState.PLAYING) await finishLevel();
 }
 
 // ---------------------------------------------------------------------------
-// Chrono
+// Clock
 // ---------------------------------------------------------------------------
 
-function startChrono() {
-  stopChrono();
-  chrono = setInterval(async () => {
+function startClock() {
+  stopClock();
+  clock = setInterval(async () => {
     if (!board || board.gameState !== GameState.PLAYING) return;
     board.tick(1);
     hud.update(board);
@@ -341,105 +384,103 @@ function startChrono() {
   }, 1000);
 }
 
-function stopChrono() {
-  if (chrono) { clearInterval(chrono); chrono = null; }
+function stopClock() {
+  if (clock) { clearInterval(clock); clock = null; }
 }
 
 async function finishLevel() {
-  stopChrono();
+  stopClock();
   busy = true;
   input.locked = true;
 
   const won = board.gameState === GameState.WON;
-  const duree = Math.round((Date.now() - debutNiveau) / 1000);
+  const duration = Math.round((Date.now() - levelStartedAt) / 1000);
 
-  // On laisse respirer avant d'annoncer la réussite.
+  // Let it breathe before announcing the win.
   if (won) {
-    await pause(PAUSE_AVANT_REUSSITE);
-    audio.victoire();
-    await pause(PAUSE_APRES_ARPEGE);
+    await pause(PAUSE_BEFORE_SUCCESS);
+    audio.victory();
+    await pause(PAUSE_AFTER_ARPEGGIO);
   }
 
-  // Défaite : on propose de continuer AVANT d'acter l'échec.
-  if (!won && !offreUtilisee) {
-    offreUtilisee = true;
-    const choix = await failOffer.proposer({ board, ads });
-    // « Recommencer » relance la grille sans passer par l'écran de résultat :
-    // le joueur a déjà vu qu'il avait perdu, le lui redire ne sert à rien.
-    if (choix === 'retry') {
+  // Defeat: offer to continue BEFORE recording the failure.
+  if (!won && !offerUsed) {
+    offerUsed = true;
+    const choice = await failOffer.offer({ board, ads });
+    // "Restart" relaunches the grid without going through the result screen:
+    // the player has already seen they lost, telling them again is pointless.
+    if (choice === 'retry') {
       busy = false;
       input.locked = false;
       startLevel();
       return;
     }
-    if (choix) {
-      failOffer.appliquer(board);
+    if (choice) {
+      failOffer.apply(board);
       hud.update(board);
       busy = false;
       input.locked = false;
-      startChrono();
+      startClock();
       return;
     }
   }
 
   if (won) {
-    echecsDuNiveau = 0;
-    track(EV.LEVEL_COMPLETED, contexteNiveau(level, { essai: echecsDuNiveau + 1, board, duree }));
-    if (level.number === 1) track(EV.TUTORIAL_COMPLETED, contexteNiveau(level, { board, duree }));
+    levelFailures = 0;
+    track(EV.LEVEL_COMPLETED, levelContext(level, { attempt: levelFailures + 1, board, duration }));
+    if (level.number === 1) track(EV.TUTORIAL_COMPLETED, levelContext(level, { board, duration }));
   } else {
-    echecsDuNiveau++;
+    levelFailures++;
     track(EV.LEVEL_FAILED, {
-      ...contexteNiveau(level, { essai: echecsDuNiveau, board, duree }),
-      raison: board.failReason, restants: board.remaining(),
+      ...levelContext(level, { attempt: levelFailures, board, duration }),
+      reason: board.failReason, remaining: board.remaining(),
     });
   }
 
   const stars = board.stars();
 
   /**
-   * Le puzzle du jour ne suit pas le circuit de la progression : il ne débloque
-   * rien, ne verse pas de pièces, et se solde par un score et un rang. Le
-   * mélanger au reste ferait avancer la carte au gré de grilles que le joueur
-   * a dessinées lui-même.
+   * A grid tried out from the editor does not count as a level: it has no
+   * number, unlocks nothing and pays nothing. It used to pay, though —
+   * `completeLevel(0)` credited twenty-three coins and wrote a "level 0" into
+   * the save, which made the editor the fastest way to get rich.
    */
-  /**
-   * Une grille essayée depuis l'éditeur ne compte pas comme un niveau : elle
-   * n'a pas de numéro, ne débloque rien et ne rapporte rien. Elle en rapportait
-   * pourtant — `completeLevel(0)` créditait vingt-trois pièces et inscrivait un
-   * « niveau 0 » dans la sauvegarde, ce qui faisait de l'éditeur la façon la
-   * plus rapide de s'enrichir.
-   */
-  if (essaiEditeur) {
-    const essai = essaiEditeur;
-    essaiEditeur = null;
+  if (editorTrial) {
+    const trial = editorTrial;
+    editorTrial = null;
     result.show({
-      won, stars, score: board.dragsUsed(), level: 0, duree,
-      coinsEarned: 0, raison: board.failReason, restants: board.remaining(),
-      mode: 'editeur',
-      onEdit: () => ouvrirEditeur(essai),
-      onRetry: () => { essaiEditeur = essai; startLevel(); },
-      onSubmit: () => ouvrirEditeur(essai),
+      won, stars, score: board.dragsUsed(), level: 0, duration,
+      coinsEarned: 0, reason: board.failReason, remaining: board.remaining(),
+      mode: 'editor',
+      onEdit: () => openEditor(trial),
+      onRetry: () => { editorTrial = trial; startLevel(); },
+      onSubmit: () => openEditor(trial),
     });
     busy = false;
     input.locked = false;
     return;
   }
 
-  if (puzzleDuJour) {
-    const propose = puzzleDuJour;
-    puzzleDuJour = null;
+  /**
+   * The daily puzzle does not follow the progression circuit either: it unlocks
+   * nothing, pays no coins, and settles into a score and a rank. Mixing it in
+   * would advance the map on the strength of grids the player drew themselves.
+   */
+  if (dailyEntry) {
+    const entry = dailyEntry;
+    dailyEntry = null;
     if (won) {
       const { score } = await api.submitDailyScore({
         drags: board.dragsUsed(),
         minDrags: level.minDrags || board.dragsUsed(),
-        secondes: duree,
+        seconds: duration,
       });
-      track('daily_puzzle_completed', { id: propose.id, score, duree });
-      track(EV.DAILY_COMPLETED, { id: propose.id, score, duree });
-      await majMenuPuzzleDuJour();
-  majBadgeSerie();
+      track('daily_puzzle_completed', { id: entry.id, score, duration });
+      track(EV.DAILY_COMPLETED, { id: entry.id, score, duration });
+      await updateDailyPuzzleButton();
+      updateStreakBadge();
       showMenu();
-      montrerClassement(score);
+      showLeaderboard(score);
     } else {
       showMenu();
     }
@@ -448,28 +489,28 @@ async function finishLevel() {
     return;
   }
 
-  const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won, timeMs: duree * 1000 });
+  const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won, timeMs: duration * 1000 });
 
-  // L'interstitielle ne se joue plus ICI mais à l'ouverture du niveau suivant
-  // (voir `startLevel`). On se contente d'avancer le compteur de la politique :
-  // c'est bien une fin de niveau qui rend une pub éligible.
-  ads.policy.noterFinDeNiveau();
+  // The interstitial no longer plays HERE but when the next level opens (see
+  // `startLevel`). We just advance the policy's counter: a level ending is
+  // indeed what makes an ad eligible.
+  ads.policy.noteLevelEnding();
 
   result.show({
     won,
     stars,
     score: board.dragsUsed(),
-    duree,
+    duration,
     level: level.number,
     coinsEarned: res.coinsEarned,
-    raison: board.failReason,
-    restants: board.remaining(),
-    noAds: currency.aSupprimeLesPubs(),
-    onBannerShown: () => track('ad_impression', { adType: 'banner', placement: PLACEMENT.BANNIERE_RESULTAT }),
+    reason: board.failReason,
+    remaining: board.remaining(),
+    noAds: currency.hasRemovedAds(),
+    onBannerShown: () => track('ad_impression', { adType: 'banner', placement: PLACEMENT.BANNER_RESULT }),
     onDouble: async () => {
-      const vue = await ads.montrerRecompensee(PLACEMENT.RECOMPENSE_DOUBLER);
-      if (!vue) return false;
-      currency.crediter(res.coinsEarned, 'double_reward');
+      const watched = await ads.showRewarded(PLACEMENT.REWARDED_DOUBLE);
+      if (!watched) return false;
+      currency.credit(res.coinsEarned, 'double_reward');
       return true;
     },
     onMap: showMap,
@@ -482,669 +523,695 @@ async function finishLevel() {
 }
 
 // ---------------------------------------------------------------------------
-// Câblage
+// Wiring
 // ---------------------------------------------------------------------------
 
 el('btn-play').onclick = showMap;
 
-el('btn-daily').onclick = () => {
-  const montant = daily.reclamer();
-  if (!montant) return;
-  screens.toast(t('toast.daily', { n: montant, jours: daily.serie() }));
-};
+el('btn-daily').onclick = claimDailyGift;
 
 el('btn-restart').onclick = () => { if (!busy) startLevel(); };
 
-/** Marteau : le joueur DESIGNE le bloc à retirer, on n'en choisit pas un pour lui. */
+/** Hammer: the player POINTS AT the block to remove, we do not pick one for them. */
 el('btn-hammer').onclick = async () => {
-  if (!board || busy || board.gameState !== GameState.PLAYING || modeMarteau) return;
-  if (!await bonusParPub(PLACEMENT.RECOMPENSE_MARTEAU)) return;
-  modeMarteau = true;
+  if (!board || busy || board.gameState !== GameState.PLAYING || hammerMode) return;
+  if (!await boosterByAd(PLACEMENT.REWARDED_HAMMER)) return;
+  hammerMode = true;
   input.locked = true;
   el('app').classList.add('hammer');
   screens.toast(t('toast.hammer.pick'));
 
-  const viser = async (ev) => {
+  const aim = async (ev) => {
     const id = view.blockIdFromPoint(ev.clientX, ev.clientY);
-    const cible = id !== null ? board.blocks.get(id) : null;
-    if (!cible || cible.kind === 'wall') { screens.toast(t('toast.hammer.bad')); return; }
+    const target = id !== null ? board.blocks.get(id) : null;
+    if (!target || target.kind === KIND.WALL) { screens.toast(t('toast.hammer.bad')); return; }
     ev.preventDefault();
     ev.stopPropagation();
-    fin();
-    const res = board.briser(id);
-    audio.sortie();
-    track('powerup_used', { type: 'hammer', level: level.number, blocId: id });
+    done();
+    const res = board.smash(id);
+    audio.exit();
+    track('powerup_used', { type: 'hammer', level: level.number, blockId: id });
     await view.removeBlock(id);
-    await view.apply(res.evts);
+    await view.apply(res.events);
     view.refreshLocks();
     view.refreshGates();
     hud.update(board);
-    majBonus();
+    updateBoosters();
     if (board.gameState !== GameState.PLAYING) await finishLevel();
   };
-  const fin = () => {
-    modeMarteau = false;
+  const done = () => {
+    hammerMode = false;
     input.locked = false;
     el('app').classList.remove('hammer');
-    el('board').removeEventListener('pointerdown', viser, true);
+    el('board').removeEventListener('pointerdown', aim, true);
   };
-  el('board').addEventListener('pointerdown', viser, true);
+  el('board').addEventListener('pointerdown', aim, true);
 };
 
 el('btn-time').onclick = async () => {
   if (!board || busy || board.gameState !== GameState.PLAYING) return;
-  if (!await bonusParPub(PLACEMENT.RECOMPENSE_TEMPS)) return;
-  board.ajouterTemps(30);
+  if (!await boosterByAd(PLACEMENT.REWARDED_TIME)) return;
+  board.addTime(30);
   track('powerup_used', { type: 'time', level: level.number });
   hud.update(board);
   screens.toast(t('toast.time'));
 };
 
 el('btn-undo').onclick = async () => {
-  if (!board || busy || board.gameState !== GameState.PLAYING || !board.peutAnnuler()) return;
-  if (!await bonusParPub(PLACEMENT.RECOMPENSE_ANNULER)) return;
-  board.annuler();
+  if (!board || busy || board.gameState !== GameState.PLAYING || !board.canUndo()) return;
+  if (!await boosterByAd(PLACEMENT.REWARDED_UNDO)) return;
+  board.undo();
   track('powerup_used', { type: 'undo', level: level.number });
   view.resync();
   view.refreshGates();
   hud.update(board);
-  majBonus();
+  updateBoosters();
   screens.toast(t('toast.undo'));
 };
 
 /**
- * Indice : on désigne le prochain bloc jouable, on ne le joue pas. Payant en
- * pièces, ou par pub récompensée quand le joueur est fauché.
+ * Hint: it points at the next playable block, it does not play it. Paid in
+ * coins, or with a rewarded ad when the player is broke.
  */
 el('btn-hint').onclick = async () => {
   if (!board || busy || board.gameState !== GameState.PLAYING) return;
-  const conseil = board.hint();
-  if (!conseil) { screens.toast(t('toast.nohint')); return; }
+  const advice = board.hint();
+  if (!advice) { screens.toast(t('toast.nohint')); return; }
 
-  if (currency.peutPayer(currency.PRIX.INDICE)) {
-    if (!currency.debiter(currency.PRIX.INDICE, 'hint')) return;
+  if (currency.canAfford(currency.PRICES.HINT)) {
+    if (!currency.debit(currency.PRICES.HINT, 'hint')) return;
   } else {
-    stopChrono();
-    const vue = await ads.montrerRecompensee(PLACEMENT.RECOMPENSE_INDICE);
-    startChrono();
-    if (!vue) return;
+    stopClock();
+    const watched = await ads.showRewarded(PLACEMENT.REWARDED_HINT);
+    startClock();
+    if (!watched) return;
   }
 
-  track('hint_used', { level: level.number, blocId: conseil.id });
-  view.highlight(conseil.id);
-  majBonus();
+  track('hint_used', { level: level.number, blockId: advice.id });
+  view.highlight(advice.id);
+  updateBoosters();
 };
+
 el('btn-start').onclick = startLevel;
+
 // ---------------------------------------------------------------------------
-// Menu utilisateur — profil et réglages, accessibles depuis TOUS les écrans, y
-// compris en pleine partie : couper le son ne doit pas obliger à abandonner.
+// User menu — profile and settings, reachable from EVERY screen, mid-game
+// included: muting the sound must not require giving up.
 // ---------------------------------------------------------------------------
 
-function ouvrirPanneau(ouvert) {
-  el('user-panel').hidden = !ouvert;
-  el('user-btn').classList.toggle('ouvert', ouvert);
-  el('user-btn').setAttribute('aria-expanded', String(ouvert));
-  if (ouvert) majPanneau();
+function openPanel(open) {
+  el('user-panel').hidden = !open;
+  el('user-btn').classList.toggle('open', open);
+  el('user-btn').setAttribute('aria-expanded', String(open));
+  if (open) updatePanel();
 }
 
-el('user-btn').onclick = () => ouvrirPanneau(el('user-panel').hidden);
-el('user-close').onclick = () => ouvrirPanneau(false);
+el('user-btn').onclick = () => openPanel(el('user-panel').hidden);
+el('user-close').onclick = () => openPanel(false);
 
-// Un clic hors du panneau le referme, comme tout menu de ce genre.
+// A click outside the panel closes it, as any menu of this sort does.
 document.addEventListener('pointerdown', (ev) => {
   if (el('user-panel').hidden) return;
   if (el('user-panel').contains(ev.target) || el('user-btn').contains(ev.target)) return;
-  ouvrirPanneau(false);
+  openPanel(false);
 }, true);
 
 document.addEventListener('keydown', (ev) => {
-  if (ev.key === 'Escape' && !el('user-panel').hidden) ouvrirPanneau(false);
+  if (ev.key === 'Escape' && !el('user-panel').hidden) openPanel(false);
 });
 
-async function majPanneau() {
+async function updatePanel() {
   const p = await api.getProfile();
   el('user-avatar').textContent = p.playerLevel;
   el('user-level').textContent = p.playerLevel;
-  el('user-next').textContent = `${p.xpDansNiveau} / ${p.xpRequis} XP`;
-  el('user-xp-fill').style.width = `${(p.xpDansNiveau / p.xpRequis) * 100}%`;
+  el('user-next').textContent = `${p.xpIntoLevel} / ${p.xpRequired} XP`;
+  el('user-xp-fill').style.width = `${(p.xpIntoLevel / p.xpRequired) * 100}%`;
   el('user-stars').textContent = `${p.totalStars}/${p.maxStars}`;
   el('user-levels').textContent = p.levelsCompleted;
   el('user-coins').textContent = p.coins;
 
   const d = store.load();
-  el('opt-music').checked = d.musique !== false;
-  el('opt-sfx').checked = d.effets !== false;
-  el('opt-glyphs').checked = d.glyphes === true;
-  el('opt-noads').checked = currency.aSupprimeLesPubs();
-  construireChoixLangue();
-  majThemes();
-  majPastilleSon();
-  await majStatusAuth();
+  el('opt-music').checked = d.music !== false;
+  el('opt-sfx').checked = d.sfx !== false;
+  el('opt-glyphs').checked = d.glyphs === true;
+  el('opt-noads').checked = currency.hasRemovedAds();
+  buildLanguageChoice();
+  updateThemes();
+  updateMuteDot();
+  await updateAuthStatus();
+  await updateAdminSection();
 }
 
-/** L'état « son coupé » se lit sur le bouton fermé, sinon il est invisible. */
-function majPastilleSon() {
+/** The "muted" state is read off the closed button, or it is invisible. */
+function updateMuteDot() {
   const d = store.load();
-  const muet = d.musique === false && d.effets === false;
-  el('user-btn').classList.toggle('muet', muet);
+  const muted = d.music === false && d.sfx === false;
+  el('user-btn').classList.toggle('muted', muted);
 }
 
 el('opt-music').onchange = (ev) => {
-  const actif = ev.target.checked;
-  audio.definirMusique(actif);
-  const d = store.load(); d.musique = actif; store.save(d);
-  if (actif) audio.lancerMusique();
-  majPastilleSon();
-  track('sound_toggled', { canal: 'musique', actif });
+  const on = ev.target.checked;
+  audio.setMusic(on);
+  const d = store.load(); d.music = on; store.save(d);
+  if (on) audio.startMusic();
+  updateMuteDot();
+  track('sound_toggled', { channel: 'music', on });
 };
 
 el('opt-sfx').onchange = (ev) => {
-  const actif = ev.target.checked;
-  audio.definirEffets(actif);
-  const d = store.load(); d.effets = actif; store.save(d);
-  if (actif) audio.sortie();          // retour immédiat : on entend ce qu'on active
-  majPastilleSon();
-  track('sound_toggled', { canal: 'effets', actif });
+  const on = ev.target.checked;
+  audio.setSfx(on);
+  const d = store.load(); d.sfx = on; store.save(d);
+  if (on) audio.exit();          // immediate feedback: you hear what you turn on
+  updateMuteDot();
+  track('sound_toggled', { channel: 'sfx', on });
 };
 
 /**
- * Symboles de famille sur les blocs et les portes.
+ * Family symbols on blocks and gates.
  *
- * Les six couleurs se distinguent normalement à la teinte seule. Cette option
- * leur rend leur glyphe (●◆▲★■⬢) : sans lui, un joueur daltonien n'a aucun
- * moyen de savoir par quelle porte sort quel bloc. La classe posée sur `#app`
- * suffit — le rendu du plateau la lit, et le CSS fait le reste.
+ * The six colours are normally told apart by hue alone. This option gives them
+ * their glyph back (●◆▲★■⬢): without it, a colour-blind player has no way of
+ * knowing which block leaves through which gate. The class set on `#app` is
+ * enough — the board rendering reads it, and the CSS does the rest.
  */
-function appliquerGlyphes(actif) {
-  document.getElementById('app').classList.toggle('avec-glyphes', actif);
-  view?.rafraichirGlyphes?.();
+function applyGlyphs(on) {
+  document.getElementById('app').classList.toggle('with-glyphs', on);
+  view?.refreshGlyphs?.();
 }
 
 el('opt-glyphs').onchange = (ev) => {
-  const actif = ev.target.checked;
-  const d = store.load(); d.glyphes = actif; store.save(d);
-  appliquerGlyphes(actif);
-  track('glyphs_toggled', { actif });
+  const on = ev.target.checked;
+  const d = store.load(); d.glyphs = on; store.save(d);
+  applyGlyphs(on);
+  track('glyphs_toggled', { on });
 };
 
 /**
- * Choix de la langue, en liste déroulante.
+ * Language choice, as a dropdown.
  *
- * Un bouton par langue tenait à deux ; à cinq, la rangée débordait du panneau
- * et rien ne dit qu'on s'arrêtera là. Le `select` natif s'ouvre aussi dans le
- * sélecteur du téléphone, qui est fait pour ça.
+ * One button per language held at two; at five, the row overflowed the panel
+ * and nothing says we will stop there. The native `select` also opens in the
+ * phone's own picker, which is what it is for.
  */
-function construireChoixLangue() {
-  const hote = el('opt-langue');
-  if (hote.firstElementChild) {
-    hote.firstElementChild.value = i18n.langue();
+function buildLanguageChoice() {
+  const host = el('opt-language');
+  if (host.firstElementChild) {
+    host.firstElementChild.value = i18n.language();
     return;
   }
   const select = document.createElement('select');
-  select.className = 'langue-select';
+  select.className = 'language-select';
   select.setAttribute('aria-label', i18n.t('user.language'));
-  select.append(...i18n.LANGUES.map((L) => {
+  select.append(...i18n.LANGUAGES.map((L) => {
     const o = document.createElement('option');
     o.value = L.code;
-    // Chaque langue est écrite DANS cette langue : c'est le seul libellé qu'un
-    // joueur perdu dans une langue qu'il ne lit pas saura reconnaître.
-    o.textContent = L.nom;
+    // Each language is written IN that language: it is the only label a player
+    // lost in a language they cannot read will recognise.
+    o.textContent = L.name;
     return o;
   }));
-  select.value = i18n.langue();
+  select.value = i18n.language();
   select.onchange = () => {
-    i18n.definirLangue(select.value);
+    i18n.setLanguage(select.value);
     select.setAttribute('aria-label', i18n.t('user.language'));
-    // Les écrans déjà construits portent du texte fabriqué en JS : on les
-    // redessine, sans quoi la carte et le pré-niveau resteraient dans
-    // l'ancienne langue jusqu'à la prochaine navigation.
-    majPanneau();
+    // Screens already built carry text made in JS: we redraw them, otherwise
+    // the map and the briefing would stay in the old language until the next
+    // navigation.
+    updatePanel();
     if (screens.current() === 'menu') showMenu();
     else if (screens.current() === 'map') mapScreen.render(showBrief);
-    track('language_changed', { langue: select.value });
+    track('language_changed', { language: select.value });
   };
-  hote.replaceChildren(select);
+  host.replaceChildren(select);
 }
 
 /**
- * L'éditeur. Il vivait dans le panneau QA, avec les boutons « Gagner » et
- * « Perdre » : un joueur ne l'y trouvait jamais. Il est maintenant dans le menu
- * utilisateur, à côté des réglages, où l'on va quand on cherche à faire quelque
- * chose plutôt qu'à jouer.
+ * The editor. It used to live in the QA panel, next to the "Win" and "Lose"
+ * buttons: a player never found it there. It is now in the user menu, beside
+ * the settings, where you go when you are looking to do something rather than
+ * to play.
  */
-function ouvrirEditeur(reprise = null) {
-  ouvrirPanneau(false);
+function openEditor(resume = null) {
+  openPanel(false);
   editor.init({
-    niveau: reprise?.niveau || null,
-    id: reprise?.id || null,
-    onTest: (niveau, brouillonId) => {
-      essaiEditeur = { niveau, id: brouillonId };
-      // On quitte l'éditeur pour jouer : l'ancre n'a plus lieu d'être.
-      if (ancreEditeur) { ancreEditeur = false; history.back(); }
-      level = { ...niveau, number: 0, realm: t('editor.trying'), difficulty: '' };
+    level: resume?.level || null,
+    id: resume?.id || null,
+    onTest: (draft, draftId) => {
+      editorTrial = { level: draft, id: draftId };
+      // We are leaving the editor to play: the history anchor has no reason to
+      // stay.
+      if (editorAnchor) { editorAnchor = false; history.back(); }
+      level = { ...draft, number: 0, realm: t('editor.trying'), difficulty: '' };
       startLevel();
     },
-    onSubmit: async (niveau, titre) => {
-      const { id } = await api.submitDailyPuzzle(niveau, titre);
+    onSubmit: async (draft, title) => {
+      const { id } = await api.submitDailyPuzzle(draft, title);
       track('daily_puzzle_submitted_ui', { id });
-      majMenuPuzzleDuJour();
+      updateDailyPuzzleButton();
     },
   });
   screens.show('editor');
-  majBanniere('editor');
-  poserAncre();   // le cran d'arrêt du bouton « précédent »
+  updateBanner('editor');
+  pushAnchor();   // the stop for the "back" button
 }
 
-el('btn-editor').onclick = () => ouvrirEditeur();
+el('btn-editor').onclick = () => openEditor();
 
 /**
- * Bouton « précédent » du téléphone, dans l'éditeur.
+ * The phone's "back" button, inside the editor.
  *
- * Sur Android il ferme l'application quand rien ne l'intercepte — geste
- * malheureux au milieu d'une grille. On pose donc UNE ancre d'historique à
- * l'ouverture de l'éditeur, et chaque retour y défait le dernier bloc.
+ * On Android it closes the application when nothing intercepts it — an
+ * unfortunate gesture in the middle of a grid. So we push ONE history anchor
+ * when the editor opens, and each back press undoes the last block.
  *
- * L'ancre doit être UNIQUE et RETIRÉE en sortant. Empilée à chaque ouverture
- * sans jamais l'être, elle laissait derrière elle autant d'entrées mortes que
- * d'allers-retours : un « précédent » depuis la carte en consommait une et ne
- * faisait rien, ce qui donnait l'impression d'un bouton cassé.
+ * The anchor must be UNIQUE and REMOVED on the way out. Stacked on every
+ * opening and never popped, it left behind as many dead entries as round trips:
+ * a "back" from the map then consumed one and did nothing, which felt like a
+ * broken button.
  */
-let ancreEditeur = false;
+let editorAnchor = false;
 
-function poserAncre() {
-  if (ancreEditeur) return;
-  history.pushState({ ecran: 'editor' }, '');
-  ancreEditeur = true;
+function pushAnchor() {
+  if (editorAnchor) return;
+  history.pushState({ screen: 'editor' }, '');
+  editorAnchor = true;
 }
 
-/** Quitte l'éditeur en rendant au navigateur l'entrée qu'on lui avait prise. */
-function quitterEditeur() {
-  showMenu();                       // l'écran change AVANT le retour d'histoire,
-  if (ancreEditeur) {               // sinon popstate croirait devoir défaire.
-    ancreEditeur = false;
+/** Leaves the editor, giving the browser back the entry we took from it. */
+function leaveEditor() {
+  showMenu();                       // the screen changes BEFORE the history pop,
+  if (editorAnchor) {               // otherwise popstate would think it must undo.
+    editorAnchor = false;
     history.back();
   }
 }
 
 window.addEventListener('popstate', () => {
-  if (screens.current() !== 'editor') { ancreEditeur = false; return; }
-  if (editor.retourArriere()) {
-    // Réempilée aussitôt : sans cela, le premier retour serait le seul capté.
-    ancreEditeur = false;
-    poserAncre();
+  if (screens.current() !== 'editor') { editorAnchor = false; return; }
+  if (editor.goBack()) {
+    // Pushed again straight away: without this, the first back would be the
+    // only one caught.
+    editorAnchor = false;
+    pushAnchor();
     screens.toast(t('editor.undone'));
     return;
   }
-  ancreEditeur = false;
+  editorAnchor = false;
   showMenu();
 });
 
-// La flèche de l'éditeur passe par la même sortie que le bouton du téléphone.
+// The editor's arrow leaves through the same exit as the phone's button.
 document.querySelector('#screen-editor [data-nav="menu"]')
-  ?.addEventListener('click', (ev) => { ev.stopImmediatePropagation(); quitterEditeur(); }, true);
+  ?.addEventListener('click', (ev) => { ev.stopImmediatePropagation(); leaveEditor(); }, true);
 el('btn-mine-close').onclick = () => { el('overlay-mine').hidden = true; };
 
 // ---------------------------------------------------------------------------
-// Signalement — bug, idée, remarque
+// Feedback — bug, idea, remark
 // ---------------------------------------------------------------------------
 
-/** Captures jointes à la rédaction en cours. Jamais stockées : voir feedback.js. */
-let captures = [];
-let categorie = 'bug';
-const CAPTURE_MAX_MO = 4;
+/** Screenshots attached to the report being written. Never stored: see feedback.js. */
+let screenshots = [];
+let feedbackCategory = 'bug';
+const SCREENSHOT_MAX_MB = 4;
 
-function majCategories() {
+function updateCategories() {
   el('fb-cats').replaceChildren(...feedback.CATEGORIES.map((c) => {
     const b = document.createElement('button');
-    b.className = 'fb-cat' + (c === categorie ? ' sel' : '');
+    b.className = 'fb-cat' + (c === feedbackCategory ? ' sel' : '');
     b.textContent = t(`feedback.cat.${c}`);
-    b.onclick = () => { categorie = c; majCategories(); };
+    b.onclick = () => { feedbackCategory = c; updateCategories(); };
     return b;
   }));
 }
 
-function majCaptures() {
-  el('fb-shots').replaceChildren(...captures.map((c, i) => {
-    const vignette = document.createElement('button');
-    vignette.className = 'fb-shot';
-    vignette.setAttribute('aria-label', t('editor.delete'));
+function updateScreenshots() {
+  el('fb-shots').replaceChildren(...screenshots.map((c, i) => {
+    const thumb = document.createElement('button');
+    thumb.className = 'fb-shot';
+    thumb.setAttribute('aria-label', t('editor.delete'));
     const img = document.createElement('img');
     img.src = c.data;
-    img.alt = c.nom;
-    vignette.append(img);
-    vignette.onclick = () => { captures.splice(i, 1); majCaptures(); };
-    return vignette;
+    img.alt = c.name;
+    thumb.append(img);
+    thumb.onclick = () => { screenshots.splice(i, 1); updateScreenshots(); };
+    return thumb;
   }));
 }
 
 el('fb-files').onchange = async (ev) => {
-  for (const fichier of [...ev.target.files]) {
-    if (fichier.size > CAPTURE_MAX_MO * 1024 * 1024) {
-      screens.toast(t('feedback.toobig', { n: CAPTURE_MAX_MO }));
+  for (const file of [...ev.target.files]) {
+    if (file.size > SCREENSHOT_MAX_MB * 1024 * 1024) {
+      screens.toast(t('feedback.toobig', { n: SCREENSHOT_MAX_MB }));
       continue;
     }
     const data = await new Promise((resolve) => {
-      const lecteur = new FileReader();
-      lecteur.onload = () => resolve(lecteur.result);
-      lecteur.readAsDataURL(fichier);
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(file);
     });
-    captures.push({ nom: fichier.name, type: fichier.type, taille: fichier.size, data });
+    screenshots.push({ name: file.name, type: file.type, size: file.size, data });
   }
   ev.target.value = '';
-  majCaptures();
+  updateScreenshots();
 };
 
-/** Rédaction en cours, mise en forme et enregistrée pour l'historique local. */
-function rapportCourant() {
+/** The report being written, formatted and stored in the local history. */
+function currentReport() {
   const message = el('fb-message').value.trim();
   if (!message) { screens.toast(t('feedback.empty')); return null; }
-  const rapport = feedback.composer({
-    categorie,
+  const report = feedback.compose({
+    category: feedbackCategory,
     message,
-    captures,
+    screenshots,
     extra: {
-      ecranCourant: screens.current(),
-      niveauEnCours: level?.number ?? null,
-      // L'état du son part avec le rapport : « je n'entends rien » est
-      // indémêlable sans savoir si le contexte audio a seulement démarré.
-      audio: JSON.stringify(audio.diagnostic()),
+      currentScreen: screens.current(),
+      currentLevel: level?.number ?? null,
+      // The sound's state travels with the report: "I hear nothing" is
+      // untangleable without knowing whether the audio context even started.
+      audio: JSON.stringify(audio.diagnostics()),
     },
   });
-  feedback.enregistrer(rapport);
-  return rapport;
+  feedback.record(report);
+  return report;
 }
 
 el('btn-feedback').onclick = () => {
-  ouvrirPanneau(false);
-  captures = [];
-  categorie = 'bug';
+  openPanel(false);
+  screenshots = [];
+  feedbackCategory = 'bug';
   el('fb-message').value = '';
-  majCategories();
-  majCaptures();
+  updateCategories();
+  updateScreenshots();
   el('overlay-feedback').hidden = false;
 };
 
 el('btn-feedback-close').onclick = () => { el('overlay-feedback').hidden = true; };
 
 el('fb-copy').onclick = async () => {
-  const rapport = rapportCourant();
-  if (!rapport) return;
+  const report = currentReport();
+  if (!report) return;
   try {
-    await navigator.clipboard.writeText(feedback.enTexte(rapport));
+    await navigator.clipboard.writeText(feedback.asText(report));
     screens.toast(t('feedback.copied'));
   } catch {
-    // Presse-papiers refusé (contexte non sécurisé, permission) : le
-    // téléchargement reste ouvert, et il emporte les captures en prime.
+    // Clipboard refused (insecure context, permission): the download route is
+    // still open, and it carries the screenshots as a bonus.
     el('fb-download').click();
   }
 };
 
 /**
- * Téléchargement du rapport complet, captures comprises. C'est la SEULE route
- * par laquelle une image peut voyager : aucun `mailto:` ne sait joindre une
- * pièce, et il n'y a pas de serveur à qui la confier.
+ * Download of the complete report, screenshots included. This is the ONLY route
+ * an image can travel by: no `mailto:` knows how to attach a file, and there is
+ * no server to entrust it to.
  */
 el('fb-download').onclick = () => {
-  const rapport = rapportCourant();
-  if (!rapport) return;
-  const blob = new Blob([JSON.stringify(rapport, null, 2)], { type: 'application/json' });
+  const report = currentReport();
+  if (!report) return;
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const lien = document.createElement('a');
-  lien.href = url;
-  lien.download = `quiet-puzzle-${rapport.categorie}-${Date.now()}.json`;
-  lien.click();
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `quiet-puzzle-${report.category}-${Date.now()}.json`;
+  link.click();
   URL.revokeObjectURL(url);
   screens.toast(t('feedback.downloaded'));
 };
 
 el('fb-mail').onclick = () => {
-  const rapport = rapportCourant();
-  if (!rapport) return;
-  const sujet = `Quiet Puzzle — ${t(`feedback.cat.${rapport.categorie}`)}`;
-  // Pas de destinataire codé en dur : le courrielleur s'ouvre sur un brouillon
-  // que le joueur adresse à qui il veut. Inventer une adresse ici la rendrait
-  // fausse le jour où elle change, et il n'y en a pas encore.
-  window.location.href = `mailto:?subject=${encodeURIComponent(sujet)}`
-    + `&body=${encodeURIComponent(feedback.enTexte(rapport))}`;
+  const report = currentReport();
+  if (!report) return;
+  const subject = `Quiet Puzzle — ${t(`feedback.cat.${report.category}`)}`;
+  // No hard-coded recipient: the mail client opens on a draft the player
+  // addresses to whoever they like. Inventing an address here would make it
+  // wrong the day it changes, and there is not one yet.
+  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}`
+    + `&body=${encodeURIComponent(feedback.asText(report))}`;
 };
 
 // ---------------------------------------------------------------------------
-// Puzzle du jour
+// Daily puzzle
 // ---------------------------------------------------------------------------
 
 /**
- * Le bouton du menu. Il ne s'affiche QUE si une grille a été proposée : une
- * entrée qui mène à « rien pour l'instant » se lit comme une panne, alors que
- * son absence ne se remarque pas.
+ * The menu button. It only shows IF a grid has been submitted: an entry leading
+ * to "nothing for now" reads like a breakdown, whereas its absence goes
+ * unnoticed.
  */
-async function majMenuPuzzleDuJour() {
-  const bouton = el('btn-daily-puzzle');
-  const propose = await api.getDailyPuzzle();
-  bouton.hidden = !propose;
-  if (!propose) return;
-  const mien = dailyPuzzle.classement().find((e) => e.moi);
-  el('daily-puzzle-sub').textContent = mien
-    ? t('daily.done', { score: mien.score })
-    : (propose.titre || t('daily.play'));
+async function updateDailyPuzzleButton() {
+  const button = el('btn-daily-puzzle');
+  const entry = await api.getDailyPuzzle();
+  button.hidden = !entry;
+  if (!entry) return;
+  const mine = dailyPuzzle.leaderboard().find((e) => e.me);
+  el('daily-puzzle-sub').textContent = mine
+    ? t('daily.done', { score: mine.score })
+    : (entry.title || t('daily.play'));
 }
 
 el('btn-daily-puzzle').onclick = async () => {
-  const propose = await api.getDailyPuzzle();
-  if (!propose) return;
-  puzzleDuJour = propose;
-  // Le puzzle du jour se joue au chrono : les limites du niveau proposé sont
-  // celles que l'éditeur lui a données, on ne les resserre pas.
-  level = { ...propose.niveau, levelId: `daily_${propose.id}`, number: 0,
-            realm: propose.titre || t('daily.title'), difficulty: '' };
+  const entry = await api.getDailyPuzzle();
+  if (!entry) return;
+  dailyEntry = entry;
+  // The daily puzzle is played against the clock: the limits of the submitted
+  // level are the ones the editor gave it, and we do not tighten them.
+  level = { ...entry.level, levelId: `daily_${entry.id}`, number: 0,
+            realm: entry.title || t('daily.title'), difficulty: '' };
   startLevel();
-  track('daily_puzzle_started', { id: propose.id });
+  track('daily_puzzle_started', { id: entry.id });
 };
 
 el('btn-rank-close').onclick = () => { el('overlay-rank').hidden = true; };
 
 // ---------------------------------------------------------------------------
-// Boutique de pièces
+// Coin shop
 // ---------------------------------------------------------------------------
 
 /**
- * Deux façons d'obtenir des pièces, et il faut les présenter dans cet ordre :
- * la gratuite d'abord. Mettre les packs en tête ferait passer la pub
- * récompensée pour un lot de consolation, alors que c'est elle qui dépanne le
- * joueur au moment où il en a besoin.
+ * Two ways to get coins, and they must be presented in this order: the free one
+ * first. Putting the packs at the top would make the rewarded ad look like a
+ * consolation prize, when it is the one that helps the player out at the moment
+ * they need it.
  */
-function majBoutique() {
-  el('shop-solde').textContent = currency.solde();
+function updateShop() {
+  el('shop-balance').textContent = currency.balance();
 
-  const restantes = currency.pubsRestantes();
-  const bouton = el('btn-shop-ad');
-  bouton.disabled = restantes <= 0;
-  el('shop-ad-label').textContent = t('shop.ad', { n: currency.PUB_RECOMPENSE.PIECES });
-  el('shop-ad-note').textContent = restantes > 0
-    ? t('shop.ad.left', { n: restantes, total: currency.PUB_RECOMPENSE.PAR_JOUR })
+  const left = currency.adsRemaining();
+  const button = el('btn-shop-ad');
+  button.disabled = left <= 0;
+  el('shop-ad-label').textContent = t('shop.ad', { n: currency.AD_REWARD.COINS });
+  el('shop-ad-note').textContent = left > 0
+    ? t('shop.ad.left', { n: left, total: currency.AD_REWARD.PER_DAY })
     : t('shop.ad.none');
 
   el('shop-packs').replaceChildren(...currency.PACKS.map((pack) => {
-    const carte = document.createElement('button');
-    carte.className = 'shop-pack';
-    const total = Math.round(pack.pieces * (1 + pack.bonus / 100));
+    const card = document.createElement('button');
+    card.className = 'shop-pack';
+    const total = Math.round(pack.coins * (1 + pack.bonus / 100));
 
-    const montant = document.createElement('b');
-    montant.textContent = total;
+    const amount = document.createElement('b');
+    amount.textContent = total;
     const bonus = document.createElement('small');
     bonus.className = 'shop-pack-bonus';
     bonus.textContent = pack.bonus ? t('shop.pack.bonus', { n: pack.bonus }) : '';
-    const prix = document.createElement('span');
-    prix.className = 'shop-pack-prix';
-    prix.textContent = pack.prix;
+    const price = document.createElement('span');
+    price.className = 'shop-pack-price';
+    price.textContent = pack.price;
 
-    carte.append(montant, bonus, prix);
-    carte.onclick = () => {
-      track(EV.IAP_STARTED, { productId: pack.id, prix: pack.prix });
-      const verse = currency.acheterPack(pack.id);
-      track(EV.IAP_COMPLETED, { productId: pack.id, prix: pack.prix, eclats: verse });
-      majBoutique();
-      majMenu();
-      screens.toast(t('shop.bought', { n: verse }));
+    card.append(amount, bonus, price);
+    card.onclick = () => {
+      track(EV.IAP_STARTED, { productId: pack.id, price: pack.price });
+      const paid = currency.buyPack(pack.id);
+      track(EV.IAP_COMPLETED, { productId: pack.id, price: pack.price, coins: paid });
+      updateShop();
+      updateMenuCounters();
+      screens.toast(t('shop.bought', { n: paid }));
     };
-    return carte;
+    return card;
   }));
 }
 
-/** Rafraîchit les compteurs du menu sans le reconstruire entièrement. */
-function majMenu() {
-  el('menu-coins').textContent = currency.solde();
+/** Refreshes the menu counters without rebuilding it entirely. */
+function updateMenuCounters() {
+  el('menu-coins').textContent = currency.balance();
 }
 
 el('btn-shop').onclick = () => {
-  majBoutique();
+  updateShop();
   el('overlay-shop').hidden = false;
-  track(EV.IAP_VIEWED, { solde: currency.solde() });
+  track(EV.IAP_VIEWED, { balance: currency.balance() });
 };
 
 el('btn-shop-close').onclick = () => { el('overlay-shop').hidden = true; };
 
 el('btn-shop-ad').onclick = async () => {
-  if (currency.pubsRestantes() <= 0) return;
-  const vue = await ads.montrerRecompensee(PLACEMENT.RECOMPENSE_PIECES);
-  if (!vue) { screens.toast(t('shop.ad.failed')); return; }
-  // Le crédit passe par `currency` : c'est lui qui tient le compteur du jour,
-  // et le verser ici le contournerait.
-  const gagne = currency.crediterPub();
-  track(EV.REWARD_GRANTED, { placement: PLACEMENT.RECOMPENSE_PIECES, recompense: 'eclats', montant: gagne });
-  majBoutique();
-  majMenu();
-  screens.toast(t('shop.earned', { n: gagne }));
+  if (currency.adsRemaining() <= 0) return;
+  const watched = await ads.showRewarded(PLACEMENT.REWARDED_COINS);
+  if (!watched) { screens.toast(t('shop.ad.failed')); return; }
+  // The credit goes through `currency`: it is the one holding the daily
+  // counter, and paying out here would bypass it.
+  const earned = currency.creditAdReward();
+  track(EV.REWARD_GRANTED, { placement: PLACEMENT.REWARDED_COINS, reward: 'coins', amount: earned });
+  updateShop();
+  updateMenuCounters();
+  screens.toast(t('shop.earned', { n: earned }));
 };
 
-/** Affiche le classement du jour, avec sa place mise en avant. */
-function montrerClassement(monScore) {
-  const liste = dailyPuzzle.classement();
-  const moi = liste.find((e) => e.moi);
-  el('rank-mine').textContent = moi
-    ? `${t('daily.score', { score: monScore ?? moi.score })} · ${t('daily.rank', { rang: moi.rang, total: liste.length })}`
+/** Shows the day's leaderboard, with the player's place highlighted. */
+function showLeaderboard(myScore) {
+  const list = dailyPuzzle.leaderboard();
+  const me = list.find((e) => e.me);
+  el('rank-mine').textContent = me
+    ? `${t('daily.score', { score: myScore ?? me.score })} · ${t('daily.rank', { rank: me.rank, total: list.length })}`
     : '';
-  el('rank-list').replaceChildren(...liste.slice(0, 10).map((e) => {
+  el('rank-list').replaceChildren(...list.slice(0, 10).map((e) => {
     const li = document.createElement('li');
-    if (e.moi) li.className = 'moi';
-    const qui = document.createElement('span');
-    qui.textContent = e.moi ? t('daily.rank.me') : e.auteur;
+    if (e.me) li.className = 'me';
+    const who = document.createElement('span');
+    who.textContent = e.me ? t('daily.rank.me') : e.author;
     const pts = document.createElement('b');
     pts.textContent = e.score;
-    li.append(qui, pts);
+    li.append(who, pts);
     return li;
   }));
-  if (!liste.length) el('rank-list').textContent = t('daily.rank.empty');
+  if (!list.length) el('rank-list').textContent = t('daily.rank.empty');
   el('overlay-rank').hidden = false;
 }
 
 /**
- * Grille des thèmes. Un thème verrouillé reste VISIBLE, avec sa condition : ce
- * qu'on ne peut pas encore avoir est ce qui donne envie de continuer, à
- * condition de savoir ce qu'il faut faire pour l'obtenir.
+ * Theme grid. A locked theme stays VISIBLE, with its condition: what you cannot
+ * have yet is what makes you want to carry on, provided you know what to do to
+ * get it.
  */
-async function majThemes() {
-  const hote = el('opt-themes');
-  const profil = await api.getProfile();
-  const courant = themes.choisi();
+async function updateThemes() {
+  const host = el('opt-themes');
+  const profile = await api.getProfile();
+  const current = themes.chosen();
 
-  const suivreMondes = document.createElement('button');
-  suivreMondes.className = 'theme-tuile' + (courant ? '' : ' sel');
-  suivreMondes.innerHTML = '<span class="theme-emoji">🎨</span>';
-  const nom = document.createElement('small');
-  nom.textContent = t('theme.worlds');
-  suivreMondes.append(nom);
-  suivreMondes.onclick = () => { themes.choisir(null); theme.appliquer(profil.currentLevel); majThemes(); };
+  const followRealms = document.createElement('button');
+  followRealms.className = 'theme-tile' + (current ? '' : ' sel');
+  followRealms.innerHTML = '<span class="theme-emoji">🎨</span>';
+  const name = document.createElement('small');
+  name.textContent = t('theme.worlds');
+  followRealms.append(name);
+  followRealms.onclick = () => { themes.choose(null); theme.apply(profile.currentLevel); updateThemes(); };
 
-  hote.replaceChildren(suivreMondes, ...themes.THEMES.map((th) => {
-    const ouvert = themes.estDebloque(th, profil);
-    const tuile = document.createElement('button');
-    tuile.className = 'theme-tuile' + (courant === th.id ? ' sel' : '') + (ouvert ? '' : ' verrouille');
-    tuile.style.setProperty('--apercu', th.palette[0]);
-    tuile.innerHTML = `<span class="theme-emoji">${th.emoji}</span>`;
-    const etiquette = document.createElement('small');
-    etiquette.textContent = ouvert ? th.id : themes.conditionLisible(th, t);
-    tuile.append(etiquette);
-    if (!ouvert) {
-      tuile.disabled = true;
-      tuile.title = t('theme.locked', { quoi: themes.conditionLisible(th, t) });
+  host.replaceChildren(followRealms, ...themes.THEMES.map((th) => {
+    const open = themes.isUnlocked(th, profile);
+    const tile = document.createElement('button');
+    tile.className = 'theme-tile' + (current === th.id ? ' sel' : '') + (open ? '' : ' locked');
+    tile.style.setProperty('--preview', th.palette[0]);
+    tile.innerHTML = `<span class="theme-emoji">${th.emoji}</span>`;
+    const label = document.createElement('small');
+    label.textContent = open ? th.id : themes.conditionLabel(th, t);
+    tile.append(label);
+    if (!open) {
+      tile.disabled = true;
+      tile.title = t('theme.locked', { what: themes.conditionLabel(th, t) });
     } else {
-      tuile.onclick = () => { themes.choisir(th.id); theme.appliquer(profil.currentLevel); majThemes(); };
+      tile.onclick = () => { themes.choose(th.id); theme.apply(profile.currentLevel); updateThemes(); };
     }
-    return tuile;
+    return tile;
   }));
 }
 
 el('opt-noads').onchange = (ev) => {
-  currency.definirSuppressionPubs(ev.target.checked);
-  if (ev.target.checked) track(EV.REMOVE_ADS_PURCHASED, { simule: true });
-  majBanniere(screens.current());
+  currency.setAdsRemoved(ev.target.checked);
+  if (ev.target.checked) track(EV.REMOVE_ADS_PURCHASED, { simulated: true });
+  updateBanner(screens.current());
   screens.toast(t(ev.target.checked ? 'toast.ads.off' : 'toast.ads.on'));
 };
 
-/** Gestion de la déconnexion. */
+// ---------------------------------------------------------------------------
+// Account and admin mode
+// ---------------------------------------------------------------------------
+
 el('btn-logout').onclick = async () => {
-  if (!confirm('Se déconnecter ?')) return;
+  if (!confirm(t('user.logout.confirm'))) return;
   try {
     await supabase.auth.signOut();
-    ouvrirPanneau(false);
-    // L'écouteur onAuthStateChange gère le reste
+    admin.forget();
+    openPanel(false);
+    // The onAuthStateChange listener handles the rest.
   } catch (err) {
-    console.error('Erreur lors de la déconnexion :', err);
-    screens.toast('Erreur lors de la déconnexion');
+    console.error('Sign-out failed:', err);
+    screens.toast(t('user.logout.failed'));
   }
 };
 
-/** Affiche le statut d'authentification. */
-async function majStatusAuth() {
+/** Shows the authentication status. */
+async function updateAuthStatus() {
   const { data: { session } } = await supabase.auth.getSession();
   const logoutBtn = el('btn-logout');
   const statusText = el('auth-status-text');
 
   if (session?.user) {
     logoutBtn.hidden = false;
-    const email = session.user.email || session.user.user_metadata?.email || 'Utilisateur';
-    statusText.textContent = `Connecté en tant que ${email}`;
+    const email = session.user.email || session.user.user_metadata?.email || t('user.status.anonymous');
+    statusText.textContent = t('user.status.online', { email });
   } else {
     logoutBtn.hidden = true;
-    statusText.textContent = 'Mode hors ligne - données locales';
+    statusText.textContent = t('user.status.offline');
   }
 }
+
+/**
+ * The admin section of the user menu.
+ *
+ * Hidden by default and revealed only for an account holding the role. This is
+ * a display decision and nothing more: everything the panel can do is gated
+ * server-side by RLS, so revealing the button by hand in the console gets you a
+ * panel that answers "permission denied". See src/data/admin.js.
+ */
+async function updateAdminSection() {
+  const section = el('user-admin');
+  const allowed = await admin.isAdmin();
+  section.hidden = !allowed;
+}
+
+el('btn-admin').onclick = async () => {
+  openPanel(false);
+  await adminPanel.open();
+};
+
+adminPanel.wire();
 
 el('btn-reset').onclick = () => {
   if (!confirm(t('user.reset.confirm'))) return;
   store.reset();
-  // Réappliquer les préférences remises à zéro, puis revenir au menu. On ne
-  // relance PAS la séquence de démarrage : elle réenregistrait un écouteur
-  // `pagehide` de plus à chaque effacement, et chacun émettait ensuite son
-  // propre évènement de fin de session.
-  const remis = store.load();
-  audio.definirMusique(remis.musique !== false);
-  audio.definirEffets(remis.effets !== false);
-  daily.ouvrirSession();
+  // Re-apply the reset preferences, then go back to the menu. We do NOT rerun
+  // the startup sequence: it registered one more `pagehide` listener on every
+  // wipe, and each of them then emitted its own end-of-session event.
+  const fresh = store.load();
+  audio.setMusic(fresh.music !== false);
+  audio.setSfx(fresh.sfx !== false);
+  daily.openSession();
   showMenu();
 };
+
 document.querySelectorAll('[data-nav]').forEach((b) => {
   b.onclick = () => {
-    // Quitter une grille en cours est un abandon : c'est le signal qui manque
-    // le plus souvent, et celui qui dit quel niveau décourage.
+    // Leaving a grid in progress is an abandon: it is the signal that is
+    // missing most often, and the one that says which level discourages people.
     if (screens.current() === 'game' && board?.gameState === GameState.PLAYING) {
-      track(EV.LEVEL_ABANDONED, contexteNiveau(level, {
-        essai: echecsDuNiveau + 1, board,
-        duree: Math.round((Date.now() - debutNiveau) / 1000),
+      track(EV.LEVEL_ABANDONED, levelContext(level, {
+        attempt: levelFailures + 1, board,
+        duration: Math.round((Date.now() - levelStartedAt) / 1000),
       }));
     }
     return b.dataset.nav === 'menu' ? showMenu() : showMap();
   };
 });
 
-// Le chrono ne doit pas continuer de tourner pendant que l'app est en fond.
+// The clock must not keep running while the app is in the background.
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) stopChrono();
-  else if (board && board.gameState === GameState.PLAYING && screens.current() === 'game') startChrono();
+  if (document.hidden) stopClock();
+  else if (board && board.gameState === GameState.PLAYING && screens.current() === 'game') startClock();
 });
 
 // ---------------------------------------------------------------------------
-// Panneau QA
+// QA panel
 // ---------------------------------------------------------------------------
 
 el('debug-toggle').onclick = () => {
@@ -1172,25 +1239,25 @@ el('debug-lose').onclick = async () => {
   if (!board || board.gameState !== GameState.PLAYING) return;
   board.timeRemaining = 0;
   board.gameState = GameState.FAILED;
-  board.failReason = 'temps';
+  board.failReason = 'time';
   hud.update(board);
   await finishLevel();
 };
 
-/** Rejoue la solution de référence du niveau — contrôle visuel du générateur. */
+/** Replays the level's reference solution — a visual check on the generator. */
 el('debug-solve').onclick = async () => {
   if (!board || busy) return;
   busy = true;
   input.locked = true;
-  for (const etape of level.solution) {
-    for (const pos of etape.chemin.slice(1)) {
-      const { events } = board.dragTowards(etape.id, pos.x, pos.y);
+  for (const step of level.solution) {
+    for (const pos of step.path.slice(1)) {
+      const { events } = board.dragTowards(step.id, pos.x, pos.y);
       await view.apply(events);
       await new Promise((r) => setTimeout(r, 90));
     }
-    if (board.blocks.has(etape.id)) {
-      const [dx, dy] = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] }[etape.gate];
-      const r = board.step(etape.id, dx, dy);
+    if (board.blocks.has(step.id)) {
+      const [dx, dy] = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] }[step.gate];
+      const r = board.step(step.id, dx, dy);
       if (r.ok) await view.apply([r.event]);
     }
     await view.apply(board.endGesture(true));
@@ -1201,47 +1268,47 @@ el('debug-solve').onclick = async () => {
   if (board.gameState !== GameState.PLAYING) await finishLevel();
 };
 
-let rapide = false;
+let fastAnimations = false;
 el('debug-speed').onclick = () => {
-  rapide = !rapide;
-  setSpeed(rapide ? 0.2 : 1);
-  el('debug-speed').textContent = rapide ? 'Animations ×1' : 'Animations ×5';
+  fastAnimations = !fastAnimations;
+  setSpeed(fastAnimations ? 0.2 : 1);
+  el('debug-speed').textContent = t(fastAnimations ? 'debug.speed.slow' : 'debug.speed.fast');
 };
 
 el('debug-noads').onclick = () => {
-  const actif = !currency.aSupprimeLesPubs();
-  currency.definirSuppressionPubs(actif);
-  el('debug-noads').textContent = actif ? 'Désactiver sans-pub' : 'Activer sans-pub';
-  screens.toast(t(actif ? 'toast.ads.off' : 'toast.ads.on'));
-  majBanniere(screens.current());
-  if (!el('user-panel').hidden) majPanneau();
+  const on = !currency.hasRemovedAds();
+  currency.setAdsRemoved(on);
+  el('debug-noads').textContent = t(on ? 'debug.noads.off' : 'debug.noads.on');
+  screens.toast(t(on ? 'toast.ads.off' : 'toast.ads.on'));
+  updateBanner(screens.current());
+  if (!el('user-panel').hidden) updatePanel();
 };
 
 el('debug-coins').onclick = () => {
-  currency.crediter(500, 'debug');
-  screens.toast(t('toast.coins', { n: currency.solde() }));
-  majBonus();
+  currency.credit(500, 'debug');
+  screens.toast(t('toast.coins', { n: currency.balance() }));
+  updateBoosters();
   refreshDebug();
 };
 
 el('debug-events').onclick = () => {
-  const liste = el('debug-events-list');
-  liste.hidden = !liste.hidden;
-  if (!liste.hidden) majJournal();
+  const list = el('debug-events-list');
+  list.hidden = !list.hidden;
+  if (!list.hidden) updateEventLog();
 };
 
-function majJournal() {
-  const liste = el('debug-events-list');
-  if (liste.hidden) return;
-  liste.replaceChildren(...recent(25).map((e) => {
+function updateEventLog() {
+  const list = el('debug-events-list');
+  if (list.hidden) return;
+  list.replaceChildren(...recent(25).map((e) => {
     const li = document.createElement('li');
-    const nom = document.createElement('b');
-    nom.textContent = e.eventName;
-    li.append(nom, ' ', JSON.stringify(e.eventData));
+    const name = document.createElement('b');
+    name.textContent = e.eventName;
+    li.append(name, ' ', JSON.stringify(e.eventData));
     return li;
   }));
 }
-subscribe(() => majJournal());
+subscribe(() => updateEventLog());
 
 el('debug-unlock').onclick = () => {
   const d = store.load();
@@ -1251,13 +1318,13 @@ el('debug-unlock').onclick = () => {
   refreshDebug();
 };
 
-/** Crochet de debug : accès au plateau depuis la console. Prototype seulement. */
+/** Debug hook: access to the board from the console. Prototype only. */
 window.__game = {
   get board() { return board; },
   get view() { return view; },
   get input() { return input; },
   get audio() { return audio; },
-  finirPourCapture: () => (board?.gameState !== GameState.PLAYING ? finishLevel() : null),
+  finishForCapture: () => (board?.gameState !== GameState.PLAYING ? finishLevel() : null),
   get level() { return level; },
   get busy() { return busy; },
 };
@@ -1265,39 +1332,40 @@ window.__game = {
 function refreshDebug() {
   const d = store.load();
   el('debug-info').textContent =
-    `débloqué : ${d.unlockedLevel}/${levels.totalLevels()} · ★ ${store.totalStars()} · ${d.coins} pièces`
-    + (board ? `\nplateau ${board.W}×${board.H} · ${board.remaining()} blocs · réf. ${level.minDrags} glissés` : '')
-    + `\naudio ${JSON.stringify(audio.diagnostic())}`;
+    `unlocked: ${d.unlockedLevel}/${levels.totalLevels()} · ★ ${store.totalStars()} · ${d.coins} coins`
+    + (board ? `\nboard ${board.W}×${board.H} · ${board.remaining()} blocks · ref. ${level.minDrags} drags` : '')
+    + `\naudio ${JSON.stringify(audio.diagnostics())}`;
 }
 
-// Son : on restaure les préférences avant tout affichage.
+// Sound: preferences are restored before anything is displayed.
 {
   const d = store.load();
-  audio.definirMusique(d.musique !== false);
-  audio.definirEffets(d.effets !== false);
+  audio.setMusic(d.music !== false);
+  audio.setSfx(d.sfx !== false);
 }
 
 /**
- * Démarrage : la BASE DE NIVEAUX D'ABORD.
+ * Startup: THE LEVEL DATABASE FIRST.
  *
- * Rien ne peut s'afficher avant elle — le menu compte les niveaux, la carte
- * dessine les mondes, le thème lit leur palette. Tout cela se lit ensuite de
- * façon synchrone ; cet `await` est le seul endroit du jeu qui attend la base.
+ * Nothing can be displayed before it — the menu counts the levels, the map
+ * draws the realms, the theme reads their palette. All of that is then read
+ * synchronously; this `await` is the only place in the game that waits on the
+ * database.
  */
 (async () => {
-  // La langue d'abord : tout ce qui suit écrit du texte à l'écran.
-  i18n.initialiser();
-  appliquerGlyphes(store.load().glyphes === true);
+  // The language first: everything after this writes text on screen.
+  i18n.init();
+  applyGlyphs(store.load().glyphs === true);
   try {
-    await levels.ouvrir();
-    // Le champ « aller au niveau » suit le total de la base. Codé en dur dans
-    // le markup, il plafonnait la saisie et rendait les niveaux ajoutés
-    // inatteignables depuis le panneau — et il ne peut être réglé qu'ICI, la
-    // base seule sachant combien de niveaux elle contient.
+    await levels.open();
+    // The "go to level" field follows the database's total. Hard-coded in the
+    // markup, it capped the input and made added levels unreachable from the
+    // panel — and it can only be set HERE, the database alone knowing how many
+    // levels it holds.
     el('debug-level').max = levels.totalLevels();
   } catch (e) {
-    // Sans base, il n'y a pas de jeu : mieux vaut le dire que d'afficher un
-    // menu vide dont aucun bouton ne répondrait.
+    // Without the database there is no game: better to say so than to show an
+    // empty menu whose buttons would not answer.
     document.getElementById('app').innerHTML =
       `<div class="boot-error"><h1>${t('boot.missing')}</h1>`
       + `<p>${t('boot.hint', { cmd: '<code>node tools/build-levels.mjs</code>' })}</p></div>`;
@@ -1305,80 +1373,61 @@ function refreshDebug() {
     return;
   }
 
-  // 2. VÉRIFICATION DE LA SESSION SUPABASE
+  // Supabase session check. No session means the login screen, which offers an
+  // offline route: this game must stay playable without an account.
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) {
-    // AUCUN UTILISATEUR CONNECTÉ -> Afficher l'écran de login et bloquer le jeu
-    console.log("Aucune session détectée. Affichage du Login.");
-    const loginScreen = createLoginScreen(() => {
-      console.log("Mode hors ligne activé.");
-      startGameLoopAfterAuth();
-    });
-    document.body.appendChild(loginScreen);
-
-    // Écouter les changements d'état (connexion ou déconnexion)
-    supabase.auth.onAuthStateChange(async (event, authSession) => {
-      console.log("Changement d'état:", event, authSession?.user?.id);
-
-      if (event === 'SIGNED_IN' && authSession) {
-        // Connexion réussie
-        const loginContainer = document.getElementById('login-container');
-        if (loginContainer) loginContainer.remove();
-        console.log("Utilisateur connecté, démarrage du jeu.");
-        startGameLoopAfterAuth();
-      } else if (event === 'SIGNED_OUT') {
-        // Déconnexion
-        console.log("Déconnexion détectée.");
-        const loginContainer = document.getElementById('login-container');
-        if (!loginContainer) {
-          document.body.appendChild(createLoginScreen(() => {
-            console.log("Mode hors ligne activé après déconnexion.");
-            startGameLoopAfterAuth();
-          }));
-        }
-        stopGameLoop();
-      } else if (event === 'INITIALIZE') {
-        // Phase d'initialisation, on attend juste que le reste se charge
-      }
-    });
+    document.body.appendChild(createLoginScreen(() => startGameLoop()));
   } else {
-    // UTILISATEUR DÉJÀ CONNECTÉ -> Lancer le jeu immédiatement
-    console.log("Session active détectée. Démarrage direct.");
-    startGameLoopAfterAuth();
-
-    // Écouter la déconnexion pour remettre l'écran de login si nécessaire
-    supabase.auth.onAuthStateChange((event, authSession) => {
-      if (event === 'SIGNED_OUT') {
-        console.log("Déconnexion lors du jeu.");
-        document.body.appendChild(createLoginScreen(() => {
-          console.log("Mode hors ligne activé après déconnexion.");
-          startGameLoopAfterAuth();
-        }));
-        stopGameLoop();
-      }
-    });
+    startGameLoop();
   }
 
-  // Fonction utilitaire pour démarrer le jeu après vérification de l'auth
-  function startGameLoopAfterAuth() {
-    const premiereFois = !store.load().lastPlayedAt && !store.load().lastPlayDay;
+  // One listener, wired in both cases: signing in mid-session must start the
+  // game, and signing out must put the login screen back.
+  supabase.auth.onAuthStateChange((event, authSession) => {
+    admin.forget();
+    if (event === 'SIGNED_IN' && authSession) {
+      document.getElementById('login-container')?.remove();
+      startGameLoop();
+    } else if (event === 'SIGNED_OUT') {
+      if (!document.getElementById('login-container')) {
+        document.body.appendChild(createLoginScreen(() => startGameLoop()));
+      }
+      stopGameLoop();
+    }
+  });
+
+  /**
+   * Starts the game once authentication has been settled, one way or another.
+   *
+   * Guarded against a second call: `onAuthStateChange` fires again on a token
+   * refresh, and opening the session twice would restart the daily streak and
+   * register a second `pagehide` listener.
+   */
+  let started = false;
+  function startGameLoop() {
+    if (started) { showMenu(); return; }
+    started = true;
+    const firstTime = !store.load().lastPlayedAt && !store.load().lastPlayDay;
     track(EV.APP_OPEN, {});
-    if (premiereFois) track(EV.FIRST_OPEN, {});
-    
-    const session = daily.ouvrirSession();
-    if (session.nouveauJour) track(EV.DAILY_OPEN, { streak: session.streak });
-    verserRecompensesSerie();
-    
+    if (firstTime) track(EV.FIRST_OPEN, {});
+
+    const session = daily.openSession();
+    if (session.newDay) track(EV.DAILY_OPEN, { streak: session.streak });
+    payStreakRewards();
+
     window.addEventListener('pagehide', () => track('session_ended', {}));
     showMenu();
   }
 
-  // Fonction utilitaire pour arrêter proprement le jeu lors d'une déconnexion
+  /** Stops the game cleanly on sign-out. */
   function stopGameLoop() {
-    stopChrono();
+    started = false;
+    stopClock();
     if (board) { board.gameState = 'IDLE'; hud.update(board); }
     if (input) { input.locked = true; busy = false; }
-    screens.show('menu'); // Retour forcé au menu si déconnecté en cours de partie
+    adminPanel.close();
+    screens.show('menu'); // forced back to the menu if signed out mid-game
   }
 })();

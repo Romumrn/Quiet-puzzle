@@ -1,14 +1,8 @@
 # Quiet Puzzle
 
-La carte du projet — quoi modifier pour quel besoin, les invariants, les pièges
-déjà rencontrés — est dans **[AGENTS.md](AGENTS.md)**. La lire avant d'ouvrir
-les fichiers : elle est faite pour éviter d'avoir à tous les parcourir.
+The project map — what to change and where, the invariants, and the pitfalls already encountered — is in **[AGENTS.md](AGENTS.md)**. Read it before opening files: it is meant to avoid having to read the whole codebase to know where to go.
 
-Deux réflexes qui coûtent cher à oublier :
+Two reflexes that are expensive to forget:
 
-- toucher à `REALMS` dans `prototype/src/core/levels.js` n'a **aucun effet**
-  tant que `node tools/build-levels.mjs` n'a pas régénéré `prototype/levels/` ;
-- `node tools/test.mjs` ne fait **pas** tourner le solveur : les tests de base
-  tiennent en moins d'une seconde. Le drapeau `--solveur` rallume les deux
-  passes qui l'emploient — plusieurs minutes — et ne se justifie que si l'on a
-  touché au solveur, au générateur, ou ajouté des niveaux.
+- modifying `REALMS` in `prototype/src/core/levels.js` has **no effect** until `node tools/build-levels.mjs` has regenerated `prototype/levels/`;
+- `node tools/test.mjs` does **not** run the solver: the base tests finish in under a second. The `--solveur` flag re-enables the two passes that use it — several minutes — and is only justified if you touched the solver, the generator, or added levels.

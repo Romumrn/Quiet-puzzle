@@ -1,9 +1,9 @@
 /**
- * Client Supabase partagé — instancié une seule fois pour l'application.
+ * Shared Supabase client — instantiated once for the whole application.
  *
- * La clé `anon` est publique par conception (RLS contrôle l'accès aux données).
- * Tous les appels qui transitent ici sont best-effort : une erreur réseau ne
- * doit jamais casser le jeu, qui reste jouable hors ligne via localStorage.
+ * The `anon` key is public by design (RLS controls access to the data). Every
+ * call going through here is best-effort: a network error must never break the
+ * game, which stays playable offline via localStorage.
  */
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
@@ -13,12 +13,12 @@ export const supabase = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3cmlxYXVma3JpaG14cnZ5a2VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NzE0MTEsImV4cCI6MjEwNDQ0NzQxMX0.0dG7_wuOv9i9OPEHpxVOuNymxSZ1DPeWcLKREycaUDQ'
 );
 
-// Cache level_code → bigint DB id, pour éviter une requête par niveau joué.
+// Cache level_code → bigint DB id, to avoid one query per level played.
 const _levelDbIds = new Map();
 
 /**
- * Résout le bigint id Supabase d'un niveau à partir de son code (ex : 'lvl_042').
- * Retourne null si le niveau n'est pas encore en base ou si le réseau est absent.
+ * Resolves a level's Supabase bigint id from its code (e.g. 'lvl_042').
+ * Returns null if the level is not in the database yet, or there is no network.
  */
 export async function getLevelDbId(levelCode) {
   if (_levelDbIds.has(levelCode)) return _levelDbIds.get(levelCode);

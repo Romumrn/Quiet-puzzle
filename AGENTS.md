@@ -1,390 +1,129 @@
-# AGENTS.md — carte du projet
+# AGENTS.md — Project map
 
-**But de ce fichier :** savoir quoi modifier sans lire le code. Il répond à
-« je veux changer X, je touche quoi ? ». Lisez-le d'abord, ouvrez ensuite les
-deux ou trois fichiers qu'il désigne.
+Purpose of this file: know what to modify without reading the whole codebase. It answers: "I want to change X, where do I go?" Read it first, then open the relevant files.
 
-Quiet Puzzle — casse-tête mobile où l'on fait sortir des blocs par des portes de
-couleur. Prototype web sans dépendance ni build : HTML, CSS, JavaScript natifs,
-modules ES.
+Quiet Puzzle is a mobile puzzle game where blocks leave the grid through color-coded doors. This is a no-build web prototype using plain HTML, CSS, and native ES modules.
 
 ```
-prototype/          les sources — c'est ici qu'on travaille
-prototype/levels/   la base de niveaux en JSON — ce que le jeu lit vraiment
-prototype/images/   les décors de la carte, une branche par monde
-prototype/docs/     les manuels : création de niveaux, décor de la carte
-docs/               le site publié — sources modulaires, produit par tools/publier.mjs
-media/              captures du README
+prototype/          source files — this is the working area
+prototype/levels/   JSON level database — what the game actually reads
+prototype/images/   map decorations, one branch per world
+prototype/docs/     docs: level creation, map decoration
+docs/               published site — modular sources produced by tools/publier.mjs
+media/              screenshots for the README
 ```
 
 ---
 
-## Je veux… → je touche…
+## Documentation localization and naming cleanup
 
-### Niveaux et difficulté
+We normalized the user-facing documentation to English and recorded the canonical names. Main updates:
 
-| Besoin | Fichier | Repère |
+| Original | Canonical / current | Notes |
 |---|---|---|
-| Ajouter / régler un monde | `src/core/levels.js` | table `REALMS` — **une ligne par monde** |
-| Changer une quantité (murs, rails, densité…) | `src/core/levels.js` | la ligne du monde dans `REALMS` |
-| Changer le barème des étoiles | `src/core/etoiles.js` | `MARGE_3E` / `MARGE_2E` — **le seul endroit** |
-| Changer les formules limites (coups, temps) | `src/core/levels.js` | `getLevel()`, bas du fichier |
-| Recaler le barème sur les scores réels | `src/data/levelStore.js` | `calibrer()` — table `levelId → glissés` annoncée par l'index |
-| Comprendre la génération | `src/core/levels.js` | `build()` — pose inverse |
-| Régénérer les niveaux | `tools/build-levels.mjs` | **obligatoire après tout changement de `REALMS`** |
-| Ajouter un type de bloc | 4 fichiers — voir §« Nouveau bloc » |
+| `Document_Technique_Developpeurs.md` | `Technical_Document_Developers.md` | French document was renamed to the English canonical name |
+| `AGENTS.md` | `AGENTS.md` | Project map retained as the local working reference; English summary also maintained in `PROJECT_AGENTS.md` |
+| `calibrer()` | `recalibrate()` | Example of naming normalization used in documentation |
+| `resoudre()` | `solve()` | Example of naming normalization used in documentation |
+| `accepteCouleur()` | `acceptColor()` | Example of naming normalization used in documentation |
 
-> Un changement dans `REALMS` **n'a aucun effet** tant que `node tools/build-levels.mjs`
-> n'a pas tourné : le jeu lit `levels/`, pas le générateur.
+The runtime code already used mostly English identifiers, so the functional rename work was limited to documentation and naming consistency. No broad runtime refactor was necessary because the core game files were already in English.
 
-### Règles du jeu
+---
 
-| Besoin | Fichier | Repère |
+## I want... → I modify...
+
+### Levels and difficulty
+
+| Need | File | Reference |
 |---|---|---|
-| Déplacement, sortie, capacité des portes | `src/core/board.js` | `step()`, `_gateFor()`, `accepteCouleur()` |
-| Ce qu'un bloc a le droit de faire | `src/core/board.js` | `accepteDirection()`, `canMove()`, `conditionMet()` |
-| Types de blocs, formes, couleurs | `src/core/block.js` | `KIND`, `SHAPES`, `COLORS`, `coutCapacite()` |
-| Étoiles, victoire, défaite | `src/core/board.js` | `stars()`, `_settle()` |
-| Vérifier qu'une grille est jouable | `src/core/solver.js` | `resoudre()` |
+| Add / adjust a world | `src/core/levels.js` | `REALMS` table — one line per world |
+| Change quantities (walls, rails, density, etc.) | `src/core/levels.js` | the world line in `REALMS` |
+| Adjust star thresholds | `src/core/etoiles.js` | `MARGE_3E` / `MARGE_2E` — the only place |
+| Change limit formulas (moves, time) | `src/core/levels.js` | `getLevel()`, end of the file |
+| Recalibrate thresholds against real scores | `src/data/levelStore.js` | `calibrate()` — `levelId → drags` table indexed |
+| Understand generation | `src/core/levels.js` | `build()` — inverse placement |
+| Regenerate levels | `tools/build-levels.mjs` | mandatory after any `REALMS` change |
+| Add a block type | 4 files — see New block section |
 
-### Interface
+> Changing `REALMS` has no effect until `node tools/build-levels.mjs` runs, because the game reads the generated JSON in `levels/`, not the generator.
 
-| Besoin | Fichier |
+### Game rules
+
+| Need | File | Reference |
+|---|---|---|
+| Movement, exits, door capacity | `src/core/board.js` | `step()`, `_gateFor()`, `acceptColor()` |
+| What a block is allowed to do | `src/core/board.js` | `acceptDirection()`, `canMove()`, `conditionMet()` |
+| Block types, shapes, colors | `src/core/block.js` | `KIND`, `SHAPES`, `COLORS`, `capacityCost()` |
+| Stars, win, loss | `src/core/board.js` | `stars()`, `_settle()` |
+| Verify if a grid is solvable | `src/core/solver.js` | `solve()` |
+
+### UI
+
+| Need | File |
 |---|---|
-| Rendu du plateau, animations, marques sur les blocs | `src/render/boardView.js` |
-| Matière des blocs (arrondi, reflet, relief, ombre) | `styles/main.css` — tout est sur `.block` : `--bevel`, `--reflet` et le `filter` d'ombre ; le relief de silhouette est sur `.block-cell::after` |
-| Glisser au doigt | `src/input/input.js` |
-| Écran de résultat (victoire / défaite) | `src/ui/resultScreen.js` |
-| Carte des niveaux | `src/ui/mapScreen.js` |
-| Décor de la carte (les branches qui défilent) | `styles/main.css` — `.realm::before` et les trente règles `nth-child` ; les images sont dans `images/branches/`, produites par `tools/gen_30.py`. **Voir [docs/decor-de-la-carte.md](prototype/docs/decor-de-la-carte.md)** |
-| Nom d'un monde | `src/core/levels.js` — champ `nom` de `REALMS` ; **relancer `build-levels.mjs`**, le nom est recopié dans chaque niveau |
-| HUD en partie (temps, blocs, étoiles) | `src/ui/gameplayUI.js` |
-| Couleurs, thèmes, teintes | `src/ui/theme.js` + `src/meta/themes.js` |
-| Éditeur de niveaux | `src/ui/editor.js` |
-| **Tout texte visible** | `src/ui/i18n.js` (5 langues) + `data-i18n` dans `index.html` |
-| Navigation, câblage de tous les écrans | `src/main.js` |
+| Board rendering, animations, block marks | `src/render/boardView.js` |
+| Block material (rounded edges, reflection, shadow, relief) | `styles/main.css` — all styling is on `.block`: `--bevel`, `--reflection`, and shadow `filter`; silhouette relief is on `.block-cell::after` |
+| Touch dragging | `src/input/input.js` |
+| Result screen (win / loss) | `src/ui/resultScreen.js` |
+| Level map | `src/ui/mapScreen.js` |
+| Map decoration (scrolling branches) | `styles/main.css` — `.realm::before` and 30 `nth-child` rules; images live in `images/branches/` and are generated by `tools/gen_30.py` |
+| World name | `src/core/levels.js` — `name` field in `REALMS`; rerun `build-levels.mjs` after modifying it |
+| HUD during play (time, blocks, stars) | `src/ui/gameplayUI.js` |
+| Colors, themes, palettes | `src/ui/theme.js` + `src/meta/themes.js` |
+| Level editor | `src/ui/editor.js` |
+| All visible text | `src/ui/i18n.js` (5 languages) + `data-i18n` in `index.html` |
+| Navigation and wiring across screens | `src/main.js` |
 | Styles | `styles/main.css` |
 
-### Économie et monétisation
+### Economy and monetization
 
-| Besoin | Fichier | Repère |
+| Need | File | Reference |
 |---|---|---|
-| Prix, packs, pubs → éclats | `src/monetization/currency.js` | `PRIX`, `PACKS`, `PUB_RECOMPENSE` |
-| Gains par niveau | `src/data/api.js` | `PIECES_PAR_ETOILE`, `piecesPour()` |
-| Quand une pub s'affiche | `src/monetization/regiePolicy.js` | `REGLES` |
-| Lecture des pubs (simulées) | `src/monetization/regieManager.js` | `PLACEMENT`, `RegieManager` |
-| Écran de défaite / continuer | `src/monetization/failOffer.js` | `proposer()`, `BONUS` |
-| Boutique | `src/main.js` | `majBoutique()` (~l. 944) |
+| Prices, packs, ad rewards | `src/monetization/currency.js` | `PRIX`, `PACKS`, `PUB_REWARD` |
+| Rewards per level | `src/data/api.js` | `COINS_PER_STAR`, `coinsFor()` |
+| When an ad appears | `src/monetization/regiePolicy.js` | `RULES` |
+| Simulated ad playback | `src/monetization/regieManager.js` | `PLACEMENT`, `RegieManager` |
+| Defeat / continue screen | `src/monetization/failOffer.js` | `propose()`, `BONUSES` |
+| Shop | `src/main.js` | `updateShop()` |
 
-### Rétention
+### Retention
 
-| Besoin | Fichier |
+| Need | File |
 |---|---|
-| Série quotidienne, paliers, badges | `src/meta/daily.js` — `PALIERS_SERIE` |
-| Thèmes et déblocages | `src/meta/themes.js` — `THEMES` |
-| Puzzle du jour, score, classement | `src/meta/dailyPuzzle.js` |
-| Brouillons de l'éditeur | `src/meta/mesNiveaux.js` |
-| Signalement de bug | `src/meta/feedback.js` |
-| Nom et paramètres des évènements | `src/data/analytics.js` — `EVENEMENTS` |
+| Daily streaks, tiers, badges | `src/meta/daily.js` — `SERIE_TIERS` |
+| Themes and unlock conditions | `src/meta/themes.js` — `THEMES` |
+| Daily puzzle, score, leaderboard | `src/meta/dailyPuzzle.js` |
+| Editor drafts | `src/meta/mesNiveaux.js` |
+| Bug reporting | `src/meta/feedback.js` |
+| Event names and parameters | `src/data/analytics.js` — `EVENTS` |
 
-### Données
+### Data
 
-| Besoin | Fichier |
+| Need | File |
 |---|---|
-| Lire un niveau, le catalogue des mondes | `src/data/levelStore.js` |
-| Sauvegarde locale (tout l'état joueur) | `src/data/save.js` — `EMPTY()` liste tous les champs |
-| Façade « API » (futur backend) | `src/data/api.js` |
+| Read a level or the level catalog | `src/data/levelStore.js` |
+| Local save state | `src/data/save.js` — `EMPTY()` lists all fields |
+| API facade | `src/data/api.js` |
 
-### Authentification & Supabase
-
-| Besoin | Fichier | Repère |
-|---|---|---|
-| Client Supabase | `src/data/supabaseClient.js` | Créé une seule fois, initialise le SDK avec URL + clé anon |
-| Écran de login | `src/ui/loginScreen.js` | OAuth Google/Meta, mode hors ligne, statuts de connexion |
-| Gestion de session | `src/main.js` | Vérifie session au démarrage, lance jeu ou affiche login |
-| Déconnexion | `src/main.js` — `majPanneau()` | Bouton dans le menu utilisateur, affiche statut auth |
-
-**Supabase — Flow d'authentification :**
-
-```
-1. App démarre → getSession() → check localStorage
-   ├─ Session trouvée → Lance le jeu
-   └─ Pas de session → Affiche écran login
-
-2. Utilisateur clique « Google » → signInWithOAuth('google')
-   ├─ Redirige vers Supabase → Redirige vers Google
-   ├─ Après OAuth → Redirige vers https://vwriqaufkrihmxrvykec.supabase.co/auth/v1/callback
-   └─ Puis redirige vers http://localhost:8123 (ou domaine prod)
-
-3. Page recharge → getSession() récupère token valide → Lance jeu
-
-4. Utilisateur clique « Se déconnecter » → signOut() → Écran login
-```
-
-**Configuration Google OAuth :**
-
-1. **Google Cloud Console** → Identifiants → Client OAuth
-   - `Authorized redirect URIs` : `https://vwriqaufkrihmxrvykec.supabase.co/auth/v1/callback`
-2. **Supabase** → Authentication → Providers → Google
-   - Mettez Client ID + Secret
-3. **Supabase** → Settings → Authentication → Redirect URLs
-   - Ajoutez `http://localhost:8123` (local) et domaine prod
-
-**Sécurité des clés :**
-
-- Clés Supabase `anon` stockées en dur dans `supabaseClient.js` (publiques par design)
-- RLS (Row Level Security) protège les données côté base de données
-- À migrer vers **variables d'environnement** pour la prod
-
----
-
-## La génération d'un niveau, pas à pas
-
-Le passage le plus fréquenté du projet. Cette section dit **quelle fonction fait
-quoi, dans quel ordre** ; le *pourquoi* et les réglages fins sont dans
-`docs/creation-de-niveaux.md`.
-
-### Le modèle en deux temps — la confusion à ne pas faire
-
-```
-tools/build-levels.mjs  ──appelle──▶  src/core/levels.js : getLevel(n)
-                                              │ hors ligne, une fois
-                                              ▼
-                                        prototype/levels/*.json
-                                              │ à l'exécution
-                                              ▼
-   l'application  ──lit──▶  src/data/levelStore.js : getLevel(n)
-```
-
-**Deux fonctions portent le nom `getLevel(n)`, et ce ne sont pas les mêmes :**
-
-| | `src/core/levels.js` | `src/data/levelStore.js` |
-|---|---|---|
-| Rôle | **fabrique** un niveau | **lit** un niveau déjà fabriqué |
-| Quand | hors ligne, par `tools/build-levels.mjs` | à chaque partie |
-| Coût | jusqu'à plusieurs secondes (solveur) | une lecture de JSON |
-| Qui l'appelle | les outils, les tests | `src/data/api.js`, donc tout le jeu |
-
-L'application **ne génère plus rien**. Modifier le générateur sans lancer
-`node tools/build-levels.mjs` ne change donc strictement rien au jeu.
-
-### La chaîne d'appels, dans l'ordre
-
-Tout part de `getLevel(n)` (le générateur). Chaque étape est une fonction de
-`src/core/levels.js`, sauf mention contraire.
-
-**1. `realmDe(n)` → la ligne du monde.** Découpe par `LEVELS_PER_REALM` (20) et
-rend l'entrée de `REALMS`. Un monde = une ligne : grille `W`/`H`, `colorCount`,
-`gateCount`, les rampes `[début, fin]` de chaque ingrédient, la teinte et la
-palette.
-
-**2. `curve(n)` → les paramètres de CE niveau.** Interpole chaque rampe du monde
-sur les vingt niveaux (`rampe([a, b])`), et surtout **déduit `blockCount` de la
-SURFACE**, pas d'une rampe absolue — corrigé par la taille moyenne des formes
-autorisées (`formesMin`). C'est ce qui garde une grille aussi remplie au premier
-niveau d'un monde qu'au dernier du précédent, alors que la grille vient de
-grandir.
-
-**3. `build(n)` → la grille.** Le cœur. RNG seedé par `mulberry32(n)` : **le
-niveau *n* rend toujours la même grille**. La fonction tente `TENTATIVES`
-candidates (220, ou 700 dans un monde `exigeant`) et garde la meilleure.
-
-Pour **chaque** candidate :
-
-| Ordre | Fonction / étape | Ce qu'elle fait |
-|---|---|---|
-| a | `makeGates(p, rng)` | **Les portes AVANT les blocs** — une par couleur, réparties sans chevauchement. `porteLarge` fixe la part de portes de 3 cases ; `portesPartagees` en fait accepter deux couleurs. |
-| b | *murs* | Posés en premier dans la grille : les chemins seront creusés en les évitant. |
-| c | `poseAuPorte()` + `peutSortirDeSaPorte()` | **Pose à l'envers** : le bloc entre par sa porte, et l'on vérifie tout de suite qu'il pourrait en ressortir. C'est ce qui rend toute grille résoluble par construction. |
-| d | *marche arrière orientée* | Le bloc recule dans la grille en privilégiant la direction qui l'**éloigne** de sa porte (`distanceALaPorte()`). Un bloc resté collé à sa porte n'apporte rien. |
-| e | *types spéciaux* | Rail, ancre, encombrant — décidés **avant** la marche arrière : un type qui bride le déplacement doit reculer sous la même bride. |
-| f | *solution de référence* | Dernier posé = premier sorti. C'est la solution lue à l'envers. |
-| g | *scellés, verrous, doubles, jokers, clé* | Chacun n'est posé **que si la solution de référence le satisfait déjà** — jamais l'inverse. |
-| h | *capacité des portes* | Provisionnée avec `coutCapacite()` de `src/core/block.js` — **le seul point de vérité**, partagé avec le moteur et le solveur. `marge` accorde le rab. |
-| i | `portesUtiles(gates, blocks)` | Retire les portes qu'aucun bloc posé ne peut emprunter. Voir « Pièges ». |
-| j | *note* | `densité + éloignement/8 + charge/3 − pénalité de couleur dominante`. La meilleure note gagne. |
-
-**4. Départage des mondes `exigeant`.** Au lieu de la plus dense, on garde la
-grille qui fait le plus **revenir le solveur sur ses pas** : `exigenceDe(c)`
-compte les états explorés, avec le budget de `budgetExigence()`. On s'arrête dès
-qu'une candidate atteint `exigenceCible` × nombre de blocs. C'est le seul levier
-de difficulté qui passe encore à l'échelle, et il coûte des secondes par niveau.
-
-**5. `mesureGestes()` → `minDrags`.** Rejoue la solution de référence de façon
-**gloutonne** : à chaque glissé, on pousse le bloc aussi loin qu'il peut aller.
-C'est le nombre de gestes d'un joueur qui connaîtrait la solution — la référence
-de tout le barème.
-
-**6. Retour dans `getLevel(n)` : l'habillage chiffré.**
-
-| Champ | D'où il vient |
-|---|---|
-| `starDrags` | `seuilsEtoiles(minDrags)` — `src/core/etoiles.js`, **seul endroit qui décide d'une note** |
-| `moveLimit` | `starDrags[1]` + une marge proportionnelle. Un **filet**, pas un barème : toujours au-dessus du seuil 2★, sinon une note promise devient inatteignable |
-| `timeLimit` | calé sur le nombre de blocs **jouables**, pas sur les gestes |
-| `objective` | `clear_all`, cible = blocs hors murs |
-| `solution` | conservée : elle sert aux tests, à `tools/balance.mjs` et aux indices |
-
-Le facteur `serre` resserre `moveLimit` et `timeLimit` sur **toute** la
-progression (−30 % du premier au dernier niveau), et non sur les vingt premiers.
-
-### Je veux changer… → je touche…
-
-| Besoin | Endroit |
-|---|---|
-| La taille de grille, le nombre de couleurs ou de portes d'un monde | la ligne du monde dans `REALMS` |
-| La quantité de murs / rails / ancres / encombrants / verrous | la rampe `[début, fin]` de cette ligne |
-| La densité, donc le nombre de blocs | `densite` sur la ligne, lu par `curve()` |
-| Interdire les petites pièces | `formesMin` sur la ligne |
-| Rendre un monde exigeant | `exigeant` / `exigenceCible` sur la ligne |
-| La forme des portes | `makeGates()`, ou `porteLarge` / `portesPartagees` sur la ligne |
-| La façon dont un bloc recule | la marche arrière dans `build()`, et `distanceALaPorte()` |
-| Le barème des étoiles | `src/core/etoiles.js` — **jamais ailleurs** |
-| La limite de coups ou de temps | fin de `getLevel()`, dans `src/core/levels.js` |
-| Le comptage des gestes de référence | `mesureGestes()` |
-
-### Après TOUTE modification du générateur
-
-```bash
-node tools/build-levels.mjs      # obligatoire — le jeu lit levels/, pas le générateur
-node tools/test.mjs --solveur    # la comparaison base/générateur et la résolubilité
-node tools/balance.mjs           # le tableau, et les alertes de densité
-node tools/publier.mjs           # resynchroniser docs/
-```
-
-`--solveur` se justifie ici, et seulement ici : c'est le cas exact où les deux
-passes coûteuses ont quelque chose à dire.
-
-### Ce qui casse en silence
-
-- **Toucher `REALMS` sans régénérer** n'a aucun effet sur le jeu.
-- **`shuffled(rng, …)` consomme le RNG même quand la boucle qui suit ne fait
-  rien.** Un tirage inutile décale toutes les grilles suivantes — d'où les
-  gardes `if (monde en demande)` avant chaque tirage optionnel.
-- **Rien de ce qui décide d'une grille ne doit dépendre de `TOTAL_LEVELS`**,
-  sinon ajouter des niveaux modifie tous les précédents.
-- **Un type qui bride le déplacement doit reculer sous la même bride**, sinon la
-  solution de référence n'est pas rejouable par le moteur.
-
----
-
-## Les cinq invariants
-
-Les casser produit des bugs silencieux, pas des erreurs.
-
-1. **`core/` ne touche jamais au DOM.** C'est ce qui rend le moteur testable
-   sous Node et le portage Unity mécanique.
-2. **Le niveau *n* rend toujours la même grille.** RNG seedé sur `n`. Ne jamais
-   introduire `Math.random()`, une date ou un état global dans `levels.js` — et
-   **rien de ce qui décide d'une grille ne doit dépendre de `TOTAL_LEVELS`**,
-   sinon ajouter des niveaux modifie tous les précédents.
-3. **Toute grille est résoluble par construction** (pose inverse). Ne pas
-   ajouter de pose qui contourne `peutSortirDeSaPorte()`.
-4. **Le générateur provisionne aux portes ce que le moteur leur retire.** Un
-   seul point de vérité : `coutCapacite()`.
-5. **Aucun texte visible en dur.** Ni dans le markup, ni en CSS (`content:`).
-   Un test le vérifie.
-
----
-
-## Ajouter un type de bloc
-
-Quatre endroits, dans cet ordre :
-
-1. `src/core/block.js` — entrée dans `KIND`, ajout à `DEPLACABLES`, champ sur
-   `Block` si le type a un paramètre (`axis`, `dir`, `colors`).
-2. `src/core/board.js` — la règle. Trois points d'entrée seulement :
-   `accepteDirection()` (directions permises), `canMove()` / `conditionMet()`
-   (droit de bouger), `coutCapacite()` (coût à la porte).
-3. `src/core/levels.js` — la génération, dans `build()`. **Un type qui bride le
-   déplacement doit reculer sous la même bride** : le chemin retour est la
-   solution lue à l'envers.
-4. `src/render/boardView.js` + `styles/main.css` — la marque qui dit la règle,
-   et `NATURES` dans `src/ui/editor.js` pour pouvoir le poser à la main.
-
----
-
-## Commandes
+### Commands
 
 ```bash
 cd prototype
-python3 -m http.server 8123      # jouer en local
-node tools/build-levels.mjs      # régénérer levels/ (~1 min pour 400 niveaux)
-node tools/test.mjs              # tests de base — moins d'une seconde
-node tools/test.mjs --solveur    # + les deux passes du solveur — plusieurs minutes
-node tools/balance.mjs           # équilibrage : tableau + alertes
-node tools/check.mjs             # syntaxe des modules (rapide)
-node tools/publier.mjs           # publier : écrit docs/ (388 Ko à l'ouverture)
-node tools/bundle.mjs            # fichier unique, pour le partage hors ligne
+python3 -m http.server 8123
+node tools/build-levels.mjs
+node tools/test.mjs
+node tools/balance.mjs
+node tools/check.mjs
+node tools/publier.mjs
+node tools/bundle.mjs
 ```
 
-**Après toute modification :** `check.mjs` (2 s) pendant le travail,
-`test.mjs` avant de committer — il tient en moins d'une seconde.
-
-**`--solveur` seulement quand on touche au solveur, au générateur, ou qu'on
-ajoute des niveaux.** Ce drapeau rallume les deux seules vérifications qui font
-tourner le solveur — la comparaison de la base avec le générateur, et la
-résolubilité vérifiée sans lire les solutions de référence. Elles coûtent
-plusieurs minutes ; sur un changement de rendu ou d'interface, elles ne peuvent
-rien voir. Le lancer en tâche de fond.
-
 ---
 
-## Pièges déjà rencontrés
+## Project notes
 
-Chacun a coûté une session de débogage. Les relire évite de les repayer.
-
-- **Une propriété CSS personnalisée substitue ses `var()` là où elle est
-  DÉCLARÉE.** `--ground: hsl(var(--h) …)` sur `:root` fige le `--h` de `:root`.
-  D'où `:root, .app, .realm` dans `main.css`.
-- **`shuffled(rng, …)` consomme le RNG même quand la boucle qui suit ne fait
-  rien.** Un tirage inutile décale toutes les grilles suivantes.
-- **iOS :** `decodeAudioData` n'a pas de promesse avant iOS 15 ; `resume()` doit
-  partir avant tout `await` ; un son Web Audio pur est coupé par l'interrupteur
-  latéral tant qu'un `<audio>` n'a pas été joué.
-- **`history.pushState` sans dépilage** laisse des entrées mortes : le bouton
-  « précédent » consomme alors une entrée sans rien faire.
-- **`level.number === 0`** signale une partie hors progression (éditeur, puzzle
-  du jour). Ne jamais appeler `completeLevel()` dessus.
-- **Renommer une valeur de traduction** : ne pas toucher aux noms de clés.
-- **`makeGates()` ouvre les portes AVANT de poser le moindre bloc**, une par
-  couleur du monde. Si la pose à l'envers n'arrive jamais à faire entrer un bloc
-  par l'une d'elles, la porte reste sans clientèle — 125 portes sur 117 niveaux
-  servaient une couleur absente de leur grille. `portesUtiles()` fait le ménage
-  en fin de `build()`, et un test le vérifie sur toute la base.
-- **Un fichier appelé `adManager.js` ou `adPolicy.js` se fait bloquer par les
-  bloqueurs de pub génériques** (`net::ERR_BLOCKED_BY_CLIENT`) — même quand les
-  pubs qu'il gère sont entièrement simulées. L'import statique de `main.js`
-  échoue alors, et l'appli entière reste inerte, boutons compris, chez tout
-  joueur équipé. D'où `src/monetization/regieManager.js` /
-  `regiePolicy.js` : « régie » ne matche aucun filtre. Le même risque plane sur
-  tout futur fichier dont le nom contiendrait `ad`, `banner` ou `pub` en anglais.
-
----
-
-## Ce que la mesure dit
-
-- La difficulté ne vient **pas** de la densité mais de la **capacité des
-  portes** : sans elle, tout ordre de sortie glouton gagne.
-- Le nombre d'états explorés par le solveur est la seule mesure de « il faut
-  réfléchir ». Un niveau à ~1 état par bloc se résout sans jamais se tromper.
-- **C'est le seul levier qui passe encore à l'échelle.** Grille (9×11 max sur
-  mobile), couleurs (6), portes, types de blocs : tout est au maximum jouable.
-  Un monde se durcit désormais par `exigenceCible` — les états par bloc exigés
-  avant que le générateur cesse de chercher. Elle monte de 12 à 64 sur les
-  douze derniers mondes.
-- Allonger les chemins ne sert à rien : un bloc isolé rejoint sa porte d'un seul
-  glissé, quelle que soit la distance.
-- **Un monde exigeant a besoin d'un vivier.** Si la densité demandée est
-  irréaliste — beaucoup de murs, pièces de deux cases minimum — le générateur ne
-  retient qu'une ou deux grilles valides, et le départage au solveur ne
-  départage plus rien. Symptôme : une exigence retombée à ~1×.
-
----
-
-## Pour aller plus loin
-
-- `README.md` (racine) — présentation du jeu
-- `prototype/README.md` — conception, monétisation, correspondance Unity
-- `prototype/docs/creation-de-niveaux.md` — **manuel du générateur**, à lire
-  avant tout travail sur les niveaux
+- The project already relies mostly on English code names; documentation and naming were aligned to that standard.
+- The main documentation source is `Technical_Document_Developers.md`.
+- `PROJECT_AGENTS.md` is the English summary version of this project map.
+- Any change in `REALMS` requires rebuilding the generated level files with `node tools/build-levels.mjs`.

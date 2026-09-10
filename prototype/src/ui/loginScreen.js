@@ -1,5 +1,18 @@
-// src/ui/loginScreen.js
+/**
+ * Login screen.
+ *
+ * Shown when no Supabase session exists. It offers two OAuth providers and,
+ * just as prominently, a way to carry on without an account: this game is
+ * playable offline and must stay so — an account only buys progress that
+ * follows you from device to device.
+ *
+ * The styles live here rather than in main.css because this screen is mounted
+ * on `document.body`, outside `#app` and its theme variables, and it is the
+ * only thing on screen when it appears.
+ */
+
 import { supabase } from '../data/supabaseClient.js';
+import { t } from './i18n.js';
 
 const styles = `
   #login-container {
@@ -60,7 +73,7 @@ const styles = `
     display: block; background-color: #e8f5e9; color: #388e3c;
   }
 
-  /* Icônes SVG */
+  /* SVG icons */
   .icon { width: 22px; height: 22px; margin-right: 12px; fill: currentColor; flex-shrink: 0; }
 
   @keyframes fadeIn {
@@ -77,15 +90,15 @@ const styles = `
     margin-right: 8px;
   }
 
-  /* Responsive */
   @media (max-width: 480px) {
     .login-card { padding: 1.5rem; width: 90%; }
     .login-title { font-size: 1.5rem; }
   }
 `;
 
-// Icônes SVG inline pour éviter des dépendances externes
-const googleIcon = `<svg class="icon" viewBox="0 0 24 24"><path d="M12.545,10.239v3.821h5.445l-0.712,2.238c-0.612,0.859-2.196,1.817-4.052,1.817 c-3.572,0-6.165-2.998-6.165-7.17s2.593-7.17,6.165-7.17c1.914,0,3.402,0.726,4.247,1.864l2.43-2.43C17.921,1.625,15.281,0,12.545,0 C7.266,0,2.667,5.046,2.667,12.667S7.266,25.333,12.545,25.333c5.988,0,9.316-3.496,10.35-6.759l-0.168-0.609H12.545z"/></svg>`;
+// Inline SVG icons, to avoid any external dependency.
+const GOOGLE_ICON = `<svg class="icon" viewBox="0 0 24 24"><path d="M12.545,10.239v3.821h5.445l-0.712,2.238c-0.612,0.859-2.196,1.817-4.052,1.817 c-3.572,0-6.165-2.998-6.165-7.17s2.593-7.17,6.165-7.17c1.914,0,3.402,0.726,4.247,1.864l2.43-2.43C17.921,1.625,15.281,0,12.545,0 C7.266,0,2.667,5.046,2.667,12.667S7.266,25.333,12.545,25.333c5.988,0,9.316-3.496,10.35-6.759l-0.168-0.609H12.545z"/></svg>`;
+const META_ICON = `<svg class="icon" viewBox="0 0 24 24"><path d="M13,22c5.523,0,10-4.477,10-10S18.523,2,13,2S3,6.477,3,12s4.477,10,10,10z"/></svg>`;
 
 export function createLoginScreen(onOfflineContinue) {
   const container = document.createElement('div');
@@ -95,30 +108,27 @@ export function createLoginScreen(onOfflineContinue) {
     <style>${styles}</style>
     <div class="login-card">
       <h1 class="login-title">Quiet Puzzle</h1>
-      <p class="login-subtitle">Connectez-vous pour sauvegarder votre progression en ligne.<br>Synchronisez sur tous vos appareils.</p>
+      <p class="login-subtitle">${t('login.subtitle')}</p>
 
       <div id="login-status" class="login-status"></div>
 
       <button id="btn-google" class="btn-connect btn-google">
-        ${googleIcon} Continuer avec Google
+        ${GOOGLE_ICON} ${t('login.google')}
       </button>
 
       <button id="btn-meta" class="btn-connect btn-meta">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M13,22c5.523,0,10-4.477,10-10S18.523,2,13,2S3,6.477,3,12s4.477,10,10,10z"/></svg>
-        Continuer avec Meta
+        ${META_ICON} ${t('login.meta')}
       </button>
 
-      <button id="btn-offline" class="btn-offline">Continuer sans compte</button>
+      <button id="btn-offline" class="btn-offline">${t('login.offline')}</button>
     </div>
   `;
 
-  // Récupérer les références
   const googleBtn = container.querySelector('#btn-google');
   const metaBtn = container.querySelector('#btn-meta');
   const offlineBtn = container.querySelector('#btn-offline');
   const statusEl = container.querySelector('#login-status');
 
-  // Créer une fonction pour gérer le status
   const setStatus = (type, message) => {
     statusEl.className = `login-status ${type}`;
     if (type === 'loading') {
@@ -128,51 +138,42 @@ export function createLoginScreen(onOfflineContinue) {
     }
   };
 
-  // Raccorder les boutons
-  if (googleBtn) {
-    googleBtn.addEventListener('click', () => {
-      handleOAuthLogin('google', googleBtn, metaBtn, offlineBtn, setStatus);
-    });
-  }
+  googleBtn?.addEventListener('click', () => {
+    signInWith('google', [googleBtn, metaBtn, offlineBtn], setStatus);
+  });
 
-  if (metaBtn) {
-    metaBtn.addEventListener('click', () => {
-      handleOAuthLogin('facebook', googleBtn, metaBtn, offlineBtn, setStatus);
-    });
-  }
+  metaBtn?.addEventListener('click', () => {
+    signInWith('facebook', [googleBtn, metaBtn, offlineBtn], setStatus);
+  });
 
-  if (offlineBtn) {
-    offlineBtn.addEventListener('click', () => {
-      container.remove();
-      if (onOfflineContinue) onOfflineContinue();
-    });
-  }
+  offlineBtn?.addEventListener('click', () => {
+    container.remove();
+    onOfflineContinue?.();
+  });
 
   return container;
 }
 
-async function handleOAuthLogin(provider, googleBtn, metaBtn, offlineBtn, setStatus) {
+/**
+ * Starts an OAuth round trip. On success the browser navigates away, so there
+ * is nothing to do afterwards; on failure the buttons are re-enabled, since the
+ * player is still on this page and deserves a second try.
+ */
+async function signInWith(provider, buttons, setStatus) {
   try {
-    setStatus('loading', provider === 'google' ? 'Connexion avec Google...' : 'Connexion avec Meta...');
+    setStatus('loading', t('login.connecting'));
+    buttons.forEach((btn) => { if (btn) btn.disabled = true; });
 
-    // Désactiver les boutons
-    [googleBtn, metaBtn, offlineBtn].forEach(btn => btn.disabled = true);
-
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: window.location.origin,
-      }
+      options: { redirectTo: window.location.origin },
     });
-
     if (error) throw error;
 
-    setStatus('success', 'Redirection vers l\'authentification...');
+    setStatus('success', t('login.redirecting'));
   } catch (err) {
-    console.error(`Erreur connexion ${provider}:`, err.message);
-    setStatus('error', `Erreur : ${err.message || 'Impossible de se connecter. Vérifiez votre connexion.'}`);
-
-    // Réactiver les boutons après erreur
-    [googleBtn, metaBtn, offlineBtn].forEach(btn => btn.disabled = false);
+    console.error(`Sign-in with ${provider} failed:`, err.message);
+    setStatus('error', t('login.failed', { error: err.message || '' }));
+    buttons.forEach((btn) => { if (btn) btn.disabled = false; });
   }
 }

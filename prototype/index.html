@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
@@ -16,86 +16,85 @@
 
     <!-- ============ MENU ============ -->
     <section class="screen active" id="screen-menu">
-      <!-- Badge de série : c'est ce qui donne envie de revenir demain. Il vit
-           DANS l'accueil, et non sur `.app` : posé au-dessus de tous les
-           écrans, il retombait sur la flèche de retour de la carte et des
-           niveaux. Masqué tant qu'aucune série n'est en cours. -->
+      <!-- Streak badge: this is what makes players return tomorrow. It lives
+           on the home screen, not on `.app`, so it does not overlap the back
+           arrow in the map and level views. Hidden until a streak is active. -->
       <div class="streak-badge" id="streak-badge" hidden></div>
       <div class="menu-art" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
       <h1 class="logo">Quiet<em>Puzzle</em></h1>
-      <p class="tagline" data-i18n="menu.baseline">Videz la grille par les portes de couleur</p>
+      <p class="tagline" data-i18n="menu.baseline">Clear the board through the color gates</p>
       <div class="menu-stats">
-        <div class="stat"><b id="menu-stars">0</b><small data-i18n="menu.stars">étoiles</small></div>
-        <button class="stat stat-action" id="btn-shop" data-i18n-aria="shop.title"><b id="menu-coins">0</b><small data-i18n="menu.coins">pièces</small></button>
-        <div class="stat"><b id="menu-progress">1</b><small data-i18n="menu.level">niveaux</small></div>
+        <div class="stat"><b id="menu-stars">0</b><small data-i18n="menu.stars">stars</small></div>
+        <button class="stat stat-action" id="btn-shop" data-i18n-aria="shop.title"><b id="menu-coins">0</b><small data-i18n="menu.coins">coins</small></button>
+        <div class="stat"><b id="menu-progress">1</b><small data-i18n="menu.level">levels</small></div>
       </div>
       <button class="btn btn-daily" id="btn-daily" hidden>
         <span class="daily-flame">🔥</span>
         <span class="daily-text">
-          <b id="daily-title" data-i18n="menu.daily">Cadeau du jour</b>
+          <b id="daily-title" data-i18n="menu.daily">Daily gift</b>
           <small id="daily-sub"></small>
         </span>
         <span class="daily-amount" id="daily-amount">+50</span>
       </button>
-      <button class="btn btn-primary btn-lg" id="btn-play" data-i18n="menu.play">Jouer</button>
+      <button class="btn btn-primary btn-lg" id="btn-play" data-i18n="menu.play">Play</button>
       <button class="btn btn-ghost btn-lg" id="btn-daily-puzzle" hidden>
-        <span data-i18n="daily.title">Puzzle du jour</span>
+        <span data-i18n="daily.title">Daily puzzle</span>
         <small id="daily-puzzle-sub"></small>
       </button>
     </section>
 
-    <!-- ============ CARTE DES NIVEAUX ============ -->
+    <!-- ============ LEVEL MAP ============ -->
     <section class="screen" id="screen-map">
       <header class="topbar">
-        <button class="icon-btn" data-nav="menu" aria-label="Retour au menu">‹</button>
-        <span class="topbar-title" data-i18n="map.title">Carte</span>
+        <button class="icon-btn" data-nav="menu" aria-label="Back to menu">‹</button>
+        <span class="topbar-title" data-i18n="map.title">Map</span>
         <span class="pill" id="map-stars">★ 0</span>
       </header>
       <div class="map-scroll" id="map-scroll"></div>
     </section>
 
-    <!-- ============ PRE-NIVEAU ============ -->
+    <!-- ============ LEVEL PREVIEW ============ -->
     <section class="screen" id="screen-brief">
       <header class="topbar">
-        <button class="icon-btn" data-nav="map" aria-label="Retour à la carte">‹</button>
+        <button class="icon-btn" data-nav="map" aria-label="Back to map">‹</button>
         <span class="topbar-title" id="brief-realm">—</span>
         <span></span>
       </header>
       <div class="brief-card" id="brief-card">
         <div class="brief-badge" id="brief-number">1</div>
-        <p class="brief-final" id="brief-final" hidden data-i18n="brief.final">Niveau final</p>
+        <p class="brief-final" id="brief-final" hidden data-i18n="brief.final">Final level</p>
         <div class="stars stars-lg" id="brief-stars"></div>
         <p class="brief-objective" id="brief-objective">—</p>
-        <p class="brief-nouveaute" id="brief-nouveaute" hidden></p>
+        <p class="brief-novelty" id="brief-novelty" hidden></p>
         <dl class="brief-meta">
-          <div><dt data-i18n="brief.moves">Coups</dt><dd id="brief-moves">—</dd></div>
-          <div><dt data-i18n="brief.difficulty">Difficulté</dt><dd id="brief-difficulty">—</dd></div>
+          <div><dt data-i18n="brief.moves">Moves</dt><dd id="brief-moves">—</dd></div>
+          <div><dt data-i18n="brief.difficulty">Difficulty</dt><dd id="brief-difficulty">—</dd></div>
           <div><dt data-i18n="brief.record">Record</dt><dd id="brief-best">—</dd></div>
         </dl>
-        <button class="btn btn-primary btn-lg" id="btn-start" data-i18n="brief.start">Jouer</button>
+        <button class="btn btn-primary btn-lg" id="btn-start" data-i18n="brief.start">Play</button>
       </div>
     </section>
 
-    <!-- ============ JEU ============ -->
+    <!-- ============ GAME ============ -->
     <section class="screen" id="screen-game">
       <header class="topbar">
-        <button class="icon-btn" data-nav="map" aria-label="Quitter le niveau">‹</button>
-        <span class="topbar-title"><span id="hud-level-mot" data-i18n="user.level">Niveau</span> <b id="hud-level">1</b></span>
+        <button class="icon-btn" data-nav="map" aria-label="Leave level">‹</button>
+        <span class="topbar-title"><span id="hud-level-word" data-i18n="user.level">Level</span> <b id="hud-level">1</b></span>
         <span class="pill" id="hud-moves">0</span>
       </header>
 
       <div class="hud">
         <div class="hud-row">
           <div class="hud-stat">
-            <span class="hud-label" data-i18n="hud.time">Temps</span>
+            <span class="hud-label" data-i18n="hud.time">Time</span>
             <b id="hud-time">0:00</b>
           </div>
           <div class="hud-stat">
-            <span class="hud-label" data-i18n="hud.blocks">Blocs</span>
+            <span class="hud-label" data-i18n="hud.blocks">Blocks</span>
             <b id="hud-blocks">0</b>
           </div>
           <div class="hud-stat hud-stat-stars">
-            <span class="hud-label" data-i18n="hud.stars">Étoiles</span>
+            <span class="hud-label" data-i18n="hud.stars">Stars</span>
             <div class="stars" id="hud-stars"></div>
           </div>
         </div>
@@ -112,34 +111,34 @@
       </div>
 
       <div class="game-actions">
-        <button class="action" id="btn-hint" title="Désigne le prochain bloc à jouer">
+        <button class="action" id="btn-hint" title="Highlight the next block to play">
           <span class="action-icon">💡</span>
           <span class="action-cost" id="hint-cost">50</span>
         </button>
-        <button class="action" id="btn-hammer" title="Retire un bloc de votre choix">
+        <button class="action" id="btn-hammer" title="Remove a chosen block">
           <span class="action-icon">🔨</span>
-          <span class="action-cost ad" data-i18n="ad.badge">Pub</span>
+          <span class="action-cost ad" data-i18n="ad.badge">Ad</span>
         </button>
-        <button class="action" id="btn-time" title="Ajoute 30 secondes">
+        <button class="action" id="btn-time" title="Add 30 seconds">
           <span class="action-icon">⏱</span>
-          <span class="action-cost ad" data-i18n="ad.badge">Pub</span>
+          <span class="action-cost ad" data-i18n="ad.badge">Ad</span>
         </button>
-        <button class="action" id="btn-undo" title="Annule le dernier geste">
+        <button class="action" id="btn-undo" title="Undo the last move">
           <span class="action-icon">↶</span>
-          <span class="action-cost ad" data-i18n="ad.badge">Pub</span>
+          <span class="action-cost ad" data-i18n="ad.badge">Ad</span>
         </button>
-        <button class="action action-plain" id="btn-restart" title="Recommencer le niveau">
+        <button class="action action-plain" id="btn-restart" title="Restart the level">
           <span class="action-icon">↺</span>
         </button>
       </div>
       <div class="toast" id="toast" hidden></div>
     </section>
 
-    <!-- ============ MENU UTILISATEUR ============ -->
+    <!-- ============ USER MENU ============ -->
     <button class="user-btn" id="user-btn" aria-expanded="false" aria-controls="user-panel"
-            data-i18n-title="user.title" data-i18n-aria="user.title" title="Profil et réglages">
-      <!-- Trois barres : le bouton dit « menu », alors qu'un chiffre de niveau
-           se lisait comme une information et n'invitait pas à cliquer. -->
+            data-i18n-title="user.title" data-i18n-aria="user.title" title="Profile and settings">
+      <!-- Three bars: the button says “menu”, while a level number looked like
+           an informational badge and didn’t invite a click. -->
       <span class="user-burger" aria-hidden="true"><i></i><i></i><i></i></span>
     </button>
 
@@ -147,116 +146,126 @@
       <header class="user-head">
         <div class="user-avatar" id="user-avatar">1</div>
         <div class="user-ident">
-          <b><span data-i18n="user.level">Niveau</span> <span id="user-level">1</span></b>
+          <b><span data-i18n="user.level">Level</span> <span id="user-level">1</span></b>
           <small id="user-next">0 / 100 XP</small>
         </div>
         <button class="icon-btn user-close" id="user-close"
-                data-i18n-aria="user.close" aria-label="Fermer">×</button>
+                data-i18n-aria="user.close" aria-label="Close">×</button>
       </header>
 
       <div class="user-xp"><i id="user-xp-fill"></i></div>
 
       <dl class="user-stats">
-        <div><dt data-i18n="user.stars">Étoiles</dt><dd id="user-stars">0</dd></div>
-        <div><dt data-i18n="user.levels">Niveaux</dt><dd id="user-levels">0</dd></div>
-        <div><dt data-i18n="user.coins">Pièces</dt><dd id="user-coins">0</dd></div>
+        <div><dt data-i18n="user.stars">Stars</dt><dd id="user-stars">0</dd></div>
+        <div><dt data-i18n="user.levels">Levels</dt><dd id="user-levels">0</dd></div>
+        <div><dt data-i18n="user.coins">Coins</dt><dd id="user-coins">0</dd></div>
       </dl>
 
       <div class="user-section">
-        <span class="user-legend" data-i18n="user.sound">Son</span>
+        <span class="user-legend" data-i18n="user.sound">Sound</span>
         <label class="switch">
-          <span data-i18n="user.music">Musique</span>
+          <span data-i18n="user.music">Music</span>
           <input type="checkbox" id="opt-music" checked>
           <i></i>
         </label>
         <label class="switch">
-          <span data-i18n="user.sfx">Effets sonores</span>
+          <span data-i18n="user.sfx">Sound effects</span>
           <input type="checkbox" id="opt-sfx" checked>
           <i></i>
         </label>
       </div>
 
       <div class="user-section">
-        <span class="user-legend" data-i18n="user.display">Affichage</span>
+        <span class="user-legend" data-i18n="user.display">Display</span>
         <label class="switch">
-          <span data-i18n="user.glyphs">Symboles sur les blocs</span>
+          <span data-i18n="user.glyphs">Symbols on blocks</span>
           <input type="checkbox" id="opt-glyphs">
           <i></i>
         </label>
-        <p class="user-note" data-i18n="user.glyphs.note">Ajoute un symbole à chaque couleur, pour ne pas avoir à s’y fier.</p>
+        <p class="user-note" data-i18n="user.glyphs.note">Add a symbol to each color so you do not have to rely on color alone.</p>
         <div class="user-langue">
-          <span data-i18n="user.language">Langue</span>
-          <div class="langue-choix" id="opt-langue"></div>
+          <span data-i18n="user.language">Language</span>
+          <div class="language-choice" id="opt-language"></div>
         </div>
       </div>
 
       <div class="user-section">
-        <span class="user-legend" data-i18n="user.ads">Publicité</span>
+        <span class="user-legend" data-i18n="user.ads">Ads</span>
         <label class="switch">
-          <span data-i18n="user.noads">Supprimer les pubs</span>
+          <span data-i18n="user.noads">Remove ads</span>
           <input type="checkbox" id="opt-noads">
           <i></i>
         </label>
-        <p class="user-note" data-i18n="user.ads.note">Achat simulé — aucune régie n’est branchée.</p>
+        <p class="user-note" data-i18n="user.ads.note">Simulated purchase — no ad network is connected.</p>
       </div>
 
       <div class="user-section">
-        <span class="user-legend" data-i18n="user.create">Créer</span>
+        <span class="user-legend" data-i18n="user.create">Create</span>
         <button class="btn btn-ghost btn-sm user-large" id="btn-editor"
-                data-i18n="user.editor">Éditeur de niveaux</button>
-        <p class="user-note" data-i18n="user.editor.note">Dessinez une grille, vérifiez-la, proposez-la comme puzzle du jour.</p>
+                data-i18n="user.editor">Level editor</button>
+        <p class="user-note" data-i18n="user.editor.note">Sketch a board, validate it, and propose it as the daily puzzle.</p>
       </div>
 
       <div class="user-section">
-        <span class="user-legend" data-i18n="theme.legend">Thème</span>
+        <span class="user-legend" data-i18n="theme.legend">Theme</span>
         <div class="theme-grid" id="opt-themes"></div>
       </div>
 
       <div class="user-section">
-        <span class="user-legend" data-i18n="feedback.legend">Nous écrire</span>
+        <span class="user-legend" data-i18n="feedback.legend">Write to us</span>
         <button class="btn btn-ghost btn-sm user-large" id="btn-feedback"
-                data-i18n="feedback.open">Signaler un bug ou une idée</button>
+                data-i18n="feedback.open">Report a bug or idea</button>
+      </div>
+
+      <!-- Admin mode: hidden by default, revealed by src/data/admin.js when the
+           connected account has the role. The hiding is only convenience: every
+           action in this panel is filtered server-side by RLS. -->
+      <div class="user-section" id="user-admin" hidden>
+        <span class="user-legend" data-i18n="admin.legend">Admin</span>
+        <button class="btn btn-ghost btn-sm user-large" id="btn-admin"
+                data-i18n="admin.open">Open admin panel</button>
+        <p class="user-note" data-i18n="admin.note">Moderation, daily level, suspicious matches.</p>
       </div>
 
       <div class="user-section">
-        <span class="user-legend" data-i18n="user.account">Compte</span>
+        <span class="user-legend" data-i18n="user.account">Account</span>
         <button class="btn btn-ghost btn-sm user-large" id="btn-logout" hidden
-                data-i18n="user.logout">Se déconnecter</button>
+                data-i18n="user.logout">Log out</button>
         <p class="user-note" id="auth-status-text"></p>
       </div>
 
       <button class="btn btn-ghost btn-sm user-danger" id="btn-reset"
-              data-i18n="user.reset">Réinitialiser la progression</button>
+              data-i18n="user.reset">Reset progress</button>
     </div>
 
-    <!-- ============ RESULTAT ============ -->
+    <!-- ============ RESULT ============ -->
     <div class="overlay" id="overlay-result" hidden>
       <div class="result-card">
-        <h2 id="result-title" data-i18n="result.done">Niveau terminé</h2>
+        <h2 id="result-title" data-i18n="result.done">Level complete</h2>
         <div class="stars stars-lg" id="result-stars"></div>
-        <p class="result-score"><span id="result-score">0</span><small data-i18n="result.drags">glissés</small></p>
+        <p class="result-score"><span id="result-score">0</span><small data-i18n="result.drags">drags</small></p>
         <p class="result-time" id="result-time" hidden></p>
         <p class="result-near" id="result-near" hidden></p>
         <p class="result-reward" id="result-reward"></p>
         <button class="btn btn-reward" id="btn-double" hidden>
-          <span>▶</span> <span data-i18n="result.double">Doubler les pièces</span>
+          <span>▶</span> <span data-i18n="result.double">Double the coins</span>
         </button>
         <div class="result-actions">
-          <button class="btn btn-ghost" id="btn-result-map" data-i18n="result.map">Carte</button>
-          <button class="btn btn-ghost" id="btn-result-retry" data-i18n="result.retry">Rejouer</button>
-          <button class="btn btn-primary" id="btn-result-next" data-i18n="result.next">Suivant</button>
+          <button class="btn btn-ghost" id="btn-result-map" data-i18n="result.map">Map</button>
+          <button class="btn btn-ghost" id="btn-result-retry" data-i18n="result.retry">Retry</button>
+          <button class="btn btn-primary" id="btn-result-next" data-i18n="result.next">Next</button>
         </div>
         <div class="banner banner-result" id="result-banner" hidden>
-          <span class="banner-tag" data-i18n="ad.badge">Pub</span>
-          <span class="banner-text" data-i18n="ad.banner">Emplacement bannière 320×50</span>
+          <span class="banner-tag" data-i18n="ad.badge">Ad</span>
+          <span class="banner-text" data-i18n="ad.banner">320×50 banner slot</span>
         </div>
       </div>
     </div>
 
-    <!-- ============ SIGNALEMENT ============ -->
+    <!-- ============ FEEDBACK ============ -->
     <div class="overlay" id="overlay-feedback" hidden>
       <div class="result-card feedback-card">
-        <h2 data-i18n="feedback.title">Un bug, une idée ?</h2>
+        <h2 data-i18n="feedback.title">A bug, an idea?</h2>
 
         <div class="fb-cats" id="fb-cats"></div>
 
@@ -265,39 +274,39 @@
 
         <label class="fb-add">
           <input type="file" id="fb-files" accept="image/*" multiple hidden>
-          <span data-i18n="feedback.attach">Ajouter des captures</span>
+          <span data-i18n="feedback.attach">Add screenshots</span>
         </label>
         <div class="fb-shots" id="fb-shots"></div>
 
-        <p class="user-note" data-i18n="feedback.note">Aucun serveur ne reçoit ce message : téléchargez le rapport ou ouvrez votre messagerie, vous restez maître de l’envoi.</p>
+        <p class="user-note" data-i18n="feedback.note">No server receives this message: download the report or open your mail app and you stay in control of the sending.</p>
 
         <div class="fb-actions">
-          <button class="btn btn-ghost btn-sm" id="fb-copy" data-i18n="feedback.copy">Copier</button>
-          <button class="btn btn-ghost btn-sm" id="fb-download" data-i18n="feedback.download">Télécharger</button>
-          <button class="btn btn-primary btn-sm" id="fb-mail" data-i18n="feedback.mail">Ouvrir ma messagerie</button>
+          <button class="btn btn-ghost btn-sm" id="fb-copy" data-i18n="feedback.copy">Copy</button>
+          <button class="btn btn-ghost btn-sm" id="fb-download" data-i18n="feedback.download">Download</button>
+          <button class="btn btn-primary btn-sm" id="fb-mail" data-i18n="feedback.mail">Open my mail app</button>
         </div>
         <div class="result-actions">
-          <button class="btn btn-ghost" id="btn-feedback-close" data-i18n="ad.close">Fermer</button>
+          <button class="btn btn-ghost" id="btn-feedback-close" data-i18n="ad.close">Close</button>
         </div>
       </div>
     </div>
 
-    <!-- ============ MES NIVEAUX ============ -->
+    <!-- ============ MY LEVELS ============ -->
     <div class="overlay" id="overlay-mine" hidden>
       <div class="result-card">
-        <h2 data-i18n="editor.mine">Mes niveaux</h2>
+        <h2 data-i18n="editor.mine">My levels</h2>
         <ul class="mine-list" id="mine-list"></ul>
         <div class="result-actions">
-          <button class="btn btn-primary" id="btn-mine-close" data-i18n="ad.close">Fermer</button>
+          <button class="btn btn-primary" id="btn-mine-close" data-i18n="ad.close">Close</button>
         </div>
       </div>
     </div>
 
-    <!-- ============ BOUTIQUE DE PIECES ============ -->
+    <!-- ============ COIN SHOP ============ -->
     <div class="overlay" id="overlay-shop" hidden>
       <div class="result-card shop-card">
-        <h2 data-i18n="shop.title">Pièces</h2>
-        <p class="shop-solde"><b id="shop-solde">0</b> <span data-i18n="menu.coins">pièces</span></p>
+        <h2 data-i18n="shop.title">Coins</h2>
+        <p class="shop-balance"><b id="shop-balance">0</b> <span data-i18n="menu.coins">coins</span></p>
 
         <button class="btn btn-reward shop-ad" id="btn-shop-ad">
           <span>▶</span> <span id="shop-ad-label"></span>
@@ -305,139 +314,159 @@
         <p class="user-note" id="shop-ad-note"></p>
 
         <div class="shop-packs" id="shop-packs"></div>
-        <p class="user-note" data-i18n="shop.simulated">Achats simulés — aucun système de paiement n’est branché.</p>
+        <p class="user-note" data-i18n="shop.simulated">Simulated purchases — no payment system is connected.</p>
 
         <div class="result-actions">
-          <button class="btn btn-primary" id="btn-shop-close" data-i18n="ad.close">Fermer</button>
+          <button class="btn btn-primary" id="btn-shop-close" data-i18n="ad.close">Close</button>
         </div>
       </div>
     </div>
 
-    <!-- ============ CLASSEMENT DU PUZZLE DU JOUR ============ -->
+    <!-- ============ DAILY PUZZLE RANKING ============ -->
     <div class="overlay" id="overlay-rank" hidden>
       <div class="result-card">
-        <h2 data-i18n="daily.rank.title">Classement du jour</h2>
+        <h2 data-i18n="daily.rank.title">Today's ranking</h2>
         <p class="rank-mine" id="rank-mine"></p>
         <ol class="rank-list" id="rank-list"></ol>
-        <p class="user-note" id="rank-note" data-i18n="daily.rank.note">Ce classement est local à cet appareil : le prototype n’a pas de serveur où envoyer les scores.</p>
+        <p class="user-note" id="rank-note" data-i18n="daily.rank.note">This ranking is local to this device: the prototype has no server to receive scores.</p>
         <div class="result-actions">
-          <button class="btn btn-primary" id="btn-rank-close" data-i18n="ad.close">Fermer</button>
+          <button class="btn btn-primary" id="btn-rank-close" data-i18n="ad.close">Close</button>
         </div>
       </div>
     </div>
 
-    <!-- ============ EDITEUR DE NIVEAUX ============ -->
+    <!-- ============ LEVEL EDITOR ============ -->
     <section class="screen" id="screen-editor">
       <header class="topbar">
-        <button class="icon-btn" data-nav="menu" aria-label="Retour au menu">‹</button>
-        <span class="topbar-title">Éditeur</span>
+        <button class="icon-btn" data-nav="menu" aria-label="Back to menu">‹</button>
+        <span class="topbar-title">Editor</span>
         <span></span>
       </header>
 
       <div class="ed-scroll">
-        <!-- La grille et les formes côte à côte : on prend une pièce à droite
-             et on la dépose là où on la veut, plutôt que de la choisir puis de
-             viser. -->
+        <!-- The grid and the shapes sit side by side: you pick a piece on the right
+             and place it where you want it, rather than selecting it and then aiming. -->
         <div class="ed-top">
           <div class="ed-grid-wrap"><div class="ed-grid" id="ed-grid"></div></div>
           <div class="ed-palette" id="ed-shapes"></div>
         </div>
         <p class="ed-status" id="ed-status"></p>
 
-        <!-- Gomme et annulation : des outils, pas des pièces à poser. -->
+        <!-- Eraser and undo: tools, not pieces to place. -->
         <div class="ed-toolbar" id="ed-tools"></div>
 
         <div class="ed-section">
-          <span class="ed-legend">Couleur</span>
+          <span class="ed-legend">Color</span>
           <div class="ed-row" id="ed-colors"></div>
-          <p class="ed-hint" data-i18n="editor.gates.hint">Touchez un bord pour y ouvrir une porte. Touchez-le à nouveau avec une autre couleur pour qu’elle en accepte deux.</p>
+          <p class="ed-hint" data-i18n="editor.gates.hint">Tap an edge to open a gate there. Tap it again with another color to make it accept two colors.</p>
         </div>
         <div class="ed-section">
           <span class="ed-legend">Nature</span>
           <div class="ed-row ed-wrap" id="ed-kinds"></div>
         </div>
         <div class="ed-section">
-          <span class="ed-legend">Grille</span>
+          <span class="ed-legend">Grid</span>
           <div class="ed-row">
-            <label class="ed-num">Largeur <input type="number" id="ed-w" min="4" max="8" value="6"></label>
-            <label class="ed-num">Hauteur <input type="number" id="ed-h" min="4" max="9" value="7"></label>
+            <label class="ed-num">Width <input type="number" id="ed-w" min="4" max="8" value="6"></label>
+            <label class="ed-num">Height <input type="number" id="ed-h" min="4" max="9" value="7"></label>
           </div>
         </div>
 
         <div class="ed-actions">
-          <button class="btn btn-ghost btn-sm" id="ed-check">Vérifier</button>
-          <button class="btn btn-primary btn-sm" id="ed-test">Tester</button>
-          <button class="btn btn-ghost btn-sm" id="ed-export">Exporter</button>
-          <button class="btn btn-ghost btn-sm" id="ed-import">Importer</button>
-          <button class="btn btn-ghost btn-sm" id="ed-clear">Vider</button>
-          <button class="btn btn-ghost btn-sm" id="ed-mine" data-i18n="editor.mine">Mes niveaux</button>
+          <button class="btn btn-ghost btn-sm" id="ed-check">Check</button>
+          <button class="btn btn-primary btn-sm" id="ed-test">Test</button>
+          <button class="btn btn-ghost btn-sm" id="ed-export">Export</button>
+          <button class="btn btn-ghost btn-sm" id="ed-import">Import</button>
+          <button class="btn btn-ghost btn-sm" id="ed-clear">Clear</button>
+          <button class="btn btn-ghost btn-sm" id="ed-mine" data-i18n="editor.mine">My levels</button>
         </div>
         <div class="ed-actions">
           <button class="btn btn-primary btn-sm ed-submit" id="ed-submit"
-                  data-i18n="editor.submit">Proposer comme puzzle du jour</button>
+                  data-i18n="editor.submit">Submit as daily puzzle</button>
         </div>
-        <textarea class="ed-json" id="ed-json" hidden placeholder="JSON du niveau"></textarea>
+        <textarea class="ed-json" id="ed-json" hidden placeholder="Level JSON"></textarea>
       </div>
     </section>
 
     <!-- ============ OFFRE DE CONTINUATION ============ -->
     <div class="overlay" id="overlay-offer" hidden>
       <div class="offer-card">
-        <h2 class="offer-oups" data-i18n="offer.oups">Oups…</h2>
+        <h2 class="offer-oups" data-i18n="offer.oups">Oops…</h2>
         <div class="offer-emoji" aria-hidden="true">😮‍💨</div>
         <p class="offer-lead" id="offer-lead"></p>
 
-        <!-- UNE grosse offre, une option secondaire, une sortie. Trois offres
-             de même poids ne se choisissent pas : elles se subissent. -->
+        <!-- One big offer, one secondary option, a way out. Three offers
+             of equal weight should not be chosen; they are endured. -->
         <button class="btn offer-main" id="btn-offer-ad">
-          <span class="offer-main-title" data-i18n="offer.continue.big">Continuer</span>
+          <span class="offer-main-title" data-i18n="offer.continue.big">Continue</span>
           <span class="offer-main-sub" id="offer-bonus"></span>
-          <span class="offer-main-free" data-i18n="offer.free">🎬 Gratuit</span>
+          <span class="offer-main-free" data-i18n="offer.free">🎬 Free</span>
         </button>
 
         <button class="btn btn-ghost btn-sm offer-second" id="btn-offer-coins">
-          <span data-i18n="offer.continue.small">Continuer</span> — <b id="offer-coins-cost">75</b>
-          <span data-i18n="menu.coins">éclats</span>
+          <span data-i18n="offer.continue.small">Continue</span> — <b id="offer-coins-cost">75</b>
+          <span data-i18n="menu.coins">shards</span>
         </button>
 
         <button class="btn btn-ghost offer-quit" id="btn-offer-give-up"
-                data-i18n="offer.restart">Recommencer</button>
+               data-i18n="offer.restart">Restart</button>
       </div>
     </div>
 
-    <!-- ============ PUBLICITE SIMULEE ============ -->
+    <!-- ============ SIMULATED ADVERTISING ============ -->
     <div class="overlay ad-overlay" id="overlay-ad" hidden>
       <div class="ad-card">
-        <span class="ad-tag" data-i18n="ad.tag">Emplacement publicitaire</span>
-        <h2 class="ad-title" data-i18n="ad.title">Publicité</h2>
+        <span class="ad-tag" data-i18n="ad.tag">Ad slot</span>
+        <h2 class="ad-title" data-i18n="ad.title">Advertisement</h2>
         <div class="ad-visual"><span class="ad-count">5</span></div>
         <p class="ad-note"></p>
-        <button class="btn btn-primary ad-close" data-i18n="ad.close" hidden>Fermer</button>
+        <button class="btn btn-primary ad-close" data-i18n="ad.close" hidden>Close</button>
       </div>
     </div>
 
-    <!-- ============ BANNIERE ============ -->
+    <!-- ============ BANNER ============ -->
     <div class="banner" id="banner" hidden>
-      <span class="banner-tag" data-i18n="ad.badge">Pub</span>
-      <span class="banner-text" data-i18n="ad.banner">Emplacement bannière 320×50</span>
+      <span class="banner-tag" data-i18n="ad.badge">Ad</span>
+      <span class="banner-text" data-i18n="ad.banner">320×50 banner slot</span>
     </div>
 
     <!-- ============ DEBUG ============ -->
-    <button class="debug-toggle" id="debug-toggle" title="Panneau de debug">⚙</button>
+    <!-- ============ ADMIN PANEL ============ -->
+    <div class="overlay" id="overlay-admin" hidden>
+      <div class="admin-card">
+        <header class="admin-head">
+          <div>
+            <b data-i18n="admin.title">Admin</b>
+            <small id="admin-who"></small>
+          </div>
+          <button class="icon-btn" id="admin-close"
+                 data-i18n-aria="user.close" aria-label="Close">&times;</button>
+        </header>
+        <p class="admin-stats" id="admin-stats"></p>
+        <nav class="admin-tabs" id="admin-tabs">
+          <button class="admin-tab sel" data-tab="moderation" data-i18n="admin.tab.moderation">Moderation</button>
+          <button class="admin-tab" data-tab="daily" data-i18n="admin.tab.daily">Daily level</button>
+          <button class="admin-tab" data-tab="flagged" data-i18n="admin.tab.flagged">Suspicious runs</button>
+        </nav>
+        <div class="admin-body" id="admin-body"></div>
+      </div>
+    </div>
+
+    <button class="debug-toggle" id="debug-toggle" title="Debug panel">⚙</button>
     <div class="debug-panel" id="debug-panel" hidden>
-      <label>Aller au niveau
+      <label>Go to level
         <input type="number" id="debug-level" min="1" value="1">
       </label>
       <div class="debug-actions">
-        <button class="btn btn-ghost btn-sm" id="debug-go">Charger</button>
-        <button class="btn btn-ghost btn-sm" id="debug-win">Gagner</button>
-        <button class="btn btn-ghost btn-sm" id="debug-lose">Perdre</button>
-        <button class="btn btn-ghost btn-sm" id="debug-solve">Résoudre</button>
-        <button class="btn btn-ghost btn-sm" id="debug-unlock">Tout débloquer</button>
-        <button class="btn btn-ghost btn-sm" id="debug-speed">Animations ×5</button>
-        <button class="btn btn-ghost btn-sm" id="debug-noads">Activer sans-pub</button>
-        <button class="btn btn-ghost btn-sm" id="debug-coins">+500 pièces</button>
-        <button class="btn btn-ghost btn-sm" id="debug-events">Journal analytics</button>
+        <button class="btn btn-ghost btn-sm" id="debug-go">Load</button>
+        <button class="btn btn-ghost btn-sm" id="debug-win">Win</button>
+        <button class="btn btn-ghost btn-sm" id="debug-lose">Lose</button>
+        <button class="btn btn-ghost btn-sm" id="debug-solve">Solve</button>
+        <button class="btn btn-ghost btn-sm" id="debug-unlock">Unlock all</button>
+        <button class="btn btn-ghost btn-sm" id="debug-speed" data-i18n="debug.speed.fast">Animations ×5</button>
+        <button class="btn btn-ghost btn-sm" id="debug-noads" data-i18n="debug.noads.on">Enable no-ads</button>
+        <button class="btn btn-ghost btn-sm" id="debug-coins">+500 coins</button>
+        <button class="btn btn-ghost btn-sm" id="debug-events">Analytics log</button>
       </div>
       <p class="debug-info" id="debug-info"></p>
       <ol class="debug-events" id="debug-events-list" hidden></ol>

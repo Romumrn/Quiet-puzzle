@@ -1,170 +1,168 @@
 /**
- * Base de niveaux — la source de vérité de ce que joue l'application.
+ * Level database — the source of truth for what the application plays.
  *
- * L'application NE GÉNÈRE PLUS ses niveaux : elle les lit. `core/levels.js`
- * reste le générateur, mais il est passé du côté des outils d'auteur — c'est
- * `tools/build-levels.mjs` qui l'appelle, hors ligne, pour remplir `levels/`.
+ * The application NO LONGER GENERATES its levels: it reads them.
+ * `core/levels.js` is still the generator, but it has moved to the authoring
+ * tools — `tools/build-levels.mjs` calls it, offline, to fill `levels/`.
  *
- * Ce que ça change, et c'est tout l'intérêt :
+ * What that changes, and it is the whole point:
  *
- *  - un niveau peut être RETOUCHÉ à la main sans que la prochaine exécution
- *    l'écrase, puisque plus rien ne le recalcule au démarrage ;
- *  - les niveaux livrés sont exactement ceux qui ont été testés, et non le
- *    produit d'un générateur qu'une modification pourrait déplacer sous nos
- *    pieds ;
- *  - ajouter du contenu ne demande plus de toucher au code : on régénère la
- *    base, ou on y dépose un fichier.
+ *  - a level can be TWEAKED by hand without the next run overwriting it, since
+ *    nothing recomputes it at startup any more;
+ *  - the shipped levels are exactly the ones that were tested, and not the
+ *    output of a generator that a change could shift under our feet;
+ *  - adding content no longer means touching code: rebuild the database, or
+ *    drop a file into it.
  *
- * La base est découpée par monde : l'index est chargé au démarrage (quelques
- * kilo-octets), chaque monde à la première demande. Charger les cent soixante
- * niveaux d'un coup ferait attendre trois quarts de méga-octet pour n'en jouer
- * qu'un.
+ * The database is split by realm: the index is loaded at startup (a few
+ * kilobytes), each realm on first demand. Loading all six hundred levels at
+ * once would mean waiting for three quarters of a megabyte to play just one.
  */
 
 /**
- * Base embarquée. `tools/bundle.mjs` remplit cet objet au moment de fabriquer
- * le fichier unique : celui-ci n'a pas de serveur d'où charger quoi que ce
- * soit, et un `fetch` sur `file://` échouerait. Vide, on passe par le réseau.
+ * Bundled database. `tools/bundle.mjs` fills this object when building the
+ * single-file version: that file has no server to load anything from, and a
+ * `fetch` on `file://` would fail. Left empty, we go over the network.
  */
 import { t } from '../ui/i18n.js';
-import { seuilsEtoiles } from '../core/etoiles.js';
+import { starThresholds } from '../core/stars.js';
 
-export const EMBARQUE = { index: null, mondes: {}, calibration: null };
+export const BUNDLED = { index: null, realms: {}, calibration: null };
 
-const RACINE = 'levels';
+const ROOT = 'levels';
 
 let index = null;
-const mondes = new Map();   // id de monde -> tableau de niveaux
-const parNumero = new Map();
+const realmLevels = new Map();   // realm id -> array of levels
+const byNumber = new Map();
 
-async function lire(chemin, embarque) {
-  if (embarque) return embarque;
-  const reponse = await fetch(`${RACINE}/${chemin}`, { cache: 'no-cache' });
-  if (!reponse.ok) throw new Error(`Base de niveaux : ${chemin} illisible (${reponse.status})`);
-  return reponse.json();
+async function read(path, bundled) {
+  if (bundled) return bundled;
+  const response = await fetch(`${ROOT}/${path}`, { cache: 'no-cache' });
+  if (!response.ok) throw new Error(`Level database: cannot read ${path} (${response.status})`);
+  return response.json();
 }
 
 /**
- * Charge le catalogue. À appeler UNE fois, avant d'afficher quoi que ce soit :
- * tout ce qui suit (nombre de niveaux, mondes, palettes) est ensuite lisible de
- * façon synchrone, comme l'était le générateur qu'on remplace.
+ * Loads the catalogue. Call it ONCE, before displaying anything: everything
+ * that follows (level count, realms, palettes) is then readable synchronously,
+ * just as the generator it replaces was.
  */
-export async function ouvrir() {
+export async function open() {
   if (index) return index;
-  index = await lire('index.json', EMBARQUE.index);
-  if (index.calibration) await chargerCalibration(index.calibration);
+  index = await read('index.json', BUNDLED.index);
+  if (index.calibration) await loadCalibration(index.calibration);
   return index;
 }
 
-// --- Calibration du barème d'étoiles ---------------------------------------
+// --- Star scale calibration ------------------------------------------------
 
 /**
- * Référence corrigée par les parties réellement jouées : `levelId -> glissés`.
+ * Reference corrected by games actually played: `levelId -> drags`.
  *
- * Le glissé de référence d'un niveau vaut ce que vaut la solution trouvée à la
- * génération. Ce n'est pas une borne : un joueur qui vide la grille en moins de
- * coups prouve simplement que le générateur n'avait pas trouvé le mieux. Le
- * barème doit alors suivre, sans quoi trois étoiles finissent par ne plus rien
- * dire sur les niveaux que les joueurs ont appris à optimiser.
+ * A level's reference drag count is worth whatever the solution found at
+ * generation time was worth. It is not a lower bound: a player who clears the
+ * grid in fewer moves simply proves the generator had not found the best one.
+ * The scale must then follow, otherwise three stars end up saying nothing about
+ * the levels players have learnt to optimise.
  *
- * La POLITIQUE — quel percentile des parties gagnées fait référence, à partir
- * de combien de parties — appartient au serveur : c'est lui qui voit toutes les
- * parties, le client n'en voit qu'une. Ici, on applique ce qu'on reçoit, avec
- * deux garde-fous seulement.
+ * The POLICY — which percentile of won games sets the reference, from how many
+ * games onwards — belongs to the server: it is the one that sees every game,
+ * the client only sees its own. Here we apply what we receive, with two
+ * safeguards only.
  *
- * Ce recalage ne peut RIEN retirer : les étoiles enregistrées le sont par
- * `Math.max` dans `api.completeLevel()`. Une référence resserrée rend un futur
- * 3★ plus dur, jamais un 3★ déjà obtenu caduc.
+ * This adjustment can take NOTHING away: recorded stars are stored through
+ * `Math.max` in `api.completeLevel()`. A tightened reference makes a future 3★
+ * harder, never an already-earned 3★ void.
  *
- * Aujourd'hui aucun fichier n'est servi et rien n'est chargé — pas même une
- * requête : la base ne va le chercher que si son index l'annonce.
+ * Today no file is served and nothing is loaded — not even a request: the
+ * database only goes looking for it if its index announces it.
  */
 const calibration = new Map();
 
-async function chargerCalibration(chemin) {
+async function loadCalibration(path) {
   try {
-    const table = await lire(chemin, EMBARQUE.calibration);
-    for (const [levelId, glissés] of Object.entries(table)) calibration.set(levelId, glissés);
+    const table = await read(path, BUNDLED.calibration);
+    for (const [levelId, drags] of Object.entries(table)) calibration.set(levelId, drags);
   } catch {
-    // Une calibration absente ou illisible n'empêche pas de jouer : on garde
-    // les seuils livrés avec la base.
+    // A missing or unreadable calibration does not stop play: we keep the
+    // thresholds shipped with the database.
   }
 }
 
 /**
- * Applique la calibration à un niveau, en place.
+ * Applies the calibration to a level, in place.
  *
- * Elle ne touche QUE le barème. La limite de coups reste celle de la base :
- * c'est le filet qui décide d'une défaite, donc du taux d'échec et de tout ce
- * qui en dépend — l'écran de défaite, les offres. La déplacer d'après des
- * mesures est une décision de jeu, pas une calibration, et elle ne se prend pas
- * ici. Resserrer la seule référence est sans danger de ce côté : les seuils
- * descendent, le filet ne bouge pas et reste donc au-dessus d'eux.
+ * It only touches the grading scale. The move limit stays the one from the
+ * database: that is the net deciding a defeat, hence the failure rate and
+ * everything that depends on it — the defeat screen, the offers. Moving it
+ * based on measurements is a game decision, not a calibration, and it is not
+ * taken here. Tightening the reference alone is harmless on that side: the
+ * thresholds go down, the net does not move and therefore stays above them.
  */
-function calibrer(level) {
+function applyCalibration(level) {
   const ref = calibration.get(level.levelId);
-  // Une valeur hors de tout sens — nulle, négative, ou au-delà de la limite de
-  // coups — ne dit rien du niveau : on garde ce que la base a livré.
+  // A value that makes no sense — zero, negative, or beyond the move limit —
+  // says nothing about the level: we keep what the database shipped.
   if (!Number.isInteger(ref) || ref < 1 || ref > level.moveLimit) return level;
   level.minDrags = ref;
-  level.starDrags = seuilsEtoiles(ref);
+  level.starDrags = starThresholds(ref);
   return level;
 }
 
-const exigeOuvert = () => {
-  if (!index) throw new Error('Base de niveaux non ouverte : appeler ouvrir() au démarrage');
+const requireOpen = () => {
+  if (!index) throw new Error('Level database not open: call open() at startup');
   return index;
 };
 
-// --- Catalogue, en lecture synchrone ---------------------------------------
+// --- Catalogue, read synchronously -----------------------------------------
 
-export const catalogue = () => exigeOuvert();
-export const totalLevels = () => exigeOuvert().totalLevels;
-export const levelsPerRealm = () => exigeOuvert().levelsPerRealm;
-export const realms = () => exigeOuvert().realms;
+export const catalog = () => requireOpen();
+export const totalLevels = () => requireOpen().totalLevels;
+export const levelsPerRealm = () => requireOpen().levelsPerRealm;
+export const realms = () => requireOpen().realms;
 
-/** Le monde auquel appartient le niveau `n` (1-indexé). */
-export function realmDe(n) {
-  const cat = exigeOuvert();
+/** The realm level `n` belongs to (1-indexed). */
+export function realmOf(n) {
+  const cat = requireOpen();
   const i = Math.floor((n - 1) / cat.levelsPerRealm);
   return cat.realms[Math.min(cat.realms.length - 1, Math.max(0, i))];
 }
 
-// --- Niveaux ---------------------------------------------------------------
+// --- Levels ----------------------------------------------------------------
 
-async function chargerMonde(id) {
-  if (mondes.has(id)) return mondes.get(id);
-  const monde = exigeOuvert().realms.find((r) => r.id === id);
-  if (!monde) throw new Error(`Monde ${id} absent du catalogue`);
-  const data = await lire(monde.fichier, EMBARQUE.mondes[monde.fichier]);
-  mondes.set(id, data.levels);
-  for (const niveau of data.levels) parNumero.set(niveau.number, niveau);
+async function loadRealm(id) {
+  if (realmLevels.has(id)) return realmLevels.get(id);
+  const realm = requireOpen().realms.find((r) => r.id === id);
+  if (!realm) throw new Error(`Realm ${id} missing from the catalogue`);
+  const data = await read(realm.file, BUNDLED.realms[realm.file]);
+  realmLevels.set(id, data.levels);
+  for (const level of data.levels) byNumber.set(level.number, level);
   return data.levels;
 }
 
 /**
- * Le niveau `n`, lu dans la base.
+ * Level `n`, read from the database.
  *
- * L'objet rendu est une COPIE : le plateau consomme la capacité des portes en
- * cours de partie, et rendre l'original ferait qu'un niveau rejoué reprendrait
- * avec les portes déjà entamées de la partie précédente.
+ * The returned object is a COPY: the board consumes gate capacity during play,
+ * and returning the original would mean a replayed level started with the gates
+ * already eaten into by the previous attempt.
  */
 export async function getLevel(n) {
-  const cat = exigeOuvert();
-  if (!Number.isInteger(n) || n < 1 || n > cat.totalLevels) throw new Error(`Niveau ${n} introuvable`);
-  if (!parNumero.has(n)) await chargerMonde(realmDe(n).id);
-  const niveau = parNumero.get(n);
-  if (!niveau) throw new Error(`Niveau ${n} absent de la base`);
-  return calibrer(structuredClone(niveau));
+  const cat = requireOpen();
+  if (!Number.isInteger(n) || n < 1 || n > cat.totalLevels) throw new Error(`Level ${n} not found`);
+  if (!byNumber.has(n)) await loadRealm(realmOf(n).id);
+  const level = byNumber.get(n);
+  if (!level) throw new Error(`Level ${n} missing from the database`);
+  return applyCalibration(structuredClone(level));
 }
 
-/** Précharge un monde entier — pour lisser l'entrée dans un nouveau décor. */
-export const prechargerMonde = (id) => chargerMonde(id).then(() => undefined, () => undefined);
+/** Preloads a whole realm — to smooth out entering a new setting. */
+export const preloadRealm = (id) => loadRealm(id).then(() => undefined, () => undefined);
 
 /**
- * Libellé de l'objectif, pour le pré-niveau et le HUD. Il vit ici et non chez le
- * générateur : il ne lit qu'un objet niveau, et l'application n'a plus de
- * raison de charger le générateur pour une phrase.
+ * Objective label, for the briefing screen and the HUD. It lives here rather
+ * than in the generator: it only reads a level object, and the application no
+ * longer has any reason to load the generator for one sentence.
  */
 export function objectiveLabel(level) {
   return t('brief.objective', { n: level.objective.target });

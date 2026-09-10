@@ -1,15 +1,17 @@
-# Document technique du client : marqué confidentiel, le dépôt est public.
-Document_Technique_Developpeurs.md
-
-# Sortie de build locale — la version publiée vit dans docs/
+# Quiet Puzzle — playable prototype
+# Local build output — the published version lives in docs/
 prototype/dist/
 
-.DS_Store
-node_modules/
+# Technical document kept confidential, repository is public.
+# Canonical file name: Technical_Document_Developers.md
+Document_Technique_Developpeurs.md
 
-# Audio : seuls les MP3 utilisés par le jeu sont versionnés. Les WAV sont des
-# intermédiaires, et les morceaux non retenus se régénèrent à l'identique avec
-# `python3 tools/music.py` (le tirage est seedé).
+# Audio: only the MP3 files used by the game are tracked.
+# WAV files are intermediate artifacts and can be regenerated with:
+# `python3 tools/music.py`
 prototype/audio/*.wav
 prototype/audio/1-aube.mp3
 prototype/audio/2-derive.mp3
+
+.DS_Store
+node_modules/

@@ -1,120 +1,121 @@
 /**
- * CurrencyManager — équivalent de Scripts/Monetization/CurrencyManager.cs (doc §4)
- * Porte-monnaie du joueur. Toute dépense passe par ici, pour qu'un seul endroit
- * décide de ce qui est payable et journalise la transaction.
+ * CurrencyManager — equivalent of Scripts/Monetization/CurrencyManager.cs
+ * (tech doc §4)
+ *
+ * The player's purse. Every expense goes through here, so that a single place
+ * decides what is payable and logs the transaction.
  */
 
 import * as store from '../data/save.js';
 import { track } from '../data/events.js';
 
-/** Tarifs. Constantes de tuning, à ajuster après playtest. */
 /**
- * Tarifs, en éclats. Un seul barème, affiché partout où il s'applique : le
- * joueur doit pouvoir dire ce que coûte un bonus avant de l'ouvrir.
+ * Prices, in coins. One scale, shown everywhere it applies: the player must be
+ * able to tell what a booster costs before opening it.
  *
- * Continuer vaut moins cher qu'avant (120), et pour une raison : au moment de
- * la défaite, la pub est l'offre principale. Le prix en éclats est là pour qui
- * en a de côté et ne veut pas de pub, pas pour dissuader.
+ * Continuing costs less than it used to (120), and for a reason: at the moment
+ * of defeat, the ad is the main offer. The price in coins is there for whoever
+ * has some put by and does not want an ad, not to deter.
  */
-export const PRIX = Object.freeze({
-  INDICE: 50,
-  CONTINUER: 75,
+export const PRICES = Object.freeze({
+  HINT: 50,
+  CONTINUE: 75,
 });
 
-export function solde() { return store.load().coins; }
+export function balance() { return store.load().coins; }
 
-export function crediter(montant, source) {
+export function credit(amount, source) {
   const d = store.load();
-  d.coins += montant;
+  d.coins += amount;
   store.save(d);
-  track('currency_earned', { montant, source, solde: d.coins });
+  track('currency_earned', { amount, source, balance: d.coins });
   return d.coins;
 }
 
-/** @returns {boolean} vrai si la dépense a été honorée. */
-export function debiter(montant, motif) {
+/** @returns {boolean} true if the expense was honoured. */
+export function debit(amount, reason) {
   const d = store.load();
-  if (d.coins < montant) {
-    track('currency_insufficient', { montant, motif, solde: d.coins });
+  if (d.coins < amount) {
+    track('currency_insufficient', { amount, reason, balance: d.coins });
     return false;
   }
-  d.coins -= montant;
+  d.coins -= amount;
   store.save(d);
-  track('currency_spent', { montant, motif, solde: d.coins });
+  track('currency_spent', { amount, reason, balance: d.coins });
   return true;
 }
 
-export function peutPayer(montant) { return store.load().coins >= montant; }
+export function canAfford(amount) { return store.load().coins >= amount; }
 
 /**
- * Packs de pièces (doc §5.3). Les identifiants suivent la nomenclature des
- * stores : c'est ce qui sera déclaré chez Google Play et l'App Store, et le
- * jour où le SDK d'achat arrivera, seul le corps d'`acheterPack` changera.
+ * Coin packs (doc §5.3). The identifiers follow the stores' naming: this is
+ * what will be declared on Google Play and the App Store, and the day the
+ * purchase SDK arrives, only the body of `buyPack` will change.
  *
- * Le bonus croît avec le palier — c'est l'usage du genre, et il est honnête :
- * un joueur qui met davantage d'un coup paie moins cher la pièce. Les montants
- * sont calés sur l'économie du jeu, où un indice coûte 50 pièces : le plus
- * petit pack en offre dix, le plus grand de quoi ne plus y penser.
+ * The bonus grows with the tier — it is the genre's custom, and it is honest: a
+ * player who spends more at once pays less per coin. The amounts are calibrated
+ * on the game's economy, where a hint costs 50 coins: the smallest pack buys
+ * ten, the largest enough to stop thinking about it.
  */
 export const PACKS = Object.freeze([
-  { id: 'com.puzzle.coins.small', pieces: 500, bonus: 0, prix: '1,99 €' },
-  { id: 'com.puzzle.coins.medium', pieces: 1200, bonus: 20, prix: '3,99 €' },
-  { id: 'com.puzzle.coins.large', pieces: 3000, bonus: 50, prix: '8,99 €' },
-  { id: 'com.puzzle.coins.huge', pieces: 8000, bonus: 100, prix: '19,99 €' },
+  { id: 'com.puzzle.coins.small', coins: 500, bonus: 0, price: '€1.99' },
+  { id: 'com.puzzle.coins.medium', coins: 1200, bonus: 20, price: '€3.99' },
+  { id: 'com.puzzle.coins.large', coins: 3000, bonus: 50, price: '€8.99' },
+  { id: 'com.puzzle.coins.huge', coins: 8000, bonus: 100, price: '€19.99' },
 ]);
 
 /**
- * Pièces versées par une pub récompensée depuis la boutique, et nombre de
- * visionnages accordés par jour.
+ * Coins paid by a rewarded ad watched from the shop, and how many views are
+ * granted per day.
  *
- * La limite quotidienne n'est pas là pour brider le joueur mais pour protéger
- * l'économie : sans elle, une réserve infinie de pièces gratuites rend tous les
- * bonus indolores, et un bonus indolore ne se choisit plus. Cinq visionnages
- * valent deux indices et demi, de quoi se dépanner sans rendre le reste inutile.
+ * The daily cap is not there to restrain the player but to protect the economy:
+ * without it, an infinite supply of free coins makes every booster painless,
+ * and a painless booster is no longer a choice. Five views are worth two and a
+ * half hints, enough to get by without making the rest pointless.
  */
-export const PUB_RECOMPENSE = Object.freeze({ PIECES: 25, PAR_JOUR: 5 });
+export const AD_REWARD = Object.freeze({ COINS: 25, PER_DAY: 5 });
 
-const jour = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toISOString().slice(0, 10);
 
-/** Visionnages déjà consommés aujourd'hui. */
-export function pubsVuesAujourdhui() {
+/** Views already used today. */
+export function adsWatchedToday() {
   const d = store.load();
-  return d.pubsPiecesJour === jour() ? (d.pubsPiecesCompte || 0) : 0;
+  return d.coinAdsDay === today() ? (d.coinAdsCount || 0) : 0;
 }
 
-export const pubsRestantes = () => Math.max(0, PUB_RECOMPENSE.PAR_JOUR - pubsVuesAujourdhui());
+export const adsRemaining = () => Math.max(0, AD_REWARD.PER_DAY - adsWatchedToday());
 
-/** Verse la récompense d'une pub regardée depuis la boutique. */
-export function crediterPub() {
-  if (pubsRestantes() <= 0) return 0;
+/** Pays out the reward for an ad watched from the shop. */
+export function creditAdReward() {
+  if (adsRemaining() <= 0) return 0;
   const d = store.load();
-  d.pubsPiecesJour = jour();
-  d.pubsPiecesCompte = pubsVuesAujourdhui() + 1;
+  d.coinAdsDay = today();
+  d.coinAdsCount = adsWatchedToday() + 1;
   store.save(d);
-  crediter(PUB_RECOMPENSE.PIECES, 'shop_rewarded_ad');
-  return PUB_RECOMPENSE.PIECES;
+  credit(AD_REWARD.COINS, 'shop_rewarded_ad');
+  return AD_REWARD.COINS;
 }
 
 /**
- * Achat d'un pack. SIMULÉ : aucun SDK de facturation n'est branché, et l'écran
- * de la boutique le dit. On journalise malgré tout l'évènement d'achat sous sa
- * forme définitive, pour que le tunnel soit mesurable avant d'être réel.
+ * Buying a pack. SIMULATED: no billing SDK is wired up, and the shop screen
+ * says so. The purchase event is logged all the same, in its final form, so
+ * that the funnel is measurable before it is real.
  */
-export function acheterPack(id) {
+export function buyPack(id) {
   const pack = PACKS.find((p) => p.id === id);
   if (!pack) return 0;
-  const total = Math.round(pack.pieces * (1 + pack.bonus / 100));
-  crediter(total, 'iap_coin_pack');
-  track('iap_purchased', { productId: pack.id, pieces: total, prix: pack.prix, simule: true });
+  const total = Math.round(pack.coins * (1 + pack.bonus / 100));
+  credit(total, 'iap_coin_pack');
+  track('iap_purchased', { productId: pack.id, coins: total, price: pack.price, simulated: true });
   return total;
 }
 
-/** Achat "supprimer les pubs" (doc §5.3, PRODUCT_NO_ADS). */
-export function aSupprimeLesPubs() { return store.load().noAds === true; }
+/** "Remove ads" purchase (doc §5.3, PRODUCT_NO_ADS). */
+export function hasRemovedAds() { return store.load().noAds === true; }
 
-export function definirSuppressionPubs(valeur) {
+export function setAdsRemoved(value) {
   const d = store.load();
-  d.noAds = valeur;
+  d.noAds = value;
   store.save(d);
-  track('iap_purchased', { productId: 'com.puzzle.no.ads', actif: valeur });
+  track('iap_purchased', { productId: 'com.puzzle.no.ads', active: value });
 }

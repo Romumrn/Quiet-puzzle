@@ -1,63 +1,64 @@
 /**
- * Habillage chromatique, indexé sur la progression.
+ * Chromatic skin, indexed on progression.
  *
- * Deux choses distinctes, et il faut les tenir séparées :
+ * Two distinct things, and they must be kept apart:
  *
- *  - LA TEINTE DE L'INTERFACE (`--h`) — fonds, traits, accents. Chaque monde a
- *    sa teinte d'ancrage, et l'on glisse de celle-ci vers celle du monde suivant
- *    au fil de ses vingt niveaux. Le joueur voit donc le décor virer sous lui
- *    sans jamais de rupture, tout en reconnaissant chaque monde à sa dominante.
+ *  - THE INTERFACE HUE (`--h`) — backgrounds, strokes, accents. Every realm has
+ *    its anchor hue, and we slide from that one towards the next realm's across
+ *    its twenty levels. The player therefore sees the setting shift under them
+ *    without any break, while still recognising each realm by its dominant.
  *
- *  - LES COULEURS DES BLOCS (`--c0`…`--c5`) — elles changent d'un monde à
- *    l'autre, mais D'UN SEUL COUP, au passage, et jamais à l'intérieur d'un
- *    monde. Les six familles gardent leurs glyphes (●◆▲★■⬢) : c'est le glyphe,
- *    et non la teinte, qui identifie une famille d'un bout à l'autre du jeu.
- *    Repeindre les familles change donc l'ambiance sans rien à réapprendre.
+ *  - THE BLOCK COLOURS (`--c0`…`--c5`) — they change from one realm to the
+ *    next, but ALL AT ONCE, at the transition, and never within a realm. The
+ *    six families keep their glyphs (●◆▲★■⬢): it is the glyph, not the hue,
+ *    that identifies a family from one end of the game to the other. Repainting
+ *    the families therefore changes the mood with nothing to relearn.
  */
 
-import { realms, levelsPerRealm, realmDe } from '../data/levelStore.js';
+import { realms, levelsPerRealm, realmOf } from '../data/levelStore.js';
 import * as themes from '../meta/themes.js';
 
 /**
- * Interpolation sur le plus court arc de la roue chromatique. Sans elle, passer
- * de 345° à 22° redescendait toute la roue à l'envers — le joueur traversait le
- * spectre entier au lieu des trente-sept degrés qui les séparent réellement.
+ * Interpolation along the shortest arc of the colour wheel. Without it, going
+ * from 345° to 22° went all the way back down the wheel — the player crossed
+ * the entire spectrum instead of the thirty-seven degrees actually between
+ * them.
  */
-function arc(depuis, vers, t) {
-  const delta = ((vers - depuis + 540) % 360) - 180;
-  return (depuis + delta * t + 360) % 360;
+function arc(from, to, t) {
+  const delta = ((to - from + 540) % 360) - 180;
+  return (from + delta * t + 360) % 360;
 }
 
-export function teintePour(niveau) {
-  const tous = realms();
-  const n = Math.min(Math.max(1, niveau), tous.length * levelsPerRealm());
-  const monde = realmDe(n);
-  const suivant = tous[monde.id + 1] || monde;   // le dernier monde garde la sienne
+export function hueFor(level) {
+  const all = realms();
+  const n = Math.min(Math.max(1, level), all.length * levelsPerRealm());
+  const realm = realmOf(n);
+  const next = all[realm.id + 1] || realm;   // the last realm keeps its own
   const t = ((n - 1) % levelsPerRealm()) / levelsPerRealm();
-  return Math.round(arc(monde.teinte, suivant.teinte, t));
+  return Math.round(arc(realm.hue, next.hue, t));
 }
 
-/** Les six couleurs de blocs du monde auquel appartient ce niveau. */
-export function palettePour(niveau) {
-  return realmDe(Math.min(Math.max(1, niveau), realms().length * levelsPerRealm())).palette;
+/** The six block colours of the realm this level belongs to. */
+export function paletteFor(level) {
+  return realmOf(Math.min(Math.max(1, level), realms().length * levelsPerRealm())).palette;
 }
 
 /**
- * Applique teinte et palette à un élément.
+ * Applies hue and palette to an element.
  *
- * Un thème CHOISI l'emporte sur la teinte du monde : c'est une préférence, et
- * une préférence qui se ferait écraser à chaque changement de monde n'en serait
- * pas une. Sans thème choisi, on garde la progression chromatique d'origine.
+ * A CHOSEN theme wins over the realm's hue: it is a preference, and a
+ * preference overwritten at every realm change would not be one. With no theme
+ * chosen, the original chromatic progression is kept.
  */
-export function appliquerA(element, niveau) {
-  const choisi = themes.parId(themes.choisi());
-  const teinte = choisi ? choisi.teinte : teintePour(niveau);
-  const palette = choisi ? choisi.palette : palettePour(niveau);
-  element.style.setProperty('--h', teinte);
-  palette.forEach((couleur, i) => element.style.setProperty(`--c${i}`, couleur));
+export function applyTo(element, level) {
+  const chosen = themes.byId(themes.chosen());
+  const hue = chosen ? chosen.hue : hueFor(level);
+  const palette = chosen ? chosen.palette : paletteFor(level);
+  element.style.setProperty('--h', hue);
+  palette.forEach((color, i) => element.style.setProperty(`--c${i}`, color));
 }
 
-/** Applique l'habillage d'un niveau à toute l'application. */
-export function appliquer(niveau) {
-  appliquerA(document.getElementById('app'), niveau);
+/** Applies a level's skin to the whole application. */
+export function apply(level) {
+  applyTo(document.getElementById('app'), level);
 }

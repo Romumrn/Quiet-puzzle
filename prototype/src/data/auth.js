@@ -1,21 +1,20 @@
 /**
- * Gestion de la session joueur côté Supabase.
+ * Player session handling, Supabase side.
  *
- * À l'ouverture de l'app, on tente de récupérer une session existante
- * (stockée par le SDK dans localStorage). Si aucune n'existe, on crée
- * une session anonyme : le joueur obtient un identifiant persistant sans
- * aucune friction (pas de formulaire). Il pourra lier son compte à une
- * adresse e-mail plus tard.
+ * When the app opens we try to recover an existing session (stored by the SDK
+ * in localStorage). If there is none, an anonymous session is created: the
+ * player gets a persistent identity with no friction at all (no form). They can
+ * link the account to an e-mail address later.
  *
- * Tous les appels sont best-effort : une erreur réseau ne bloque pas le
- * démarrage, le jeu reste jouable via localStorage.
+ * Every call is best-effort: a network error does not block startup, the game
+ * stays playable through localStorage.
  */
 
 import { supabase } from './supabaseClient.js';
 
 let _ready = false;
 
-export async function initialiserSession() {
+export async function initSession() {
   if (_ready) return;
   _ready = true;
   try {
@@ -23,11 +22,11 @@ export async function initialiserSession() {
     if (data?.session) return;
     await supabase.auth.signInAnonymously();
   } catch {
-    // Non-fatal : le jeu fonctionne hors ligne.
+    // Non-fatal: the game works offline.
   }
 }
 
-/** Retourne l'utilisateur courant, ou null si non authentifié. */
+/** Returns the current user, or null when not authenticated. */
 export async function getUser() {
   try {
     const { data } = await supabase.auth.getUser();

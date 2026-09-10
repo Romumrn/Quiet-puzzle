@@ -1,73 +1,51 @@
 # Quiet Puzzle
 
-**Un casse-tête pour décompresser.**
+A relaxing block-puzzle game.
 
-Pas de score à battre, pas d'adversaire, personne qui vous attend. Une grille,
-des blocs de couleur, et des portes sur les murs. On attrape un bloc, on le fait
-glisser, il sort. Le geste est simple et se répète — c'est exactement ce qu'on
-cherche quand la journée a été dense : quelque chose qui occupe les mains et
-laisse l'esprit se poser.
+No score to beat, no opponent waiting, no pressure to perform. Just a grid, colored blocks, and doors on the walls. You grab a block, drag it, and it leaves the board when it fits. The move is simple and repeatable—exactly what you want after a long day: something that occupies your hands while letting your mind settle.
 
-Tout est réglé pour ça. La palette pastel glisse lentement du rose au vert d'eau
-à mesure qu'on avance dans les niveaux. La musique d'ambiance est jouée au
-piano et à la boîte à musique, et change de caractère toutes les vingt secondes
-pour ne jamais tourner en rond. Chaque bloc qui franchit sa porte fait sonner un
-carillon, un ton plus haut que le précédent : enchaîner devient une petite
-mélodie.
+Everything is tuned around that intent. The pastel palette slowly transitions from pink to teal as you progress through levels. The ambient music is played on piano and music box sounds and shifts character every twenty seconds so it never becomes repetitive. Each block that exits through its door rings a chime, one note higher than the previous one, creating a little melody as you chain moves.
 
-Il y a bien un chronomètre — il faut une contrainte pour qu'un puzzle en soit un
-— mais il est large, et une pub récompensée le rallonge quand il serre trop.
+There is still a timer—puzzles need a constraint—but it is generous, and a rewarded ad can extend it when it becomes too tight.
 
-**▶ Jouer : https://romumrn.github.io/Quiet-puzzle/**
+**▶ Play: https://romumrn.github.io/Quiet-puzzle/**
 
-<img src="media/gameplay.gif" width="360" alt="Un bloc glisse jusqu'à sa porte et quitte la grille">
+<img src="media/gameplay.gif" width="360" alt="A block slides to its door and exits the grid">
 
-## Comment on joue
+## How to play
 
-Un bloc suit le doigt case par case et s'arrête au premier obstacle. Plaqué
-contre une porte de **sa** couleur, et s'il y tient en largeur, il quitte la
-grille — une forme de trois cases ne passe pas par une porte de deux. Objectif :
-vider le plateau.
+A block follows your finger one square at a time and stops at the first obstacle. If it is pressed against a door of its own color and fits the width, it exits the grid; a 3-cell shape cannot pass through a 2-cell door. Objective: clear the board.
 
-Sur la route : des blocs montés sur glissière qui ne vont que sur un axe, des
-ancres qui n'avancent que vers leur porte, des blocs scellés qu'il faut
-contourner, des verrous qui s'ouvrent après un certain nombre de sorties, des
-encombrants qui coûtent double à leur porte, des blocs bicolores qui hésitent
-entre deux sorties, une clé qui ouvre tous les verrous d'un coup, et des portes
-à capacité limitée — y envoyer le mauvais bloc gâche de la place.
+In the way: sliding blocks that move on only one axis, anchors that only advance toward their door, sealed blocks you have to route around, locks that open after a certain number of exits, bulky blocks that cost double at the door, bicolor blocks that hesitate between two exits, a key that opens every lock at once, and doors with limited capacity—sending the wrong block there wastes space.
 
-Dix-huit mondes de vingt niveaux — trois cent soixante grilles. Chacun change de
-couleurs, apporte quelque chose qu'on n'avait pas encore vu, et resserre un cran.
+Eighteen worlds with twenty levels each—360 boards. Each world changes colors, introduces something new, and tightens the puzzle.
 
-Le jeu se joue en français, anglais, espagnol, italien ou chinois, et une option
-rend aux six couleurs leur symbole pour qui ne peut pas s'y fier.
+The game supports French, English, Spanish, Italian, and Chinese, and an option restores the original color symbols for players who cannot rely on color alone.
 
-| Le plateau | La carte | Le profil |
+| Board | Map | Profile |
 |---|---|---|
 | <img src="media/jeu.png" width="230"> | <img src="media/carte.png" width="230"> | <img src="media/profil.png" width="230"> |
 
-| Grille vidée | Le menu | L'éditeur de niveaux |
+| Cleared board | Menu | Level editor |
 |---|---|---|
 | <img src="media/reussite.png" width="230"> | <img src="media/menu.png" width="230"> | <img src="media/editeur.png" width="230"> |
 
-## Le dépôt
+## Repository
 
-**[AGENTS.md](AGENTS.md)** est la carte du projet : « je veux changer X, je
-touche quoi ? », les invariants à ne pas casser, et les pièges déjà rencontrés.
-Elle est faite pour qu'on n'ait pas à parcourir le code pour savoir où aller —
-et un test vérifie que tout ce qu'elle désigne existe encore.
+**[AGENTS.md](AGENTS.md)** is the project map: "I want to change X, what do I touch?", the invariants not to break, and the pitfalls already encountered.
 
+It is designed to avoid reading the full codebase just to know where to go.
 
-Prototype web, sans dépendance ni build : HTML, CSS et JavaScript natifs.
+Prototype web app with no dependencies or build step: plain HTML, CSS, and JavaScript.
 
-| Dossier | Contenu |
+| Folder | Purpose |
 |---|---|
-| `prototype/` | Les sources, modulaires — c'est ici qu'on travaille |
-| `prototype/levels/` | La base de niveaux en JSON, ce que le jeu lit réellement |
-| `docs/` | Le fichier unique servi par GitHub Pages, produit par le bundler |
-| `media/` | Captures et animations du README, régénérables |
+| `prototype/` | Source files; this is where we work |
+| `prototype/levels/` | JSON level base; this is what the game actually reads |
+| `docs/` | The published site bundle generated by the bundler |
+| `media/` | README captures and animation assets |
 
-## Développer
+## Development
 
 ```bash
 cd prototype && python3 -m http.server 8123
@@ -77,52 +55,38 @@ cd prototype && python3 -m http.server 8123
 node tools/build-levels.mjs
 ```
 
-Fabrique la base de niveaux dans `prototype/levels/` — un index et un fichier
-par monde. Le jeu ne génère rien au démarrage : il lit ces fichiers. Un niveau
-peut donc être retouché à la main (`--garder` protège l'existant).
+Builds the level base under `prototype/levels/`—an index and one file per world. The game does not generate anything at runtime; it reads these files. A level can therefore be manually adjusted, and `--garder` protects existing data.
 
 ```bash
 node tools/test.mjs
 ```
 
-Les tests **prouvent que chaque niveau livré est résoluble** : ils rejouent, sur
-le vrai moteur, la solution de référence de chaque niveau **de la base**, puis un
-solveur indépendant revide les grilles sans lire cette solution.
+The tests prove that each shipped level is solvable: they replay, on the real engine, the reference solution for each level in the base, then an independent solver verifies the grids without reading that solution.
 
 ```bash
 node tools/balance.mjs
 ```
 
-Affiche pour chaque niveau la densité, l'éloignement moyen des blocs à leur
-porte, les limites, et le nombre d'états explorés par le solveur — la mesure de
-difficulté.
+Displays each level's density, average block-to-door distance, limits, and explored states from the solver—the difficulty metric.
 
 ```bash
 python3 tools/music.py
 ```
 
-Régénère la musique et les carillons. Le tirage est seedé : le résultat est
-identique à chaque fois.
+Regenerates music and chimes. The generation is seeded, so the result is identical every time.
 
 ```bash
 node tools/captures.mjs
 ```
 
-Refait les images de ce README en pilotant Chrome en headless. Chaque capture
-part d'une sauvegarde fabriquée et d'un niveau donné, jamais d'une partie jouée
-à la main : elles restent donc à jour après une modification de l'interface.
+Updates the images in this README by driving Chrome in headless mode. Every capture starts from a fabricated save and a specific level, never from a manually played session, so the screenshots stay current after UI changes.
 
-## Publier
+## Publish
 
 ```bash
-cd prototype && node tools/publier.mjs   # écrit docs/ : sources + base + audio
+cd prototype && node tools/publier.mjs   # writes docs/ : sources + level base + audio
 ```
 
-Le site publié sert les **sources modulaires**, pas un fichier unique. La raison
-est arithmétique : à six cents niveaux, la base pèse quatre méga-octets et le
-fichier unique six — quinze secondes d'attente en 4G avant de voir quoi que ce
-soit, et un jeu qu'on attend est un jeu qu'on ferme. Servi en modules, il ouvre
-sur **388 Ko** et ne charge un monde qu'au moment de le jouer (~150 Ko).
+The published site serves the modular source files rather than a single bundled file. The reason is arithmetic: with 600 levels, the base weighs around four megabytes, and the single-file bundle is around six megabytes—fifteen seconds of waiting on 4G before anything loads. Served as modules, it opens at about 388 KB and only fetches a world when the player begins it.
 
-`node tools/bundle.mjs` fabrique toujours le fichier unique, pour le partage
-hors ligne et l'ouverture par double-clic.
+`node tools/bundle.mjs` always builds the single-file bundle for offline sharing and double-click launching.

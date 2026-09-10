@@ -1,21 +1,21 @@
 /**
- * BoardManager — équivalent de Scripts/Gameplay/BoardManager.cs (doc §5.1)
+ * BoardManager — equivalent of Scripts/Gameplay/BoardManager.cs (tech doc §5.1)
  *
- * Puzzle de blocs à faire sortir par des portes de couleur. Le document
- * technique appelait déjà cette condition de victoire `AreAllDoorsComplete()` :
- * ici elle est réellement implémentée — la grille est résolue quand tous les
- * blocs déplaçables sont sortis par une porte de leur couleur.
+ * A block puzzle where pieces must exit through coloured gates. The technical
+ * document already called this win condition `AreAllDoorsComplete()`: here it is
+ * actually implemented — the grid is solved when every movable block has left
+ * through a gate of its colour.
  *
- * REGLE D'OR : aucun accès au DOM. Chaque geste produit des évènements
- * ({type:'move'|'exit'|'unlock'|'blocked'}) que render/boardView.js rejoue en
- * animation. C'est ce qui rend cette logique testable sous Node et son portage
- * en C# mécanique.
+ * GOLDEN RULE: no DOM access whatsoever. Every gesture produces events
+ * ({type:'move'|'exit'|'unlock'|'blocked'}) that render/boardView.js replays as
+ * animation. That is what makes this logic testable under Node and its port to
+ * C# mechanical.
  */
 
-import { Block, KIND, DEPLACABLES, coutCapacite, couleursDe } from './block.js';
+import { Block, KIND, MOVABLE, capacityCost, colorsOf } from './block.js';
 import { GameState } from './gameState.js';
 
-/** Les quatre côtés, avec leur vecteur de sortie. */
+/** The four sides, with their exit vector. */
 export const SIDES = Object.freeze({
   top: [0, -1],
   right: [1, 0],
@@ -24,7 +24,7 @@ export const SIDES = Object.freeze({
 });
 
 export class Board {
-  /** @param {object} level  objet niveau au format `GET /api/level/{n}` */
+  /** @param {object} level  level object in the `GET /api/level/{n}` format */
   constructor(level) {
     this.level = level;
     this.W = level.width;
@@ -36,14 +36,14 @@ export class Board {
 
     this.movesRemaining = level.moveLimit;
     this.timeRemaining = level.timeLimit;
-    this.exited = [];          // ids sortis, dans l'ordre
+    this.exited = [];          // ids that left, in order
     this.gameState = GameState.PLAYING;
 
     this._occupancy = new Map();
     this._reindex();
   }
 
-  // --- Occupation de la grille --------------------------------------------
+  // --- Grid occupancy ------------------------------------------------------
 
   _key(x, y) { return y * this.W + x; }
 
@@ -61,9 +61,9 @@ export class Board {
 
   inside(x, y) { return x >= 0 && x < this.W && y >= 0 && y < this.H; }
 
-  // --- Verrouillage --------------------------------------------------------
+  // --- Locking -------------------------------------------------------------
 
-  /** Un bloc verrouillé le reste tant que sa condition n'est pas remplie. */
+  /** A locked block stays locked until its condition is met. */
   conditionMet(block) {
     const c = block.condition;
     if (!c) return true;
@@ -72,37 +72,37 @@ export class Board {
       for (const b of this.blocks.values()) if (b.color === c.color) return false;
       return true;
     }
-    // Une clé : un bloc précis dont la sortie ouvre ce verrou.
+    // A key: one specific block whose exit opens this lock.
     if (c.type === 'block') return this.exited.includes(c.id);
     return true;
   }
 
   canMove(block) {
-    if (!block || !DEPLACABLES.has(block.kind)) return false;
+    if (!block || !MOVABLE.has(block.kind)) return false;
     if (block.kind === KIND.LOCKED) return this.conditionMet(block);
     return true;
   }
 
-  /** Ce bloc accepte-t-il un déplacement dans cette direction ? */
-  accepteDirection(block, dx, dy) {
+  /** Does this block accept a move in this direction? */
+  acceptsDirection(block, dx, dy) {
     if (block.kind === KIND.RAIL) return block.axis === 'h' ? dy === 0 : dx === 0;
-    // Une ancre n'a qu'un seul sens de marche : celui de sa porte. Elle ne peut
-    // donc jamais s'écarter pour laisser passer, ce qui est tout son intérêt.
-    if (block.kind === KIND.ANCRE && block.dir) {
+    // An anchor has a single way to travel: towards its gate. It can therefore
+    // never step aside to let anything through, which is the whole point.
+    if (block.kind === KIND.ANCHOR && block.dir) {
       const [ax, ay] = SIDES[block.dir];
       return dx === ax && dy === ay;
     }
     return true;
   }
 
-  /** Combien de blocs restent à sortir avant l'ouverture d'un verrou. */
-  restantAvantOuverture(block) {
+  /** How many blocks still have to exit before a lock opens. */
+  remainingBeforeUnlock(block) {
     const c = block.condition;
     if (!c || c.type !== 'exits') return 0;
     return Math.max(0, c.count - this.exited.length);
   }
 
-  /** Blocs qui viennent de se déverrouiller — pour l'animation et le HUD. */
+  /** Blocks that just unlocked — for the animation and the HUD. */
   _collectUnlocks() {
     const out = [];
     for (const b of this.blocks.values()) {
@@ -114,33 +114,33 @@ export class Board {
     return out;
   }
 
-  // --- Déplacement ---------------------------------------------------------
+  // --- Movement ------------------------------------------------------------
 
   /**
-   * Déplace un bloc d'une case. Si le pas sort de la grille, tente la sortie
-   * par une porte.
+   * Moves a block by one cell. If the step leaves the grid, attempts an exit
+   * through a gate.
    * @returns {{ok:boolean, event?:object, reason?:string}}
    */
   step(id, dx, dy) {
     const block = this.blocks.get(id);
-    if (!block) return { ok: false, reason: 'inconnu' };
-    if (this.gameState !== GameState.PLAYING) return { ok: false, reason: 'terminé' };
-    if (!this.canMove(block)) return { ok: false, reason: 'verrouillé' };
-    if (!this.accepteDirection(block, dx, dy)) return { ok: false, reason: 'glissière' };
+    if (!block) return { ok: false, reason: 'unknown' };
+    if (this.gameState !== GameState.PLAYING) return { ok: false, reason: 'finished' };
+    if (!this.canMove(block)) return { ok: false, reason: 'locked' };
+    if (!this.acceptsDirection(block, dx, dy)) return { ok: false, reason: 'rail' };
 
-    const cible = block.absolute().map(([x, y]) => [x + dx, y + dy]);
-    const sort = cible.some(([x, y]) => !this.inside(x, y));
+    const target = block.absolute().map(([x, y]) => [x + dx, y + dy]);
+    const leaves = target.some(([x, y]) => !this.inside(x, y));
 
-    // Les cases visées qui restent DANS la grille doivent être libres, que le
-    // bloc sorte ou non. Sans ce contrôle sur le chemin de sortie, un bloc dont
-    // une seule extrémité atteignait sa porte franchissait celle-ci en
-    // traversant les blocs qui le gênaient encore.
-    if (!this.cheminLibre(block, dx, dy)) return { ok: false, reason: 'occupé' };
+    // Target cells that stay INSIDE the grid must be free, whether the block
+    // exits or not. Without this check on the exit path, a block with a single
+    // end reaching its gate went through it straight across the blocks that
+    // were still in its way.
+    if (!this.pathClear(block, dx, dy)) return { ok: false, reason: 'occupied' };
 
-    if (sort) {
-      const porte = this._gateFor(block, dx, dy);
-      if (!porte) return { ok: false, reason: 'mur' };
-      return { ok: true, event: this._exit(block, porte, dx, dy) };
+    if (leaves) {
+      const gate = this._gateFor(block, dx, dy);
+      if (!gate) return { ok: false, reason: 'wall' };
+      return { ok: true, event: this._exit(block, gate, dx, dy) };
     }
 
     block.x += dx;
@@ -150,11 +150,11 @@ export class Board {
   }
 
   /**
-   * Les cases visées encore dans la grille sont-elles libres ? Un bloc ne
-   * traverse pas ce qui le gêne, même quand une partie de lui franchit déjà
-   * la porte.
+   * Are the target cells still inside the grid free? A block does not go
+   * through what stands in its way, even when part of it is already crossing
+   * the gate.
    */
-  cheminLibre(block, dx, dy) {
+  pathClear(block, dx, dy) {
     for (const [x, y] of block.absolute()) {
       const nx = x + dx, ny = y + dy;
       if (!this.inside(nx, ny)) continue;
@@ -165,55 +165,56 @@ export class Board {
   }
 
   /**
-   * Ce bloc peut-il réellement sortir dans cette direction ? Combine la porte
-   * ET le chemin. C'est cette méthode que doivent utiliser le solveur et le
-   * générateur, pour qu'ils voient exactement ce que voit le moteur.
+   * Can this block actually exit in this direction? Combines the gate AND the
+   * path. This is the method the solver and the generator must use, so that
+   * they see exactly what the engine sees.
    */
-  sortiePossible(block, dx, dy) {
-    if (!this.accepteDirection(block, dx, dy)) return null;
+  exitPossible(block, dx, dy) {
+    if (!this.acceptsDirection(block, dx, dy)) return null;
     if (!block.absolute().some(([x, y]) => !this.inside(x + dx, y + dy))) return null;
-    if (!this.cheminLibre(block, dx, dy)) return null;
+    if (!this.pathClear(block, dx, dy)) return null;
     return this._gateFor(block, dx, dy);
   }
 
   /**
-   * Cette porte accepte-t-elle ce bloc, question de couleur seule ?
+   * Does this gate accept this block, on colour alone?
    *
-   * Un joker passe partout ; sinon il suffit qu'une couleur du bloc — un DOUBLE
-   * en porte deux — rencontre une couleur de la porte — une porte partagée en
-   * sert deux. Une seule règle, que le solveur et le générateur empruntent.
+   * A joker goes anywhere; otherwise it is enough that one of the block's
+   * colours — a DUAL block carries two — meets one of the gate's colours — a
+   * shared gate serves two. A single rule, borrowed by the solver and the
+   * generator.
    */
-  accepteCouleur(gate, block) {
+  acceptsColor(gate, block) {
     if (block.kind === KIND.JOKER) return true;
-    const dePorte = couleursDe(gate);
-    return couleursDe(block).some((c) => dePorte.includes(c));
+    const gateColors = colorsOf(gate);
+    return colorsOf(block).some((c) => gateColors.includes(c));
   }
 
   /**
-   * La porte qui laisserait sortir ce bloc dans cette direction, ou null.
-   * Le bloc doit être plaqué contre le mur ET tenir entièrement dans la porte :
-   * une forme de 2 cases de large ne passe pas par une porte de 1.
+   * The gate that would let this block out in this direction, or null.
+   * The block must be flush against the wall AND fit entirely within the gate:
+   * a shape two cells wide does not go through a one-cell gate.
    */
   _gateFor(block, dx, dy) {
     const side = dx === 1 ? 'right' : dx === -1 ? 'left' : dy === 1 ? 'bottom' : 'top';
 
     const cells = block.absolute();
-    const plaque =
+    const flush =
       side === 'right' ? Math.max(...cells.map((c) => c[0])) === this.W - 1 :
       side === 'left' ? Math.min(...cells.map((c) => c[0])) === 0 :
       side === 'bottom' ? Math.max(...cells.map((c) => c[1])) === this.H - 1 :
       Math.min(...cells.map((c) => c[1])) === 0;
-    if (!plaque) return null;
+    if (!flush) return null;
 
-    const travers = side === 'left' || side === 'right' ? block.rows() : block.cols();
+    const across = side === 'left' || side === 'right' ? block.rows() : block.cols();
     for (const gate of this.gates) {
-      if (gate.side !== side || !this.accepteCouleur(gate, block)) continue;
-      // Porte saturée : elle n'accepte plus ce bloc. Un encombrant coûte le
-      // double, et se voit donc refuser une porte qui accepterait son jumeau
-      // ordinaire — c'est ce qui en fait un problème de routage.
-      if (gate.capacity !== undefined && gate.capacity < coutCapacite(block)) continue;
-      const couvre = travers.every((v) => v >= gate.start && v < gate.start + gate.length);
-      if (couvre) return gate;
+      if (gate.side !== side || !this.acceptsColor(gate, block)) continue;
+      // Saturated gate: it no longer accepts this block. A bulky block costs
+      // double, and is therefore turned away by a gate that would accept its
+      // ordinary twin — which is what makes it a routing problem.
+      if (gate.capacity !== undefined && gate.capacity < capacityCost(block)) continue;
+      const covers = across.every((v) => v >= gate.start && v < gate.start + gate.length);
+      if (covers) return gate;
     }
     return null;
   }
@@ -221,54 +222,55 @@ export class Board {
   _exit(block, gate, dx, dy) {
     this.blocks.delete(block.id);
     this.exited.push(block.id);
-    if (gate.capacity !== undefined) gate.capacity -= coutCapacite(block);
+    if (gate.capacity !== undefined) gate.capacity -= capacityCost(block);
     this._reindex();
-    return { type: 'exit', id: block.id, gate, dx, dy, restants: this.remaining() };
+    return { type: 'exit', id: block.id, gate, dx, dy, remaining: this.remaining() };
   }
 
-  // --- Geste complet -------------------------------------------------------
+  // --- Complete gesture ----------------------------------------------------
 
   /**
-   * Fait avancer un bloc vers une position visée, case par case, en préférant
-   * l'axe où il reste le plus de chemin. C'est le comportement attendu d'un
-   * glissé au doigt : le bloc suit, contourne si besoin, s'arrête sur obstacle.
+   * Advances a block towards a target position, cell by cell, preferring the
+   * axis with the most travel left. This is the expected behaviour of a finger
+   * drag: the block follows, works around obstacles if it can, and stops when
+   * blocked.
    * @returns {{events:Array, exited:boolean}}
    */
-  dragTowards(id, targetX, targetY, maxPas = 24) {
+  dragTowards(id, targetX, targetY, maxSteps = 24) {
     const events = [];
-    for (let i = 0; i < maxPas; i++) {
+    for (let i = 0; i < maxSteps; i++) {
       const block = this.blocks.get(id);
       if (!block) break;
       const ex = targetX - block.x;
       const ey = targetY - block.y;
       if (ex === 0 && ey === 0) break;
 
-      const essais = Math.abs(ex) >= Math.abs(ey)
+      const attempts = Math.abs(ex) >= Math.abs(ey)
         ? [[Math.sign(ex), 0], [0, Math.sign(ey)]]
         : [[0, Math.sign(ey)], [Math.sign(ex), 0]];
 
-      let avance = false;
-      for (const [dx, dy] of essais) {
+      let advanced = false;
+      for (const [dx, dy] of attempts) {
         if (dx === 0 && dy === 0) continue;
         const r = this.step(id, dx, dy);
-        if (r.ok) { events.push(r.event); avance = true; if (r.event.type === 'exit') return { events, exited: true }; break; }
+        if (r.ok) { events.push(r.event); advanced = true; if (r.event.type === 'exit') return { events, exited: true }; break; }
       }
-      if (!avance) break;
+      if (!advanced) break;
     }
     return { events, exited: false };
   }
 
-  /** Clôt un geste : décompte un coup s'il a réellement déplacé quelque chose. */
-  endGesture(aBouge) {
+  /** Ends a gesture: spends a move if it actually shifted something. */
+  endGesture(hasMoved) {
     const events = [];
-    if (!aBouge) return events;
+    if (!hasMoved) return events;
     this.movesRemaining--;
     events.push(...this._collectUnlocks());
     this._settle(events);
     return events;
   }
 
-  /** Écoulement du temps, appelé par la boucle de jeu (1 s). */
+  /** Time passing, called by the game loop (1 s). */
   tick(seconds = 1) {
     if (this.gameState !== GameState.PLAYING) return [];
     this.timeRemaining = Math.max(0, this.timeRemaining - seconds);
@@ -277,117 +279,116 @@ export class Board {
     return events;
   }
 
-  // --- Historique et bonus -------------------------------------------------
+  // --- History and boosters ------------------------------------------------
 
   /**
-   * Mémorise un état pour l'annulation. On peut passer un instantané pris plus
-   * tôt : l'appelant photographie AVANT de tenter le geste, puis n'empile que
-   * si le geste a réellement abouti — sinon un glissé bloqué rendrait le bouton
-   * « annuler » actif sans rien avoir à annuler.
+   * Records a state for undo. A snapshot taken earlier may be passed in: the
+   * caller photographs the board BEFORE attempting the gesture, then only
+   * pushes it if the gesture actually succeeded — otherwise a blocked drag
+   * would light up the "undo" button with nothing to undo.
    */
-  memoriser(snap = null) {
-    if (!this._historique) this._historique = [];
-    this._historique.push(snap || this.snapshot());
-    if (this._historique.length > 30) this._historique.shift();
+  remember(snap = null) {
+    if (!this._history) this._history = [];
+    this._history.push(snap || this.snapshot());
+    if (this._history.length > 30) this._history.shift();
   }
 
-  peutAnnuler() { return !!this._historique?.length; }
+  canUndo() { return !!this._history?.length; }
 
-  /** Bonus "annuler" : revient à l'état d'avant le dernier geste. */
-  annuler() {
-    const snap = this._historique?.pop();
+  /** "Undo" booster: goes back to the state before the last gesture. */
+  undo() {
+    const snap = this._history?.pop();
     if (!snap) return false;
     this.restore(snap);
     return true;
   }
 
-  /** Bonus "marteau" : retire un bloc sans qu'il ait à rejoindre sa porte. */
-  briser(id) {
-    const bloc = this.blocks.get(id);
-    if (!bloc || bloc.kind === KIND.WALL) return null;
-    this.memoriser();
+  /** "Hammer" booster: removes a block without it having to reach its gate. */
+  smash(id) {
+    const block = this.blocks.get(id);
+    if (!block || block.kind === KIND.WALL) return null;
+    this.remember();
     this.blocks.delete(id);
     this.exited.push(id);
     this._reindex();
-    const evts = this._collectUnlocks();
-    this._settle(evts);
-    return { type: 'smash', id, evts, restants: this.remaining() };
+    const events = this._collectUnlocks();
+    this._settle(events);
+    return { type: 'smash', id, events, remaining: this.remaining() };
   }
 
-  /** Bonus "temps" : rallonge le chronomètre. */
-  ajouterTemps(secondes) {
-    this.timeRemaining += secondes;
+  /** "Time" booster: extends the clock. */
+  addTime(seconds) {
+    this.timeRemaining += seconds;
   }
 
-  // --- Instantané ----------------------------------------------------------
+  // --- Snapshot ------------------------------------------------------------
 
   /**
-   * Photographie l'état des blocs. Sert à explorer des coups sans les jouer
-   * (mesure d'équilibrage aujourd'hui, annulation et indices demain).
+   * Photographs the state of the blocks. Used to explore moves without playing
+   * them (balancing measurements today, undo and hints tomorrow).
    */
   snapshot() {
-    // On garde les objets Block eux-mêmes : une simulation peut faire sortir un
-    // bloc, et il faut pouvoir le remettre en place ensuite.
+    // The Block objects themselves are kept: a simulation may make a block
+    // exit, and it must be possible to put it back afterwards.
     return {
-      blocs: [...this.blocks.values()].map((b) => ({ b, x: b.x, y: b.y })),
-      sortis: [...this.exited],
-      coups: this.movesRemaining,
-      etat: this.gameState,
-      // La capacité des portes se consomme : sans elle dans l'instantané,
-      // une annulation rendrait le bloc mais pas la place dans sa porte.
-      capacites: this.gates.map((g) => g.capacity),
+      blocks: [...this.blocks.values()].map((b) => ({ b, x: b.x, y: b.y })),
+      exited: [...this.exited],
+      moves: this.movesRemaining,
+      state: this.gameState,
+      // Gate capacity is consumed: without it in the snapshot, an undo would
+      // give the block back but not its room in the gate.
+      capacities: this.gates.map((g) => g.capacity),
     };
   }
 
   restore(snap) {
     this.blocks.clear();
-    for (const { b, x, y } of snap.blocs) { b.x = x; b.y = y; this.blocks.set(b.id, b); }
-    this.exited = [...snap.sortis];
-    this.movesRemaining = snap.coups;
-    this.gameState = snap.etat;
-    this.gates.forEach((g, i) => { g.capacity = snap.capacites[i]; });
+    for (const { b, x, y } of snap.blocks) { b.x = x; b.y = y; this.blocks.set(b.id, b); }
+    this.exited = [...snap.exited];
+    this.movesRemaining = snap.moves;
+    this.gameState = snap.state;
+    this.gates.forEach((g, i) => { g.capacity = snap.capacities[i]; });
     this._reindex();
   }
 
   /**
-   * Prochain bloc à jouer, d'après la solution de référence.
+   * Next block to play, according to the reference solution.
    *
-   * Le joueur a pu s'écarter de l'ordre canonique : on ne se contente donc pas
-   * de lire la solution, on VERIFIE en simulant que le bloc proposé peut
-   * réellement sortir dans l'état actuel de la grille. C'est ce qui rend
-   * l'indice fiable — et donc vendable.
+   * The player may have strayed from the canonical order: so rather than just
+   * reading the solution, we VERIFY by simulation that the suggested block can
+   * really exit in the current state of the grid. That is what makes the hint
+   * reliable — and therefore sellable.
    *
-   * @returns {{id:number, gate:string, chemin:Array}|null}
+   * @returns {{id:number, gate:string, path:Array}|null}
    */
   hint() {
-    // Niveau écrit dans l'éditeur : pas de solution de référence, on interroge
-    // le solveur.
+    // Level written in the editor: no reference solution, so ask the solver.
     if (!this.level.solution?.length) {
-      const { resoudre } = this._solveur || {};
-      if (!resoudre) return null;
-      const r = resoudre(this);
-      return r.resoluble ? { id: r.ordre[0], gate: null, chemin: [] } : null;
+      const { solve } = this._solver || {};
+      if (!solve) return null;
+      const r = solve(this);
+      return r.solvable ? { id: r.order[0], gate: null, path: [] } : null;
     }
-    for (const etape of this.level.solution) {
-      const bloc = this.blocks.get(etape.id);
-      if (!bloc || !this.canMove(bloc)) continue;
+    for (const step of this.level.solution) {
+      const block = this.blocks.get(step.id);
+      if (!block || !this.canMove(block)) continue;
 
       const snap = this.snapshot();
-      for (const pos of etape.chemin.slice(1)) this.dragTowards(etape.id, pos.x, pos.y);
-      let sort = !this.blocks.has(etape.id);
-      if (!sort) {
-        const [dx, dy] = SIDES[etape.gate];
-        sort = this.step(etape.id, dx, dy).ok;
+      for (const pos of step.path.slice(1)) this.dragTowards(step.id, pos.x, pos.y);
+      let leaves = !this.blocks.has(step.id);
+      if (!leaves) {
+        const [dx, dy] = SIDES[step.gate];
+        leaves = this.step(step.id, dx, dy).ok;
       }
       this.restore(snap);
-      if (sort) return { id: etape.id, gate: etape.gate, chemin: etape.chemin };
+      if (leaves) return { id: step.id, gate: step.gate, path: step.path };
     }
     return null;
   }
 
-  // --- Fin de niveau -------------------------------------------------------
+  // --- End of level --------------------------------------------------------
 
-  /** Blocs restant à sortir (les murs ne comptent pas). */
+  /** Blocks still to be cleared (walls do not count). */
   remaining() {
     let n = 0;
     for (const b of this.blocks.values()) if (b.kind !== KIND.WALL) n++;
@@ -398,25 +399,25 @@ export class Board {
 
   _settle(events) {
     if (this.isSolved()) { this.gameState = GameState.WON; return; }
-    if (this.movesRemaining <= 0) { this.gameState = GameState.FAILED; this.failReason = 'coups'; return; }
-    if (this.timeRemaining <= 0) { this.gameState = GameState.FAILED; this.failReason = 'temps'; }
+    if (this.movesRemaining <= 0) { this.gameState = GameState.FAILED; this.failReason = 'moves'; return; }
+    if (this.timeRemaining <= 0) { this.gameState = GameState.FAILED; this.failReason = 'time'; }
   }
 
-  /** Glissés réellement consommés depuis le début du niveau. */
+  /** Drags actually spent since the start of the level. */
   dragsUsed() { return this.level.moveLimit - this.movesRemaining; }
 
   /**
-   * 0 à 3 étoiles. 1★ = niveau résolu ; 2★ et 3★ mesurent l'économie de gestes
-   * par rapport à la solution de référence (`starDrags`). Le chrono et la
-   * limite de coups restent des conditions de défaite, pas des barèmes : mêler
-   * les deux rendait la note illisible.
+   * 0 to 3 stars. 1★ = level solved; 2★ and 3★ measure how economical the
+   * player was compared to the reference solution (`starDrags`). The clock and
+   * the move limit remain defeat conditions, not grading scales: mixing the two
+   * made the grade unreadable.
    */
   stars() {
     if (!this.isSolved()) return 0;
-    const [pour3, pour2] = this.level.starDrags;
-    const utilises = this.dragsUsed();
-    if (utilises <= pour3) return 3;
-    if (utilises <= pour2) return 2;
+    const [for3, for2] = this.level.starDrags;
+    const used = this.dragsUsed();
+    if (used <= for3) return 3;
+    if (used <= for2) return 2;
     return 1;
   }
 }

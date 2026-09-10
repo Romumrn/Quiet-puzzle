@@ -1,60 +1,63 @@
 /**
- * Éditeur de niveaux.
+ * Level editor.
  *
- * Permet de dessiner une grille à la main : poser des formes, choisir leur
- * couleur et leur nature, ouvrir des portes sur les murs, puis VERIFIER que le
- * résultat est jouable avant de le donner à qui que ce soit. La vérification
- * s'appuie sur le solveur (src/core/solver.js), pas sur une intuition.
+ * Lets you draw a grid by hand: drop shapes, pick their colour and their kind,
+ * open gates in the walls, then CHECK that the result is playable before giving
+ * it to anyone. The check leans on the solver (src/core/solver.js), not on
+ * intuition.
  *
- * Modèle : on choisit une forme dans la palette, on la dépose sur la grille.
- * Un appui sur un bloc existant le retire. Un appui sur un mur fait défiler la
- * couleur de la porte à cet endroit ; les cases voisines de même couleur sont
- * fusionnées en une seule porte à l'export.
+ * Model: pick a shape from the palette, drop it on the grid. Tapping an
+ * existing block removes it. Tapping a wall cycles the gate colour at that
+ * spot; neighbouring cells of the same colour are merged into a single gate on
+ * export.
  */
 
 import { SHAPES, COLORS, KIND } from '../core/block.js';
 import { Board } from '../core/board.js';
-import { resoudre } from '../core/solver.js';
+import { solve } from '../core/solver.js';
 import { t } from './i18n.js';
-import * as mesNiveaux from '../meta/mesNiveaux.js';
+import * as myLevels from '../meta/myLevels.js';
 
-const COTES = ['top', 'right', 'bottom', 'left'];
+const SIDES = ['top', 'right', 'bottom', 'left'];
 /**
- * Une ancre a besoin de sa direction, d'où les quatre entrées : c'est la
- * direction qui la définit, comme l'axe définit une glissière.
+ * An anchor needs its direction, hence the four entries: direction is what
+ * defines it, just as the axis defines a rail.
  */
-const NATURES = [
-  { kind: KIND.NORMAL, label: 'Normal' },
-  { kind: KIND.RAIL, label: 'Glissière', axis: 'h' },
-  { kind: KIND.RAIL, label: 'Glissière ↕', axis: 'v' },
-  { kind: KIND.JOKER, label: 'Joker' },
-  { kind: KIND.LOCKED, label: 'Verrou' },
-  { kind: KIND.WALL, label: 'Scellé' },
-  { kind: KIND.ENCOMBRANT, label: 'Encombrant ×2' },
-  { kind: KIND.ANCRE, label: 'Ancre ▲', dir: 'top' },
-  { kind: KIND.ANCRE, label: 'Ancre ▶', dir: 'right' },
-  { kind: KIND.ANCRE, label: 'Ancre ▼', dir: 'bottom' },
-  { kind: KIND.ANCRE, label: 'Ancre ◀', dir: 'left' },
+const KINDS = [
+  { kind: KIND.NORMAL, key: 'editor.kind.normal' },
+  { kind: KIND.RAIL, key: 'editor.kind.rail.h', axis: 'h' },
+  { kind: KIND.RAIL, key: 'editor.kind.rail.v', axis: 'v' },
+  { kind: KIND.JOKER, key: 'editor.kind.joker' },
+  { kind: KIND.LOCKED, key: 'editor.kind.locked' },
+  { kind: KIND.WALL, key: 'editor.kind.wall' },
+  { kind: KIND.BULKY, key: 'editor.kind.bulky' },
+  { kind: KIND.ANCHOR, key: 'editor.kind.anchor.top', dir: 'top' },
+  { kind: KIND.ANCHOR, key: 'editor.kind.anchor.right', dir: 'right' },
+  { kind: KIND.ANCHOR, key: 'editor.kind.anchor.bottom', dir: 'bottom' },
+  { kind: KIND.ANCHOR, key: 'editor.kind.anchor.left', dir: 'left' },
 ];
+
+/** Exit arrows, shared by the anchor kinds and the grid preview. */
+const ARROWS = { top: '▲', right: '▶', bottom: '▼', left: '◀' };
 
 const el = (id) => document.getElementById(id);
 
-let etat = null;
-let choix = { shape: 0, color: 0, nature: 0, verrouCount: 2 };
+let state = null;
+let choice = { shape: 0, color: 0, kind: 0, lockCount: 2 };
 /**
- * La gomme est un OUTIL, pas une nature de bloc : on ne pose pas une gomme, on
- * choisit d'effacer. La ranger parmi les natures forçait à la désélectionner
- * pour reposer quoi que ce soit, et faisait d'un mode un pinceau.
+ * The eraser is a TOOL, not a block kind: you do not place an eraser, you
+ * choose to erase. Filing it among the kinds forced you to deselect it before
+ * placing anything, and turned a mode into a brush.
  */
-let gommeActive = false;
-let onTester = null;
-let onSoumettre = null;
-let brouillonId = null;
+let eraserOn = false;
+let onTest = null;
+let onSubmit = null;
+let draftId = null;
 
-const vide = (W, H) => ({
+const empty = (W, H) => ({
   W, H,
   blocks: [],
-  portes: {
+  gates: {
     top: new Array(W).fill(null),
     bottom: new Array(W).fill(null),
     left: new Array(H).fill(null),
@@ -62,44 +65,44 @@ const vide = (W, H) => ({
   },
 });
 
-export function init({ onTest, onSubmit, niveau = null, id = null }) {
-  onTester = onTest;
-  onSoumettre = onSubmit;
-  // Reprise d'un brouillon : l'éditeur rouvre sur la grille qu'on lui donne,
-  // et retient son identifiant pour ne pas en créer un doublon à chaque essai.
-  brouillonId = id;
-  etat = vide(6, 7);
-  gommeActive = false;
-  if (niveau) importerDans(niveau);
-  construirePalettes();
-  brancherBoutons();
-  dessiner();
+export function init({ onTest: test, onSubmit: submit, level = null, id = null }) {
+  onTest = test;
+  onSubmit = submit;
+  // Resuming a draft: the editor reopens on the grid it is given, and remembers
+  // its id so as not to create a duplicate on every test run.
+  draftId = id;
+  state = empty(6, 7);
+  eraserOn = false;
+  if (level) importInto(level);
+  buildPalettes();
+  wireButtons();
+  draw();
 }
 
 // ---------------------------------------------------------------------------
-// Conversion vers le format de niveau
+// Conversion to the level format
 // ---------------------------------------------------------------------------
 
-/** Fusionne les cases de mur voisines de même couleur en portes. */
-/** Les couleurs d'une case de bord, toujours sous forme de liste. */
-const couleursPorte = (v) => (v === null || v === undefined ? [] : (Array.isArray(v) ? v : [v]));
-const memePorte = (a, b) => couleursPorte(a).join() === couleursPorte(b).join();
+/** The colours of an edge cell, always as a list. */
+const gateColors = (v) => (v === null || v === undefined ? [] : (Array.isArray(v) ? v : [v]));
+const sameGate = (a, b) => gateColors(a).join() === gateColors(b).join();
 
-function portesFusionnees() {
+/** Merges neighbouring wall cells of the same colour into gates. */
+function mergedGates() {
   const gates = [];
-  for (const side of COTES) {
-    const cells = etat.portes[side];
+  for (const side of SIDES) {
+    const cells = state.gates[side];
     let i = 0;
     while (i < cells.length) {
-      const couleurs = couleursPorte(cells[i]);
-      if (!couleurs.length) { i++; continue; }
-      // Deux cases voisines ne forment une même porte que si elles acceptent
-      // exactement les mêmes couleurs — une porte bicolore ne se fond pas dans
-      // sa voisine simple, elles n'ouvrent pas sur les mêmes blocs.
+      const colors = gateColors(cells[i]);
+      if (!colors.length) { i++; continue; }
+      // Two neighbouring cells only form one gate if they accept exactly the
+      // same colours — a two-colour gate does not merge into its single-colour
+      // neighbour, they do not open onto the same blocks.
       let len = 1;
-      while (i + len < cells.length && memePorte(cells[i + len], cells[i])) len++;
-      const gate = { side, start: i, length: len, color: couleurs[0] };
-      if (couleurs.length > 1) gate.colors = [...couleurs];
+      while (i + len < cells.length && sameGate(cells[i + len], cells[i])) len++;
+      const gate = { side, start: i, length: len, color: colors[0] };
+      if (colors.length > 1) gate.colors = [...colors];
       gates.push(gate);
       i += len;
     }
@@ -107,27 +110,27 @@ function portesFusionnees() {
   return gates;
 }
 
-/** Objet niveau au format `GET /api/level/{n}` (doc §6.1). */
-export function versNiveau() {
-  const jouables = etat.blocks.filter((b) => b.kind !== KIND.WALL).length;
-  const base = Math.max(4, jouables);
+/** Level object in the `GET /api/level/{n}` format (doc §6.1). */
+export function toLevel() {
+  const playable = state.blocks.filter((b) => b.kind !== KIND.WALL).length;
+  const base = Math.max(4, playable);
   return {
     levelId: 'custom',
     number: 0,
-    realm: 'Éditeur',
-    difficulty: 'sur mesure',
-    width: etat.W,
-    height: etat.H,
+    realm: 'Editor',
+    difficulty: 'custom',
+    width: state.W,
+    height: state.H,
     colorCount: COLORS.length,
     moveLimit: Math.round(base * 2.2) + 3,
     timeLimit: Math.max(45, base * 10),
     minDrags: base,
-    objective: { type: 'clear_all', target: jouables },
+    objective: { type: 'clear_all', target: playable },
     starDrags: [Math.ceil(base * 1.3), Math.ceil(base * 1.8)],
     estimatedTime: Math.max(45, base * 10),
-    gates: portesFusionnees(),
-    blocks: etat.blocks.map((b) => ({ ...b })),
-    solution: [], // pas de solution de référence : l'indice passe par le solveur
+    gates: mergedGates(),
+    blocks: state.blocks.map((b) => ({ ...b })),
+    solution: [], // no reference solution: hints go through the solver
   };
 }
 
@@ -136,108 +139,109 @@ export function versNiveau() {
 // ---------------------------------------------------------------------------
 
 /**
- * Annulation. On garde la PILE des blocs posés plutôt qu'un instantané de la
- * grille : c'est le dernier geste que le joueur veut défaire, et une pile suffit
- * — d'autant qu'elle survit aux effacements, un bloc retiré à la gomme n'ayant
- * plus à être défait.
+ * Undo. We keep the STACK of placed blocks rather than a snapshot of the grid:
+ * it is the last gesture the player wants to take back, and a stack is enough —
+ * all the more so as it survives erasures, a block removed with the eraser
+ * having nothing left to undo.
  */
-function annulerDernier() {
-  if (!etat.blocks.length) return false;
-  etat.blocks.pop();
-  dessiner();
+function undoLast() {
+  if (!state.blocks.length) return false;
+  state.blocks.pop();
+  draw();
   return true;
 }
 
-/** Appelée par le bouton « précédent » du téléphone. */
-export function retourArriere() {
-  return annulerDernier();
+/** Called by the phone's "back" button. */
+export function goBack() {
+  return undoLast();
 }
 
 /**
- * Glisser-déposer d'une forme de la palette vers la grille.
+ * Drag and drop of a shape from the palette onto the grid.
  *
- * Choisir une pièce puis viser une case demandait de tenir deux idées à la
- * fois ; on prend maintenant la pièce et on la pose où on la veut. Le simple
- * appui reste actif — il sélectionne la forme, pour qui préfère taper la grille.
+ * Picking a piece then aiming at a cell meant holding two ideas at once; now
+ * you take the piece and drop it where you want it. A plain tap still works —
+ * it selects the shape, for anyone who prefers tapping the grid.
  *
- * On passe par les Pointer Events plutôt que par l'API drag-and-drop du HTML :
- * celle-ci ne fonctionne pas au doigt sur mobile, où ce jeu se joue.
+ * We go through Pointer Events rather than the HTML drag-and-drop API: the
+ * latter does not work with a finger on mobile, which is where this game is
+ * played.
  */
-function brancherGlisser(vignette, index, forme) {
-  vignette.addEventListener('pointerdown', (depart) => {
-    if (gommeActive) return;
-    choix.shape = index;
-    majPalettes();
+function wireDrag(thumb, index) {
+  thumb.addEventListener('pointerdown', (start) => {
+    if (eraserOn) return;
+    choice.shape = index;
+    updatePalettes();
 
-    const fantome = vignette.cloneNode(true);
-    fantome.className = 'ed-shape ed-fantome';
-    document.body.appendChild(fantome);
+    const ghost = thumb.cloneNode(true);
+    ghost.className = 'ed-shape ed-ghost';
+    document.body.appendChild(ghost);
 
-    let cible = null;
-    const suivre = (ev) => {
-      fantome.style.left = `${ev.clientX}px`;
-      fantome.style.top = `${ev.clientY}px`;
-      // La case sous le doigt, et non sous le fantôme : c'est le doigt qui
-      // vise, et le fantôme le suit avec un décalage volontaire pour rester
-      // visible sous la main.
-      const sous = document.elementFromPoint(ev.clientX, ev.clientY);
-      const caseVisee = sous?.classList.contains('ed-cell') ? sous : null;
-      if (caseVisee !== cible) {
-        cible?.classList.remove('vise');
-        cible = caseVisee;
-        cible?.classList.add('vise');
+    let target = null;
+    const follow = (ev) => {
+      ghost.style.left = `${ev.clientX}px`;
+      ghost.style.top = `${ev.clientY}px`;
+      // The cell under the finger, not under the ghost: the finger aims, and
+      // the ghost trails it with a deliberate offset so it stays visible under
+      // the hand.
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const aimed = under?.classList.contains('ed-cell') ? under : null;
+      if (aimed !== target) {
+        target?.classList.remove('aimed');
+        target = aimed;
+        target?.classList.add('aimed');
       }
     };
 
-    const lacher = (ev) => {
-      vignette.releasePointerCapture?.(depart.pointerId);
-      window.removeEventListener('pointermove', suivre);
-      window.removeEventListener('pointerup', lacher);
-      window.removeEventListener('pointercancel', lacher);
-      fantome.remove();
-      cible?.classList.remove('vise');
-      const sous = document.elementFromPoint(ev.clientX, ev.clientY);
-      if (sous?.classList.contains('ed-cell')) {
-        poser(Number(sous.dataset.x), Number(sous.dataset.y));
+    const release = (ev) => {
+      thumb.releasePointerCapture?.(start.pointerId);
+      window.removeEventListener('pointermove', follow);
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+      ghost.remove();
+      target?.classList.remove('aimed');
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      if (under?.classList.contains('ed-cell')) {
+        place(Number(under.dataset.x), Number(under.dataset.y));
       }
     };
 
-    vignette.setPointerCapture?.(depart.pointerId);
-    window.addEventListener('pointermove', suivre);
-    window.addEventListener('pointerup', lacher);
-    window.addEventListener('pointercancel', lacher);
-    suivre(depart);
+    thumb.setPointerCapture?.(start.pointerId);
+    window.addEventListener('pointermove', follow);
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    follow(start);
   });
 }
 
-function construirePalettes() {
-  const outils = el('ed-tools');
-  if (outils) {
-    outils.replaceChildren();
+function buildPalettes() {
+  const tools = el('ed-tools');
+  if (tools) {
+    tools.replaceChildren();
 
-    const gomme = document.createElement('button');
-    gomme.className = 'ed-tool';
-    gomme.id = 'ed-gomme';
-    gomme.title = t('editor.eraser');
-    gomme.setAttribute('aria-label', t('editor.eraser'));
-    gomme.textContent = '🧽';
-    gomme.onclick = () => { gommeActive = !gommeActive; majPalettes(); };
+    const eraser = document.createElement('button');
+    eraser.className = 'ed-tool';
+    eraser.id = 'ed-eraser';
+    eraser.title = t('editor.eraser');
+    eraser.setAttribute('aria-label', t('editor.eraser'));
+    eraser.textContent = '🧽';
+    eraser.onclick = () => { eraserOn = !eraserOn; updatePalettes(); };
 
-    const annuler = document.createElement('button');
-    annuler.className = 'ed-tool';
-    annuler.title = t('editor.undo');
-    annuler.setAttribute('aria-label', t('editor.undo'));
-    annuler.textContent = '↶';
-    annuler.onclick = () => annulerDernier();
+    const undo = document.createElement('button');
+    undo.className = 'ed-tool';
+    undo.title = t('editor.undo');
+    undo.setAttribute('aria-label', t('editor.undo'));
+    undo.textContent = '↶';
+    undo.onclick = () => undoLast();
 
-    outils.append(gomme, annuler);
+    tools.append(eraser, undo);
   }
 
-  const formes = el('ed-shapes');
-  formes.replaceChildren(...SHAPES.map((sh, i) => {
+  const shapes = el('ed-shapes');
+  shapes.replaceChildren(...SHAPES.map((sh, i) => {
     const b = document.createElement('button');
     b.className = 'ed-shape';
-    brancherGlisser(b, i, sh);
+    wireDrag(b, i);
     b.title = sh.key;
     const g = document.createElement('span');
     g.style.gridTemplateColumns = `repeat(${sh.w}, 7px)`;
@@ -250,135 +254,136 @@ function construirePalettes() {
       }
     }
     b.appendChild(g);
-    b.onclick = () => { choix.shape = i; majPalettes(); };
+    b.onclick = () => { choice.shape = i; updatePalettes(); };
     return b;
   }));
 
-  const couleurs = el('ed-colors');
-  couleurs.replaceChildren(...COLORS.map((c, i) => {
+  const colors = el('ed-colors');
+  colors.replaceChildren(...COLORS.map((c, i) => {
     const b = document.createElement('button');
     b.className = `ed-color c${i}`;
     b.title = c.name;
     b.textContent = c.glyph;
-    b.onclick = () => { choix.color = i; majPalettes(); };
+    b.onclick = () => { choice.color = i; updatePalettes(); };
     return b;
   }));
 
-  const natures = el('ed-kinds');
-  natures.replaceChildren(...NATURES.map((n, i) => {
+  const kinds = el('ed-kinds');
+  kinds.replaceChildren(...KINDS.map((n, i) => {
     const b = document.createElement('button');
     b.className = 'ed-kind';
-    b.textContent = n.label;
-    b.onclick = () => { choix.nature = i; majPalettes(); };
+    b.textContent = t(n.key);
+    b.onclick = () => { choice.kind = i; updatePalettes(); };
     return b;
   }));
 
-  majPalettes();
+  updatePalettes();
 }
 
-function majPalettes() {
-  [...el('ed-shapes').children].forEach((b, i) => b.classList.toggle('sel', i === choix.shape));
-  [...el('ed-colors').children].forEach((b, i) => b.classList.toggle('sel', i === choix.color));
-  [...el('ed-kinds').children].forEach((b, i) => b.classList.toggle('sel', i === choix.nature));
-  // La gomme s'allume seule : c'est un mode, et un mode doit se voir de loin.
-  el('ed-gomme')?.classList.toggle('sel', gommeActive);
-  el('ed-grid')?.classList.toggle('gomme', gommeActive);
+function updatePalettes() {
+  [...el('ed-shapes').children].forEach((b, i) => b.classList.toggle('sel', i === choice.shape));
+  [...el('ed-colors').children].forEach((b, i) => b.classList.toggle('sel', i === choice.color));
+  [...el('ed-kinds').children].forEach((b, i) => b.classList.toggle('sel', i === choice.kind));
+  // The eraser lights up on its own: it is a mode, and a mode must be visible
+  // from a distance.
+  el('ed-eraser')?.classList.toggle('sel', eraserOn);
+  el('ed-grid')?.classList.toggle('erasing', eraserOn);
 }
 
 // ---------------------------------------------------------------------------
-// Grille
+// Grid
 // ---------------------------------------------------------------------------
 
-function occupe(x, y) {
-  return etat.blocks.find((b) => b.cells.some(([dx, dy]) => b.x + dx === x && b.y + dy === y));
+function occupant(x, y) {
+  return state.blocks.find((b) => b.cells.some(([dx, dy]) => b.x + dx === x && b.y + dy === y));
 }
 
-function dessiner() {
-  const grille = el('ed-grid');
-  grille.style.setProperty('--ew', etat.W);
-  grille.style.setProperty('--eh', etat.H);
-  grille.replaceChildren();
+function draw() {
+  const grid = el('ed-grid');
+  grid.style.setProperty('--ew', state.W);
+  grid.style.setProperty('--eh', state.H);
+  grid.replaceChildren();
 
-  // Cases de mur : un appui fait défiler la couleur de la porte.
-  for (const side of COTES) {
-    etat.portes[side].forEach((color, i) => {
-      const couleurs = couleursPorte(color);
+  // Wall cells: a tap cycles the gate colour.
+  for (const side of SIDES) {
+    state.gates[side].forEach((color, i) => {
+      const colors = gateColors(color);
       const m = document.createElement('button');
       m.className = `ed-wall ed-wall-${side}`
-        + (couleurs.length ? ` c${couleurs[0]} ouvert` : '')
-        + (couleurs.length > 1 ? ' double' : '');
+        + (colors.length ? ` c${colors[0]} open` : '')
+        + (colors.length > 1 ? ' dual' : '');
       m.style.setProperty('--i', i);
-      if (couleurs.length > 1) m.style.setProperty('--c-bis', `var(--c${couleurs[1]})`);
-      m.textContent = couleurs.map((c) => COLORS[c].glyph).join('');
+      if (colors.length > 1) m.style.setProperty('--c-alt', `var(--c${colors[1]})`);
+      m.textContent = colors.map((c) => COLORS[c].glyph).join('');
       m.onclick = () => {
-        if (gommeActive) { etat.portes[side][i] = null; dessiner(); return; }
-        // Un appui AJOUTE la couleur choisie ; le même appui sur une couleur
-        // déjà là la retire. Une porte en accepte deux au plus — au-delà, on ne
-        // saurait plus la lire d'un coup d'œil sur le plateau.
-        const suite = couleurs.includes(choix.color)
-          ? couleurs.filter((c) => c !== choix.color)
-          : [...couleurs, choix.color].slice(-2);
-        etat.portes[side][i] = suite.length ? suite : null;
-        dessiner();
+        if (eraserOn) { state.gates[side][i] = null; draw(); return; }
+        // A tap ADDS the chosen colour; the same tap on a colour already there
+        // removes it. A gate accepts two at most — beyond that, it could no
+        // longer be read at a glance on the board.
+        const next = colors.includes(choice.color)
+          ? colors.filter((c) => c !== choice.color)
+          : [...colors, choice.color].slice(-2);
+        state.gates[side][i] = next.length ? next : null;
+        draw();
       };
-      grille.appendChild(m);
+      grid.appendChild(m);
     });
   }
 
-  for (let y = 0; y < etat.H; y++) {
-    for (let x = 0; x < etat.W; x++) {
-      const bloc = occupe(x, y);
+  for (let y = 0; y < state.H; y++) {
+    for (let x = 0; x < state.W; x++) {
+      const block = occupant(x, y);
       const c = document.createElement('button');
       c.className = 'ed-cell';
       c.style.setProperty('--x', x);
       c.style.setProperty('--y', y);
       c.dataset.x = x;
       c.dataset.y = y;
-      if (bloc) {
-        c.classList.add('plein', `k-${bloc.kind}`);
-        if (bloc.color >= 0 && bloc.kind !== KIND.JOKER) c.classList.add(`c${bloc.color}`);
-        c.textContent = bloc.kind === KIND.WALL ? '' : bloc.kind === KIND.JOKER ? '✳'
-          : bloc.kind === KIND.LOCKED ? '🔒'
-          : bloc.kind === KIND.ANCRE ? { top: '▲', right: '▶', bottom: '▼', left: '◀' }[bloc.dir]
-          : COLORS[bloc.color].glyph;
+      if (block) {
+        c.classList.add('filled', `k-${block.kind}`);
+        if (block.color >= 0 && block.kind !== KIND.JOKER) c.classList.add(`c${block.color}`);
+        c.textContent = block.kind === KIND.WALL ? '' : block.kind === KIND.JOKER ? '✳'
+          : block.kind === KIND.LOCKED ? '🔒'
+          : block.kind === KIND.ANCHOR ? ARROWS[block.dir]
+          : COLORS[block.color].glyph;
       }
       c.onclick = () => {
-        if (gommeActive) { if (bloc) retirer(bloc); return; }
-        if (bloc) retirer(bloc); else poser(x, y);
+        if (eraserOn) { if (block) remove(block); return; }
+        if (block) remove(block); else place(x, y);
       };
-      grille.appendChild(c);
+      grid.appendChild(c);
     }
   }
-  majEtat('');
+  setStatus('');
 }
 
-function poser(x, y) {
-  const forme = SHAPES[choix.shape];
-  const nature = NATURES[choix.nature];
-  if (gommeActive) return;
-  if (x + forme.w > etat.W || y + forme.h > etat.H) { majEtat('La forme dépasse de la grille'); return; }
-  if (forme.cells.some(([dx, dy]) => occupe(x + dx, y + dy))) { majEtat('Emplacement déjà occupé'); return; }
+function place(x, y) {
+  const shape = SHAPES[choice.shape];
+  const kind = KINDS[choice.kind];
+  if (eraserOn) return;
+  if (x + shape.w > state.W || y + shape.h > state.H) { setStatus(t('editor.status.overflow')); return; }
+  if (shape.cells.some(([dx, dy]) => occupant(x + dx, y + dy))) { setStatus(t('editor.status.occupied')); return; }
 
-  etat.blocks.push({
-    id: (etat.blocks.at(-1)?.id ?? 0) + 1,
-    color: nature.kind === KIND.WALL ? -1 : choix.color,
-    cells: forme.cells.map(([a, b]) => [a, b]),
+  state.blocks.push({
+    id: (state.blocks.at(-1)?.id ?? 0) + 1,
+    color: kind.kind === KIND.WALL ? -1 : choice.color,
+    cells: shape.cells.map(([a, b]) => [a, b]),
     x, y,
-    kind: nature.kind,
-    axis: nature.axis || null,
-    dir: nature.dir || null,
-    condition: nature.kind === KIND.LOCKED ? { type: 'exits', count: choix.verrouCount } : null,
+    kind: kind.kind,
+    axis: kind.axis || null,
+    dir: kind.dir || null,
+    condition: kind.kind === KIND.LOCKED ? { type: 'exits', count: choice.lockCount } : null,
   });
-  dessiner();
+  draw();
 }
 
-/** Charge une grille au format `GET /api/level/{n}` dans l'état de l'éditeur. */
-function importerDans(n) {
-  etat = vide(n.width, n.height);
-  etat.blocks = n.blocks.map((b) => ({ ...b }));
+/** Loads a grid in the `GET /api/level/{n}` format into the editor's state. */
+function importInto(n) {
+  state = empty(n.width, n.height);
+  state.blocks = n.blocks.map((b) => ({ ...b }));
   for (const g of n.gates) {
-    const couleurs = g.colors?.length ? [...g.colors] : [g.color];
-    for (let k = 0; k < g.length; k++) etat.portes[g.side][g.start + k] = couleurs;
+    const colors = g.colors?.length ? [...g.colors] : [g.color];
+    for (let k = 0; k < g.length; k++) state.gates[g.side][g.start + k] = colors;
   }
   const w = el('ed-w'), h = el('ed-h');
   if (w) w.value = n.width;
@@ -386,175 +391,173 @@ function importerDans(n) {
 }
 
 /**
- * Enregistre l'état courant dans l'historique. Appelé quand on teste et quand
- * on propose : ce sont les deux moments où le joueur montre qu'il tient à sa
- * grille, et les seuls où la perdre serait vexant.
+ * Stores the current state in the history. Called when testing and when
+ * submitting: those are the two moments the player shows they care about their
+ * grid, and the only ones where losing it would sting.
  */
-function garder(niveau, { titre = '', propose = false } = {}) {
-  brouillonId = mesNiveaux.enregistrer(niveau, { id: brouillonId, titre, propose });
-  return brouillonId;
+function keep(level, { title = '', submitted = false } = {}) {
+  draftId = myLevels.record(level, { id: draftId, title, submitted });
+  return draftId;
 }
 
-function ouvrirMesNiveaux() {
-  const hote = el('mine-list');
-  const entrees = mesNiveaux.liste();
-  hote.replaceChildren(...entrees.map((e) => {
+function openMyLevels() {
+  const host = el('mine-list');
+  const entries = myLevels.list();
+  host.replaceChildren(...entries.map((e) => {
     const li = document.createElement('li');
 
     const info = document.createElement('button');
     info.className = 'mine-open';
-    const titre = document.createElement('b');
-    titre.textContent = e.titre || t('editor.untitled');
+    const title = document.createElement('b');
+    title.textContent = e.title || t('editor.untitled');
     const detail = document.createElement('small');
-    detail.textContent = `${e.largeur}×${e.hauteur} · ${t('editor.blocks', { n: e.blocs })}`
-      + `${e.propose ? ' · ' + t('editor.proposed') : ''}`;
-    info.append(titre, detail);
+    detail.textContent = `${e.width}×${e.height} · ${t('editor.blocks', { n: e.blocks })}`
+      + `${e.submitted ? ' · ' + t('editor.proposed') : ''}`;
+    info.append(title, detail);
     info.onclick = () => {
-      importerDans(e.niveau);
-      brouillonId = e.id;
-      dessiner();
+      importInto(e.level);
+      draftId = e.id;
+      draw();
       el('overlay-mine').hidden = true;
-      majEtat(t('editor.loaded'), 'ok');
+      setStatus(t('editor.loaded'), 'ok');
     };
 
-    const jeter = document.createElement('button');
-    jeter.className = 'mine-del';
-    jeter.setAttribute('aria-label', t('editor.delete'));
-    jeter.textContent = '×';
-    jeter.onclick = () => { mesNiveaux.supprimer(e.id); ouvrirMesNiveaux(); };
+    const discard = document.createElement('button');
+    discard.className = 'mine-del';
+    discard.setAttribute('aria-label', t('editor.delete'));
+    discard.textContent = '×';
+    discard.onclick = () => { myLevels.remove(e.id); openMyLevels(); };
 
-    li.append(info, jeter);
+    li.append(info, discard);
     return li;
   }));
-  if (!entrees.length) hote.textContent = t('editor.mine.empty');
+  if (!entries.length) host.textContent = t('editor.mine.empty');
   el('overlay-mine').hidden = false;
 }
 
-function retirer(bloc) {
-  etat.blocks = etat.blocks.filter((b) => b !== bloc);
-  dessiner();
+function remove(block) {
+  state.blocks = state.blocks.filter((b) => b !== block);
+  draw();
 }
 
 // ---------------------------------------------------------------------------
-// Boutons
+// Buttons
 // ---------------------------------------------------------------------------
 
-function majEtat(message, ton = '') {
+function setStatus(message, tone = '') {
   const z = el('ed-status');
   z.textContent = message;
-  z.className = 'ed-status' + (ton ? ` ${ton}` : '');
+  z.className = 'ed-status' + (tone ? ` ${tone}` : '');
 }
 
-function brancherBoutons() {
-  el('ed-w').onchange = () => redimensionner(Number(el('ed-w').value), etat.H);
-  el('ed-h').onchange = () => redimensionner(etat.W, Number(el('ed-h').value));
+function wireButtons() {
+  el('ed-w').onchange = () => resize(Number(el('ed-w').value), state.H);
+  el('ed-h').onchange = () => resize(state.W, Number(el('ed-h').value));
 
-  el('ed-clear').onclick = () => { etat = vide(etat.W, etat.H); dessiner(); };
+  el('ed-clear').onclick = () => { state = empty(state.W, state.H); draw(); };
 
   el('ed-check').onclick = () => {
-    const niveau = versNiveau();
-    if (!niveau.gates.length) { majEtat('Aucune porte : ouvrez au moins un passage', 'ko'); return; }
-    if (!niveau.objective.target) { majEtat('Aucun bloc à sortir', 'ko'); return; }
-    const r = resoudre(new Board({ ...niveau, moveLimit: 9999, timeLimit: 9999 }));
-    if (r.resoluble) {
-      majEtat(`Résoluble en ${r.ordre.length} sortie${r.ordre.length > 1 ? 's' : ''}`
-        + ` (${r.etats} état${r.etats > 1 ? 's' : ''} exploré${r.etats > 1 ? 's' : ''})`, 'ok');
-    } else if (r.abandon) {
-      majEtat('Recherche interrompue : grille trop vaste pour être tranchée', 'ko');
+    const level = toLevel();
+    if (!level.gates.length) { setStatus(t('editor.status.nogate'), 'ko'); return; }
+    if (!level.objective.target) { setStatus(t('editor.status.noblock'), 'ko'); return; }
+    const r = solve(new Board({ ...level, moveLimit: 9999, timeLimit: 9999 }));
+    if (r.solvable) {
+      setStatus(t('editor.status.solvable', { n: r.order.length, states: r.states }), 'ok');
+    } else if (r.gaveUp) {
+      setStatus(t('editor.status.aborted'), 'ko');
     } else {
-      majEtat('Non résolu. Le solveur ne déplace pas les blocs sans les sortir : '
-        + 'une solution demandant de pousser un bloc de côté lui échappe.', 'ko');
+      setStatus(t('editor.status.unsolved'), 'ko');
     }
   };
 
   el('ed-test').onclick = () => {
-    const niveau = versNiveau();
-    if (!niveau.gates.length || !niveau.objective.target) {
-      majEtat('Il faut au moins une porte et un bloc', 'ko');
+    const level = toLevel();
+    if (!level.gates.length || !level.objective.target) {
+      setStatus(t('editor.status.needboth'), 'ko');
       return;
     }
-    garder(niveau);
-    onTester?.(niveau, brouillonId);
+    keep(level);
+    onTest?.(level, draftId);
   };
 
   /**
-   * Proposer la grille comme puzzle du jour.
+   * Submit the grid as the daily puzzle.
    *
-   * On repasse le solveur ICI plutôt que de se fier au bouton « Vérifier » :
-   * rien n'oblige le joueur à l'avoir cliqué, et une grille insoluble envoyée à
-   * tout le monde est le seul défaut que ce dépôt ne doit jamais laisser
-   * passer. Une recherche interrompue vaut refus — dans le doute, on ne
-   * propose pas.
+   * The solver is run again HERE rather than trusting the "Check" button:
+   * nothing forces the player to have clicked it, and an unsolvable grid sent
+   * to everybody is the one flaw this queue must never let through. An aborted
+   * search counts as a refusal — when in doubt, we do not submit.
    */
   el('ed-submit').onclick = () => {
-    const niveau = versNiveau();
-    if (!niveau.gates.length || !niveau.objective.target) {
-      majEtat(t('editor.submit.unsolved'), 'ko');
+    const level = toLevel();
+    if (!level.gates.length || !level.objective.target) {
+      setStatus(t('editor.submit.unsolved'), 'ko');
       return;
     }
-    const r = resoudre(new Board({ ...niveau, moveLimit: 9999, timeLimit: 9999 }));
-    if (!r.resoluble) { majEtat(t('editor.submit.unsolved'), 'ko'); return; }
+    const r = solve(new Board({ ...level, moveLimit: 9999, timeLimit: 9999 }));
+    if (!r.solvable) { setStatus(t('editor.submit.unsolved'), 'ko'); return; }
 
-    const titre = prompt(t('editor.submit.ask'), '');
-    if (titre === null) return;
-    // Le nombre de sorties de la solution trouvée sert de repère de gestes :
-    // sans solution de référence, c'est la seule mesure honnête dont on dispose.
-    const complet = { ...niveau, minDrags: Math.max(1, r.ordre.length) };
-    garder(complet, { titre: titre.trim(), propose: true });
-    onSoumettre?.(complet, titre.trim());
-    majEtat(t('editor.submit.ok'), 'ok');
+    const title = prompt(t('editor.submit.ask'), '');
+    if (title === null) return;
+    // The number of exits in the solution found stands in as a gesture
+    // reference: with no reference solution, it is the only honest measure we
+    // have.
+    const full = { ...level, minDrags: Math.max(1, r.order.length) };
+    keep(full, { title: title.trim(), submitted: true });
+    onSubmit?.(full, title.trim());
+    setStatus(t('editor.submit.ok'), 'ok');
   };
 
   el('ed-export').onclick = async () => {
-    const json = JSON.stringify(versNiveau(), null, 2);
+    const json = JSON.stringify(toLevel(), null, 2);
     el('ed-json').value = json;
     el('ed-json').hidden = false;
     try {
       await navigator.clipboard.writeText(json);
-      majEtat('JSON copié dans le presse-papiers', 'ok');
+      setStatus(t('editor.status.copied'), 'ok');
     } catch {
-      majEtat('JSON affiché ci-dessous (copie manuelle)', 'ok');
+      setStatus(t('editor.status.shown'), 'ok');
     }
   };
 
-  el('ed-mine').onclick = () => ouvrirMesNiveaux();
+  el('ed-mine').onclick = () => openMyLevels();
 
   el('ed-import').onclick = () => {
     const zone = el('ed-json');
     zone.hidden = false;
-    if (!zone.value.trim()) { majEtat('Collez un JSON de niveau dans la zone puis réappuyez'); return; }
+    if (!zone.value.trim()) { setStatus(t('editor.status.paste')); return; }
     try {
       const n = JSON.parse(zone.value);
-      etat = vide(n.width, n.height);
-      etat.blocks = n.blocks.map((b) => ({ ...b }));
+      state = empty(n.width, n.height);
+      state.blocks = n.blocks.map((b) => ({ ...b }));
       for (const g of n.gates) {
-        for (let k = 0; k < g.length; k++) etat.portes[g.side][g.start + k] = g.color;
+        for (let k = 0; k < g.length; k++) state.gates[g.side][g.start + k] = g.color;
       }
       el('ed-w').value = n.width;
       el('ed-h').value = n.height;
-      dessiner();
-      majEtat('Niveau importé', 'ok');
+      draw();
+      setStatus(t('editor.status.imported'), 'ok');
     } catch (e) {
-      majEtat('JSON illisible : ' + e.message, 'ko');
+      setStatus(t('editor.status.badjson', { error: e.message }), 'ko');
     }
   };
 }
 
-function redimensionner(W, H) {
+function resize(W, H) {
   W = Math.max(4, Math.min(8, W));
   H = Math.max(4, Math.min(9, H));
-  const ancien = etat;
-  etat = vide(W, H);
-  // On garde ce qui tient encore dans la nouvelle grille.
-  etat.blocks = ancien.blocks.filter((b) => {
+  const previous = state;
+  state = empty(W, H);
+  // We keep whatever still fits in the new grid.
+  state.blocks = previous.blocks.filter((b) => {
     const maxX = Math.max(...b.cells.map((c) => c[0])) + b.x;
     const maxY = Math.max(...b.cells.map((c) => c[1])) + b.y;
     return maxX < W && maxY < H;
   });
-  for (const side of COTES) {
-    ancien.portes[side].forEach((c, i) => { if (i < etat.portes[side].length) etat.portes[side][i] = c; });
+  for (const side of SIDES) {
+    previous.gates[side].forEach((c, i) => { if (i < state.gates[side].length) state.gates[side][i] = c; });
   }
   el('ed-w').value = W;
   el('ed-h').value = H;
-  dessiner();
+  draw();
 }

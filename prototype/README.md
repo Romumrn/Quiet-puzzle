@@ -1,31 +1,21 @@
-# Quiet Puzzle — prototype jouable
+# Quiet Puzzle prototype
 
-Prototype web du jeu décrit dans `../Document_Technique_Developpeurs.md`.
-Genre : **puzzle de blocs à faire sortir par des portes de couleur**.
+This prototype is the playable version of the game described in `../Technical_Document_Developers.md`.
 
-L'intention tient en une phrase : offrir un casse-tête où l'on décompresse.
-Pas de score à battre ni d'adversaire — un geste simple et répétable, qui occupe
-les mains et laisse l'esprit se poser après une journée dense. Cette intention
-n'est pas décorative, elle tranche des arbitrages concrets tout au long de ce
-document : le chronomètre reste large, la palette évolue lentement, la musique
-change de caractère pour ne pas tourner en rond, et les publicités sont cadencées
-pour ne jamais couper un joueur au moment où il veut recommencer.
+The game is a puzzle where blocks leave the board through color-coded doors.
 
-<img src="../media/jeu.png" width="240" align="right" alt="Le plateau en cours de partie">
+The core intent is simple: offer a calm, repeatable, satisfying puzzle loop that helps players decompress rather than compete.
 
-Il sert deux objectifs :
+<img src="../media/jeu.png" width="240" align="right" alt="Current board during gameplay">
 
-1. **Valider le game design** — le document technique décrit toute
-   l'infrastructure (Unity, backend Node, monétisation, CI/CD) mais laisse la
-   mécanique à l'état de placeholder. Ce prototype tranche les règles et permet
-   de les jouer immédiatement.
-2. **Servir de spécification exécutable** — chaque module porte le nom de son
-   homologue C# de la section 4 du document, pour que le portage Unity soit un
-   mapping et non une réinterprétation.
+It serves two goals:
 
-## Lancer
+1. Validate the game design — the technical document describes the broader platform structure (Unity, Node backend, monetization, CI/CD), but leaves the actual mechanics as placeholders. This prototype resolves the rules and makes them playable immediately.
+2. Serve as an executable specification — each module matches the counterpart in the C# architecture section so the Unity port is a mapping rather than a reinterpretation.
 
-Un serveur statique suffit — aucune dépendance, aucun build.
+## Run locally
+
+A static server is enough; there are no dependencies or build steps.
 
 ```bash
 cd prototype && python3 -m http.server 8123
@@ -43,518 +33,98 @@ node tools/balance.mjs
 node tools/bundle.mjs
 ```
 
-## Règles
+## Rules
 
-**Plateau** — une grille close par des murs. Sur ces murs sont posées des
-**portes** de couleur, larges de 2 ou 3 cases.
+**Board** — a closed grid with walls. Color-coded **doors** are placed on those walls and are 2 or 3 cells wide.
 
-**Blocs** — des polyominos colorés (de 1 à 4 cases). On attrape un bloc et on le
-fait glisser : il suit le doigt case par case et s'arrête au premier obstacle.
+**Blocks** — colored polyominoes (1 to 4 cells). You grab a block and drag it; it follows your finger one cell at a time and stops at the first obstacle.
 
-**Sortie** — un bloc quitte le plateau lorsqu'il est plaqué contre une porte de
-**sa** couleur et qu'il y tient en largeur : une forme de 3 cases ne passe pas
-par une porte de 2. C'est la mise en œuvre de `AreAllDoorsComplete()`, laissé en
-placeholder au §5.1 du document.
+**Exit** — a block leaves the board when it is pressed against a door of its own color and fits the full door width. A 3-cell shape cannot pass through a 2-cell door. This is the actual implementation of `AreAllDoorsComplete()`, left as a placeholder in section 5.1 of the technical document.
 
-**Objectif** — vider la grille de tous ses blocs déplaçables.
+**Objective** — clear the board of all movable blocks.
 
-**Double contrainte** — un chronomètre **et** un nombre de glissés. Le premier
-des deux épuisé fait perdre. Un glissé n'est décompté que s'il a réellement
-déplacé un bloc : tâtonner contre un mur ne coûte rien.
+**Double constraint** — a timer and a drag limit. The first one to reach zero causes a loss. A drag only counts when it actually moves a block; nudging against a wall costs nothing.
 
-**Types de blocs** — les effets reprennent des mécaniques éprouvées du genre
-plutôt que d'en inventer :
+**Block types** — these effects reuse proven puzzle mechanics rather than inventing new ones:
 
-| Type | Comportement |
+| Type | Behavior |
 |---|---|
-| Normal | Sort par une porte de sa couleur. |
-| Glissière | Ne se déplace que sur un axe, comme dans *Rush Hour*. C'est de loin le type qui crée le plus de difficulté sans ajouter de règle à expliquer. |
-| Joker | Multicolore : sort par n'importe quelle porte. Sert de soupape quand la grille est trop contrainte. |
-| Verrouillé | Scellé jusqu'à ce que N blocs soient sortis. Le bloc affiche « Encore N », qui décompte en direct. |
-| Scellé (gris) | Ne bouge jamais, il faut le contourner. |
+| Normal | Exits through a door of its own color. |
+| Slider | Only moves on one axis, like in *Rush Hour*. This is the type that creates most of the puzzle difficulty without requiring new rules. |
+| Joker | Multicolored: exits through any door. Acts as a safety valve when the grid is too constrained. |
+| Locked | Sealed until N blocks have exited. The block shows "N left" and counts down live. |
+| Sealed (gray) | Never moves; it must be routed around. |
 
-**Portes à capacité** — à partir du niveau 8, une porte n'accepte qu'un nombre
-limité de cases, affiché dessus. C'est le seul mécanisme qui crée un véritable
-casse-tête : voir « Ce qui fait la difficulté » plus bas.
+**Door capacity** — from level 8 onward, a door accepts only a limited number of cells, displayed on the door itself. This is the single mechanism that creates genuine puzzle complexity; see "What makes the difficulty" below.
 
-**Étoiles** — 1★ grille vidée, 2★ et 3★ selon l'économie de gestes par rapport à
-la solution de référence. Le chrono et la limite de coups restent des conditions
-de défaite, pas des barèmes : mêler les deux rendait la note illisible.
+**Stars** — 1★ for clearing the board, 2★ and 3★ depending on drag efficiency compared with the reference solution. The timer and move cap remain failure conditions, not score tiers; mixing them made the rating unreadable.
 
-## Ce qui fait la difficulté
+## What makes the difficulty
 
-Une découverte contre-intuitive, mesurée par le solveur : **sans portes à
-capacité, aucun ordre de sortie ne peut être mauvais**. Sortir un bloc ne fait
-que libérer de la place, donc tout choix glouton mène à la victoire — le solveur
-vidait les grilles sans jamais revenir en arrière, quelle que soit leur densité.
+A counterintuitive fact measured by the solver: **without door capacity, no exit order can be wrong**. Removing a block only frees space, so a greedy approach always leads to victory—the solver could clear grids without backtracking, regardless of density.
 
-Le levier décisif est venu en dernier, et il ne règle rien : il **vérifie**.
-Le nombre d'états qu'un solveur explore pour vider une grille dit si elle se
-réfléchit ou si elle se déroule — une grille qui s'en tient au nombre de blocs
-se résout sans jamais se tromper. Mesuré sur les dix-huit premiers mondes, ce
-chiffre valait 1 par bloc partout, grilles denses comprises : on n'avait qu'à
-glisser. Les deux derniers mondes font donc départager leurs candidates par le
-solveur à la fabrication, et affichent un ratio médian de **187 états par
-bloc**.
+The decisive lever came last, and it does not solve the puzzle itself: it **checks**. The number of states a solver explores before clearing a board tells whether the level requires thought or merely a straightforward sequence. On the first 18 worlds, this value was effectively 1 per block everywhere, even in dense boards: players only needed to slide. The last two worlds therefore use solver-based culling during generation and display a median ratio of **187 states per block**.
 
-Les leviers qui rendent cet embarras possible, dans l'ordre :
+The levers that make this possible, in order:
 
-1. **Portes à capacité** — router un bloc vers la mauvaise porte de la bonne
-   couleur gâche des cases. C'est ce qui oblige à planifier.
-2. **Blocs bridés en déplacement** — glissières (un axe) et ancres (un seul
-   sens) : un bloc qui ne peut pas s'écarter impose un ordre.
-3. **Encombrants** — ils coûtent le double à leur porte, et la saturent plus
-   vite que leur taille ne le laisse croire.
-4. **Densité** — 60 à 70 % des cases occupées ; en dessous, la grille se lit
-   d'un coup d'œil.
-5. **Verrous et limites** de coups et de temps.
+1. **Door capacity** — routing a block toward the wrong door of the correct color wastes cells. This forces planning.
+2. **Movement-constrained blocks** — sliders (one axis) and anchors (one direction): a block that cannot steer away imposes ordering.
+3. **Bulky blocks** — they cost double at the door and saturate space faster than their size suggests.
+4. **Density** — 60% to 70% of cells occupied; below that, the board is legible at a glance.
+5. **Locks and move/time limits**.
 
-`tools/balance.mjs` affiche le nombre d'états explorés par le solveur : c'est la
-mesure de « combien de retours en arrière » un joueur devra faire, et donc le
-meilleur indicateur de difficulté disponible.
+`tools/balance.mjs` shows the number of states explored by the solver: this is the best available measure of how many reversals a player must make, and therefore the best indicator of difficulty.
 
-## Économie
+## Economy
 
-La monnaie s'appelle les **éclats** — un seul nom, cohérent avec l'univers du
-verre. Le circuit tient en trois lignes :
+The currency is called **shards**—one consistent name that fits the glass-world theme. The loop is simple:
 
 | | |
 |---|---|
-| **On en gagne** | en jouant (10 / 5 / 2 selon les étoiles), par le cadeau du jour, par les paliers de série |
-| **On en achète** | packs de la boutique, ou 25 éclats contre une pub, cinq fois par jour |
-| **On en dépense** | indice 50, continuer 75 |
+| **Earn** | by playing (10 / 5 / 2 depending on stars), by the daily gift, by streak milestones |
+| **Spend** | on shop packs, or 25 shards for a rewarded ad up to five times per day |
+| **Use** | hint 50, continue 75 |
 
-La pub reste **l'alternative gratuite à tout paiement** : partout où un bonus se
-paie, on peut le regarder à la place. C'est la règle qui rend le système lisible
-sans rien retirer à personne.
+Ads remain the **free alternative to paid progression**: anywhere a bonus is paid for, the player can watch a rewarded ad instead. This keeps the system readable without taking away options.
 
-Un niveau réussi rapporte selon ses étoiles : **10 pièces pour 3★, 5 pour 2★,
-2 pour 1★**. Le barème est plat et lisible — le joueur sait ce qu'il gagne avant
-de jouer, et vise trois étoiles pour cinq fois plus qu'une seule.
+A successful level pays according to its stars: **10 coins for 3★, 5 for 2★, 2 for 1★**. The scale is flat and readable—the player knows exactly what they earn before playing and aims for three stars for five times the reward of a single star.
 
-Rejouer un niveau **sans faire mieux** ne rapporte qu'une pièce. Ce n'est pas
-une punition : sans ce garde-fou, le premier niveau du jeu — quelques secondes,
-trois étoiles les yeux fermés — devient la façon la plus rapide de s'enrichir,
-et tout le reste de l'économie perd son sens. Progresser de 1★ à 3★ paie le
-barème de 3★, et non la différence : ce que le tableau promet est ce qu'on
-touche.
+Replay without improving only pays one shard. This is not a punishment: without this guardrail, the first level in the game—just a few seconds, three stars with eyes closed—would become the fastest way to earn currency, and the rest of the economy loses all meaning. Improving from 1★ to 3★ pays the 3★ tier, not the difference: what the table promises is what the player receives.
 
-Les tarifs (indice 50, continuer 120) n'ont pas été retouchés avec ce barème :
-un indice vaut désormais cinq niveaux parfaits, et la boutique — 25 pièces par
-pub, cinq fois par jour — devient la source d'appoint principale. C'est un
-réglage à éprouver en playtest.
+## Streaks, badges, and themes
 
-## Série, badges et thèmes
+The daily streak carries a **badge** from the second day onward, visible on the home screen, with the remaining progress needed for the next tier. Rewards are intentionally different in nature: a streak that only paid currency would compete with ordinary play rewards and would always lose:
 
-La série quotidienne porte un **badge** dès le deuxième jour, visible sur
-l'accueil, avec ce qu'il reste à tenir pour le palier suivant. Les récompenses
-sont de natures différentes à dessein — une série qui ne verserait que de la
-monnaie se comparerait à la monnaie qu'on gagne en jouant, et perdrait toujours :
-
-| Palier | Récompense |
+| Tier | Reward |
 |---|---|
-| 3 jours | 50 éclats |
-| 7 jours | le thème 🌸 Sakura |
-| 14 jours | 3 indices |
-| 30 jours | un badge |
+| 3 days | 50 shards |
+| 7 days | the theme 🌸 Sakura |
+| 14 days | 3 hints |
+| 30 days | a badge |
 
-Elles sont versées **à l'ouverture de session**, pas au jour exact du palier :
-un joueur qui ouvre le jeu le huitième jour sans l'avoir ouvert le septième doit
-toucher ce qu'il a mérité, sinon la série punit ce qu'elle prétend récompenser.
-Une série repartie de zéro remet le compteur des paliers, faute de quoi un
-retour après un mois d'absence les reverserait tous d'un coup.
+They are granted **at session start**, not on the exact tier day. A player who opens the game on day eight without opening it on day seven still receives what they earned; otherwise the streak punishes the player for not playing exactly on schedule. A streak reset to zero resets the tier counter, otherwise a return after a month away would grant every tier at once.
 
-**Sept thèmes** — 🌸 Sakura, 🌊 Ocean, 🌲 Forest, 🌅 Sunset, 🌙 Night, 🍵 Zen,
-❄️ Snow — se débloquent par des voies volontairement différentes : niveaux
-franchis, étoiles amassées, série tenue, achat sans-pub. Un thème qui ne
-dépendrait que de la progression n'apprendrait rien sur le joueur qui le porte.
+**Seven themes** — 🌸 Sakura, 🌊 Ocean, 🌲 Forest, 🌅 Sunset, 🌙 Night, 🍵 Zen, ❄️ Snow — unlock via intentionally different routes: levels cleared, stars earned, streak maintained, no-ads purchase. A theme that depended only on progression would tell the player nothing about who they are.
 
-Un thème choisi **l'emporte sur la teinte du monde**, et c'est le point : une
-préférence qui se ferait écraser à chaque changement de monde n'en serait pas
-une. Sans thème choisi, on garde la progression chromatique d'origine.
+A chosen theme **overrides the world hue**, and that is intentional: a preference that gets overwritten at each world change is not really a preference. Without a chosen theme, the original chromatic progression remains.
 
-## Boutique d'éclats
+## Shop
 
-La tuile « éclats » du menu ouvre la boutique. Deux façons d'en obtenir, et
-l'ordre compte : **la gratuite d'abord**. Mettre les packs en tête ferait passer
-la pub récompensée pour un lot de consolation, alors que c'est elle qui dépanne
-le joueur au moment où il en a besoin.
+The "shards" tile in the menu opens the shop. Two ways to obtain them, and the order matters: **free first**. Putting the packs first would make rewarded ads feel like consolation prizes, even though the ad is what helps the player exactly when they need it.
 
-- **Pub récompensée** : 25 pièces, cinq fois par jour. La limite quotidienne
-  n'est pas là pour brider le joueur mais pour protéger l'économie — une réserve
-  infinie de pièces gratuites rend tous les bonus indolores, et un bonus
-  indolore ne se choisit plus.
-- **Packs** : 500 à 16 000 pièces, avec un bonus croissant. Les achats sont
-  **simulés**, et l'écran le dit : aucun système de paiement n'est branché. Les
-  identifiants suivent la nomenclature des stores (`com.puzzle.coins.*`), et
-  l'évènement `iap_purchased` est déjà journalisé sous sa forme définitive —
-  le tunnel est mesurable avant d'être réel.
+- **Rewarded ad**: 25 coins, five times per day. The daily cap is not to limit the player but to protect the economy—an infinite reserve of free coins would make every bonus irrelevant, and an irrelevant bonus is no longer a choice.
+- **Packs**: 500 to 16,000 coins, with increasing bonuses. Purchases are **simulated**, and the screen clearly says so; no payment system is connected. Identifiers follow the store naming convention (`com.puzzle.coins.*`), and the `iap_purchased` event is already logged in its final form—this path is measurable before it is live.
 
-`tools/test.mjs` vérifie le quota, les montants versés, le refus d'un
-identifiant inconnu, et que **chaque palier offre plus de pièces par euro que le
-précédent** : payer plus cher pour une pièce plus chère serait un piège, pas une
-offre.
+`tools/test.mjs` checks quotas, amounts paid, rejection of an unknown identifier, and ensures **each tier grants more coins per euro than the previous tier**: paying more for a more expensive coin would be a trap, not an offer.
 
-## Nous écrire
+## Contact / Feedback
 
-Le menu utilisateur ouvre un écran de signalement : catégorie (bug, idée,
-autre), message, et captures d'écran en pièces jointes. Le **contexte technique**
-part avec — version, langue, écran en cours, niveau, taille de fenêtre,
-navigateur : c'est ce qui manque toujours dans un rapport de bug, et ce que
-personne ne pense à donner.
+The user menu opens a bug-report screen: category (bug, idea, other), message, and screenshots as attachments. The **technical context** travels with it—version, language, current screen, level, viewport size, browser. That is the missing information in most bug reports and the detail people rarely think to include.
 
-`src/meta/feedback.js` prépare le rapport mais **n'envoie rien** : il n'y a pas
-de serveur, et rien ne part d'un navigateur sans destinataire. Le joueur choisit
-sa route — copier, télécharger, ou ouvrir son courrielleur sur un brouillon déjà
-écrit. Les captures ne peuvent voyager que par le fichier téléchargé : aucun
-`mailto:` ne sait joindre une pièce.
+`src/meta/feedback.js` prepares the report but **does not send anything**: there is no server, and nothing leaves the browser without a destination. The player chooses a path—copy, download, or open their mail client with a draft already prepared. Screenshots can only travel via the downloaded file: no `mailto:` URL knows how to attach an image.
 
-Les images ne sont **pas** conservées dans le stockage local : quelques captures
-de téléphone en base64 dépassent à elles seules le quota d'un navigateur, et
-l'historique deviendrait la raison pour laquelle le jeu ne sauvegarde plus.
+The images are **not** stored in local storage: a few phone screenshots in base64 can exceed a browser's storage budget on their own, and the history would become the reason the game stops saving.
 
-## Mesure
+## Measurement
 
-`src/data/analytics.js` tient la nomenclature : un seul endroit décide des noms
-et des paramètres. Éparpillés dans le code, ils dérivent — deux graphies pour le
-même geste, un paramètre présent ici et absent là — et l'entonnoir devient
-illisible au moment précis où l'on en a besoin.
-
-Vingt-trois évènements couvrent l'acquisition (`app_open`, `first_open`,
-`tutorial_started`, `tutorial_completed`), le jeu (`level_started`,
-`level_completed`, `level_failed`, `level_restarted`, `level_abandoned`), la
-monétisation (`rewarded_offer_shown` → `rewarded_started` →
-`rewarded_completed` → `reward_granted`, `interstitial_shown`,
-`interstitial_skipped`, `iap_viewed` → `iap_started` → `iap_completed`,
-`remove_ads_purchased`) et la rétention (`daily_open`, `daily_completed`,
-`streak_started`, `streak_continued`).
-
-Tout évènement de niveau porte le même contexte — `level_id`, `world`,
-`attempt`, `duration`, `moves`, `stars` — ce qui permet de comparer un abandon
-et une réussite sans se demander si l'un des deux compte les coups autrement.
-`attempt` est la clé du diagnostic : le seul taux d'échec confond « raté une
-fois » et « raté dix fois ».
-
-Deux choses à savoir :
-
-- **il n'y a pas de tutoriel** dans ce jeu. `tutorial_started` et
-  `tutorial_completed` sont émis sur le premier niveau, qui en tient lieu.
-- `tools/test.mjs` vérifie que chaque évènement déclaré est **réellement émis
-  quelque part** : une nomenclature qui décrit des évènements que personne
-  n'envoie donne une fausse impression de couverture.
-
-## Monétisation
-
-Toute la plomberie publicitaire est en place, prête à recevoir AppLovin MAX
-(doc §5.2). Les pubs sont **simulées** par un panneau plein écran avec décompte,
-pour que l'emplacement et le rythme soient jugeables avant tout contrat régie.
-
-L'interstitielle se joue à l'**ouverture** d'un niveau, et non plus à sa fin.
-Une pub qui tombe sur l'écran de réussite arrive au moment exact où le joueur
-peut décider qu'il a fini sa session : on lui coupe sa récompense, et il quitte.
-Placée avant la grille suivante, elle attrape quelqu'un qui a déjà décidé de
-continuer — le même inventaire, vendu au moment où il coûte le moins. Trois
-parties n'en voient jamais : celles de l'éditeur, le puzzle du jour, et un
-simple rejeu après échec.
-
-Le travail n'est pas l'intégration du SDK, qui est mécanique, mais le
-**cadencement** — `src/monetization/regiePolicy.js`, logique pure et testée :
-
-- aucune interstitielle avant le niveau 3, ni sur la **première défaite** d'un
-  niveau : c'est exactement le moment où le joueur veut recommencer, et
-  l'interrompre là est le meilleur moyen de le faire quitter ;
-- 90 secondes minimum entre deux, une fin de niveau sur deux, et jamais juste
-  après une pub récompensée ;
-- bannière au menu et sur la carte uniquement — **jamais pendant une partie**,
-  où elle volerait de la place au plateau et provoquerait des clics accidentels
-  en plein glissé ;
-- chaque pub non affichée est journalisée avec sa raison : on doit pouvoir
-  expliquer ce qui ne s'est pas affiché.
-
-**Bonus contre pub récompensée** : marteau (retirer un bloc au choix),
-+30 secondes, annulation du dernier geste. L'indice se paie en pièces et bascule
-sur une pub quand le joueur est fauché — mieux vaut une pub qu'un joueur bloqué
-qui désinstalle.
-
-**Offre de continuation** (`FailOfferController.cs` dans le document, désigné
-comme monétisation critique) : à la défaite, on propose de repartir avec +30 s et
-+3 coups contre une pub ou des pièces. Deux garde-fous délibérés — l'offre n'est
-proposée **qu'une fois par tentative**, et « Abandonner » est un bouton normal,
-pas un lien minuscule.
-
-**Rétention** : série quotidienne à récompense croissante, message de proximité
-à la défaite (« il ne restait qu'un bloc ! »), reprise immédiate, doublement des
-pièces par pub à la victoire.
-
-## Puzzle du jour
-
-L'éditeur a quitté le panneau QA — où il voisinait « Gagner » et « Perdre », et
-où aucun joueur ne l'aurait trouvé — pour le **menu utilisateur**, à côté des
-réglages. Une grille qu'on y dessine peut être **proposée comme puzzle du
-jour** : le solveur la vérifie au dépôt, elle rejoint une file, et chaque jour
-une proposition en est tirée — le tirage est seedé sur la date, donc le même
-pour tout le monde.
-
-Le score mêle rapidité et économie de gestes, dans cet ordre : on part d'un
-socle de 1000, on retire 25 points par geste superflu puis 2 points par seconde.
-Un joueur qui réfléchit longtemps mais joue juste passe donc devant un joueur
-rapide et brouillon — c'est la hiérarchie qu'un jeu de réflexion doit
-récompenser. Le score ne descend jamais sous 100 : une grille finie vaut
-toujours mieux qu'une grille abandonnée.
-
-Deux limites à connaître, et le jeu les dit à l'écran :
-
-- **le classement est local à l'appareil.** `src/meta/dailyPuzzle.js` tient le
-  rôle qu'un backend tiendra, derrière les signatures qu'auront les routes REST
-  (`submitDailyPuzzle`, `getDailyPuzzle`, `submitDailyScore`,
-  `getDailyLeaderboard` dans `src/data/api.js`). Il n'y a pas de serveur à qui
-  envoyer les scores, et le prototype ne fait semblant de rien ;
-- **l'auteur est un jeton tiré au sort**, pas une adresse IP. Une page web ne
-  connaît pas sa propre IP : seul le serveur qui reçoit la requête la voit. Le
-  champ `auteur` est à la bonne place, prêt à la recevoir côté serveur ; le
-  remplir depuis le navigateur demanderait d'interroger un service tiers à
-  chaque partie.
-
-Le score est recalculé dans `api.js` à partir des chiffres de la partie, jamais
-repris de ce que l'appelant annonce — un score que le client fournit est un
-score qu'il choisit. Le vrai serveur devra faire de même.
-
-## Éditeur de niveaux
-
-Trois choses le rendaient pénible, et sont corrigées :
-
-- **on prend une pièce et on la pose**. Les formes sont à droite de la grille,
-  et se glissent à leur place au doigt. Choisir puis viser demandait de tenir
-  deux idées à la fois ; le simple appui reste actif pour qui préfère. Le
-  glisser passe par les Pointer Events et non l'API drag-and-drop du HTML,
-  laquelle ne fonctionne pas au doigt — là où ce jeu se joue.
-- **une gomme, et une annulation, dans leur propre barre**. Ce ne sont pas des
-  pièces à poser : les ranger parmi les formes le laissait croire, et obligeait
-  à désélectionner la gomme pour reposer quoi que ce soit. À côté d'elle, un
-  bouton défait le dernier bloc — et **le bouton « précédent » du téléphone fait
-  de même** au lieu de fermer l'application au milieu d'une grille.
-- **une porte peut accepter deux couleurs**. On touche un bord pour l'ouvrir, on
-  le retouche avec une autre couleur pour qu'il en serve deux — la porte
-  partagée que le moteur connaît depuis le douzième monde se dessine enfin à la
-  main.
-- **un essai ne mène plus nulle part**. Tester une grille affichait l'écran de
-  fin ordinaire, avec « Suivant » — qui n'a pas de suite — et créditait
-  vingt-trois pièces en inscrivant un « niveau 0 » dans la sauvegarde : l'éditeur
-  était la façon la plus rapide de s'enrichir. Les trois boutons gardent leur
-  place et changent de rôle : **Modifier**, **Rejouer**, **Proposer**.
-- **un historique**. Une grille se perdait à la fermeture de l'éditeur.
-  `src/meta/mesNiveaux.js` garde les douze dernières, enregistrées au moment où
-  on les teste ou les propose — les deux moments où le joueur montre qu'il y
-  tient. « Mes niveaux » les rouvre.
-
-
-Accessible depuis le panneau QA. On dépose des formes, on choisit couleur et
-nature, on ouvre des portes en touchant les murs, puis **Vérifier** interroge le
-solveur : un niveau dessiné à la main n'est jamais livré sans preuve qu'il tient
-debout. **Tester** le joue immédiatement, **Exporter** produit le JSON au format
-`GET /api/level/{n}`.
-
-Portée du solveur : il cherche dans quel **ordre** sortir les blocs, chaque bloc
-rejoignant sa porte par un chemin trouvé en largeur. Il n'explore pas les
-déplacements d'appoint — pousser un bloc de côté sans le sortir. Un « non
-résolu » signifie donc « aucune solution de cette forme », pas « insoluble », et
-le message le dit.
-
-**Lisibilité** — chaque couleur porte un glyphe (●, ◆, ▲, ★, ■, ⬢) repris à
-l'identique sur sa porte. L'appariement bloc/porte reste lisible sans dépendre de
-la teinte.
-
-## Génération des niveaux : à l'envers
-
-C'est le cœur du générateur. Plutôt que de poser des blocs au hasard en espérant
-que la grille soit résoluble, chaque bloc **entre par sa porte puis recule** dans
-la grille. Trois conséquences :
-
-- **Tout niveau est résoluble par construction.** L'ordre de résolution est
-  l'inverse de l'ordre de pose : le dernier bloc posé sort en premier, et son
-  chemin est libre puisqu'il a été creusé alors que seuls les blocs précédents
-  étaient présents.
-- **La solution de référence est gratuite** — elle sert aux tests, à
-  l'équilibrage, au bouton « Résoudre » du panneau QA, et servira aux indices.
-- **Les verrous restent cohérents** : un bloc n'est verrouillé que par une
-  condition déjà remplie au moment où la solution lui demande de bouger.
-
-Le RNG est seedé : le niveau *n* produit toujours la même grille, sur toutes les
-machines. Le générateur ne tourne cependant plus dans le jeu : `node
-tools/build-levels.mjs` écrit la base `levels/` (un index, un fichier par
-monde), et l'application ne fait que la lire. Un niveau peut donc être retouché
-à la main sans qu'une exécution l'écrase, et les niveaux livrés sont exactement
-ceux qui ont été testés.
-
-La progression tient en **vingt mondes de vingt niveaux**, et un monde entier
-tient dans une ligne de la table `REALMS` : sa palette, sa teinte, le type de
-bloc qu'il introduit, et les quantités notées `[début, fin]` qu'on interpole sur
-ses vingt niveaux. La difficulté monte donc DANS le monde et fait un palier
-ENTRE les mondes — une mécanique s'apprend avant d'être combinée à la suivante.
-
-La marche à suivre pour ajouter des niveaux, palier par palier, avec les
-garde-fous à vérifier après coup, est dans
-[docs/creation-de-niveaux.md](docs/creation-de-niveaux.md).
-
-## Équilibrage
-
-Deux constats mesurés, qui ont chacun corrigé une erreur de conception :
-
-1. **Compter les changements de direction surestimait le coût de 60 %.** Un doigt
-   qui suit un tracé en L fait tourner le bloc en un seul glissé. `tools/balance.mjs`
-   mesure donc le nombre de gestes réellement nécessaires, en cherchant le point
-   le plus lointain atteignable d'un seul glissé.
-2. **La difficulté vient de la densité, pas de la longueur des chemins.** Un bloc
-   isolé rejoint toujours sa porte d'un seul geste ; ce qui fait réfléchir, c'est
-   que les blocs se gênent et imposent un ordre de sortie. Les grilles visent donc
-   45 à 65 % de cases occupées.
-
-Chiffres actuels : 7 à 30 blocs par niveau, 65 à 155 secondes, et bien jouer
-rapporte 3★ à tous les niveaux.
-
-Une troisième erreur, corrigée en portant la progression à 40 niveaux : **la
-limite de coups était calculée indépendamment du barème d'étoiles.** Son plancher
-fixe (`minDrags + 5`) garantissait une marge d'erreur tant que la solution tenait
-en quinze glissés ; au-delà il passait sous le seuil 3★, et toute victoire valait
-alors trois étoiles. Elle se cale désormais au-dessus du seuil 1★, et
-`tools/balance.mjs` refuse tout niveau dont les trois notes ne sont pas
-atteignables.
-
-## Correspondance avec l'architecture Unity (document §4)
-
-| Prototype | Script C# prévu |
-|---|---|
-| `src/core/board.js` | `Gameplay/BoardManager.cs` |
-| `src/core/block.js` | `Gameplay/BlockController.cs` |
-| `src/core/levels.js` | `Gameplay/LevelManager.cs` |
-| `src/core/gameState.js` | `Gameplay/GameState.cs` |
-| `src/input/input.js` | `Gameplay/InputHandler.cs` |
-| `src/render/boardView.js` | `Animation/BlockAnimator.cs` + `VFXManager.cs` |
-| `src/core/solver.js` | — (outil d'auteur, pas de portage requis) |
-| `src/monetization/regieManager.js` | `Monetization/AdManager.cs` |
-| `src/monetization/regiePolicy.js` | — (cadencement, à porter dans `AdManager`) |
-| `src/monetization/failOffer.js` | `Monetization/FailOfferController.cs` |
-| `src/monetization/currency.js` | `Monetization/CurrencyManager.cs` |
-| `src/data/events.js` | `Backend/EventTracker.cs` |
-| `src/ui/screens.js` | `UI/ScreenManager.cs` |
-| `src/ui/mapScreen.js` | `UI/LevelScreen.cs` |
-| `src/ui/gameplayUI.js` | `UI/GameplayUI.cs` |
-| `src/ui/resultScreen.js` | `UI/ResultScreen.cs` |
-| `src/data/save.js` | `Utilities/DataManager.cs` |
-| `src/data/api.js` | `Backend/APIClient.cs` |
-| `src/main.js` | `Managers/GameManager.cs` |
-
-Deux principes rendent ce portage mécanique :
-
-- **`core/` ne touche jamais au DOM.** Chaque geste produit des évènements
-  (`move`, `exit`, `unlock`) que `render/` rejoue en animation. La logique tourne
-  telle quelle sous Node — c'est ce qui permet à `tools/test.mjs` de **prouver que
-  les 400 niveaux sont résolubles** en rejouant leur solution sur le vrai moteur,
-  et ce qui donnera la couverture unitaire visée au §10.1.
-- **`Board.snapshot()` / `restore()`** permettent d'explorer des coups sans les
-  jouer : c'est ce qui mesure l'équilibrage aujourd'hui, et ce qui portera
-  l'annulation et les indices demain.
-
-### Backend
-
-`src/data/api.js` expose les endpoints du document §6.1 (`getLevel`,
-`completeLevel`, `getProfile`) avec leurs formes de réponse réelles, implémentés
-sur `localStorage`. Les objets de niveau respectent le format de
-`GET /api/level/{levelNumber}`. Brancher le vrai serveur revient à remplacer le
-corps de ces trois fonctions par un `fetch`, sans toucher à un seul appelant.
-
-## Langue et accessibilité
-
-L'interface existe en **français, anglais, espagnol, italien et chinois** ; la
-langue se choisit dans le menu (☰), et suit celle du navigateur tant que le joueur n'a rien choisi —
-enregistrer un défaut aurait figé la langue du premier chargement.
-`src/ui/i18n.js` porte un dictionnaire plat, le markup des attributs `data-i18n`,
-et `tools/test.mjs` vérifie **quatre** choses : que toutes les tables ont
-exactement les mêmes clés, qu'aucune traduction ne perd un paramètre `{n}`,
-qu'aucun texte visible ne reste codé en dur dans le markup, et qu'aucun n'est
-écrit depuis le CSS.
-
-Les deux derniers contrôles ont été ajoutés après coup, et ils manquaient : les
-dictionnaires étaient complets, et pourtant « Suivant » sur la carte, « Fermer »
-sur l'écran publicitaire et « Doubler les pièces » restaient français dans
-toutes les langues. Une chaîne oubliée dans le markup — ou, pire, écrite en CSS
-par `content: 'Suivant'`, hors de portée de toute traduction — ne se voit
-qu'en jouant, et seulement dans une langue qu'on ne parle pas soi-même.
-
-Les mondes voyagent traduits dans le catalogue (`name`/`nameEn`), de sorte que
-l'interface n'a rien à savoir du générateur pour se traduire.
-
-Les six familles de blocs se distinguent normalement à la couleur seule. L'option
-**« Symboles sur les blocs »** leur rend leur glyphe (●◆▲★■⬢), sur les blocs
-comme sur les portes, pour qui ne peut pas s'appuyer sur la teinte.
-
-## Menu utilisateur
-
-Le bouton rond en haut à droite est présent sur **tous** les écrans, y compris
-en pleine partie : couper le son ne doit pas obliger à abandonner un niveau. Il
-affiche le niveau global du joueur, et porte une pastille quand le son est
-coupé — l'état doit se lire sans avoir à ouvrir le panneau.
-
-Le panneau donne le niveau global et sa progression en XP, les étoiles, les
-niveaux terminés et les pièces ; puis les réglages : musique et effets sonores
-**séparément** (un réglage unique est trop grossier — beaucoup de joueurs
-veulent garder le retour sonore de leurs actions sans la musique), la
-suppression des pubs, et la réinitialisation de la progression.
-
-## Panneau QA
-
-L'engrenage en bas à droite permet de sauter à un niveau, forcer une victoire ou
-une défaite, **rejouer la solution de référence** (contrôle visuel du
-générateur), tout débloquer et accélérer les animations.
-
-## Le son sur iPhone
-
-Trois pièges d'iOS, corrigés ensemble parce qu'ils donnent tous le même
-symptôme — un silence sans message d'erreur :
-
-- **le commutateur latéral.** Un son joué uniquement par Web Audio est classé
-  « ambient » : le petit interrupteur le coupe. Lire une fois un élément
-  `<audio>` — un silence de quelques octets — au cours d'un vrai geste bascule
-  la session dans la catégorie de lecture.
-- **le geste qui autorise.** Safari ne reconnaît pas toujours un `pointerdown` ;
-  `touchend` et `click` figurent donc aussi dans la liste, et les écouteurs
-  restent posés tant que le contexte n'a pas démarré, pour retenter au geste
-  suivant. `resume()` part avant toute attente : passé le premier `await`, iOS
-  ne rattache plus l'appel au geste.
-- **`decodeAudioData`.** Avant iOS 15, Safari n'en rend pas de promesse et exige
-  les deux fonctions de rappel. Sans cette forme, le décodage rendait
-  `undefined` et aucun son n'était jamais chargé.
-
-`audio.diagnostic()` rend l'état du contexte, le nombre d'échantillons décodés
-et les réglages. Il s'affiche dans le panneau QA et part avec tout rapport de
-signalement : « je n'entends rien » est indémêlable sans savoir si le contexte a
-seulement démarré.
-
-## Identité visuelle
-
-Rose pastel, sobre. Toute la chromie de l'habillage dérive d'une seule variable
-CSS `--h`, qui glisse du rose au vert d'eau à mesure qu'on descend dans les
-niveaux (`src/ui/theme.js`) : la carte montre la gradation d'un monde à l'autre,
-et chaque niveau adopte sa teinte. **Les couleurs des blocs ne bougent jamais** —
-elles portent la règle du jeu, un joueur doit pouvoir les apprendre une fois pour
-toutes.
-
-Le parti pris est monochrome clair et assumé : pas de variante sombre, mais tous
-les fonds et toutes les couleurs sont peints explicitement, donc la page tient
-sur n'importe quel support. Chaque couleur porte aussi un glyphe (●, ◆, ▲, ★, ■,
-⬢), repris à l'identique sur sa porte : l'appariement reste lisible sans dépendre
-de la teinte.
-
-Le plateau a été allégé après relecture : les glissières portaient deux rangées
-de tirets, les blocs scellés des hachures, les ancres et les encombrants un
-liseré, et les verrous un emoji jaune vif. Chacun se justifiait seul ; ensemble,
-sur une grille de trente pièces, ils faisaient un tableau de lignes — l'inverse
-de ce que ce jeu promet. Une glissière ne montre plus qu'une barre douce sur son
-axe, un scellé est mat, un verrou porte son décompte dans une pastille claire,
-et le quadrillage se devine au lieu de se lire.
-
-## Hors périmètre
-
-Volontairement absents : IAP réels (seul « supprimer les pubs » est simulé),
-backend réseau, son, et les niveaux 21 à 100 — le générateur les produit déjà,
-seul `TOTAL_LEVELS` les limite.
+`src/data/analytics.js` defines the nomenclature: one place decides event names and parameters. If they are scattered across the code, they drift—two spellings for the same action, a parameter present here but missing there—and the funnel becomes unreliable.
