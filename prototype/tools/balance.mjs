@@ -53,8 +53,8 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
   const murs = L.blocks.filter((b) => b.kind === KIND.WALL).length;
   const verrous = L.blocks.filter((b) => b.kind === KIND.LOCKED).length;
   const rails = L.blocks.filter((b) => b.kind === KIND.RAIL).length;
-  const ancres = L.blocks.filter((b) => b.kind === KIND.ANCRE).length;
-  const encombrants = L.blocks.filter((b) => b.kind === KIND.ENCOMBRANT).length;
+  const ancres = L.blocks.filter((b) => b.kind === KIND.ANCHOR).length;
+  const encombrants = L.blocks.filter((b) => b.kind === KIND.BULKY).length;
   const jokers = L.blocks.filter((b) => b.kind === KIND.JOKER).length;
   const jouables = L.blocks.length - murs;
   const cases = L.blocks.reduce((n, b) => n + b.cells.length, 0);

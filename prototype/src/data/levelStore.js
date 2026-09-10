@@ -30,10 +30,42 @@ import { starThresholds } from '../core/stars.js';
 export const BUNDLED = { index: null, realms: {}, calibration: null };
 
 const ROOT = 'levels';
+const LEGACY_KIND_MAP = Object.freeze({
+  ancre: 'anchor',
+  encombrant: 'bulky',
+  double: 'dual',
+  verrou: 'locked',
+  mur: 'wall',
+});
 
 let index = null;
 const realmLevels = new Map();   // realm id -> array of levels
 const byNumber = new Map();
+
+function normalizeRealm(raw) {
+  const realm = { ...raw };
+  if (typeof realm.name === 'object' && realm.name) realm.name = realm.name.en ?? realm.name.fr ?? realm.name;
+  if (!realm.name && raw.nom) realm.name = raw.nom.en ?? raw.nom.fr ?? raw.nom;
+  if (typeof realm.difficulty === 'object' && realm.difficulty) realm.difficulty = realm.difficulty.en ?? realm.difficulty.fr ?? realm.difficulty;
+  if (!realm.difficulty && raw.difficulte) realm.difficulty = raw.difficulte;
+  if (typeof realm.introduces === 'object' && realm.introduces) realm.introduces = realm.introduces.en ?? realm.introduces.fr ?? realm.introduces;
+  if (!realm.introduces && raw.apporte) realm.introduces = raw.apporte;
+  if (realm.hue == null && raw.teinte != null) realm.hue = raw.teinte;
+  if (!realm.file && raw.fichier) realm.file = raw.fichier;
+  return realm;
+}
+
+function normalizeLevel(level) {
+  if (!level) return level;
+  const normalized = { ...level };
+  if (Array.isArray(level.blocks)) {
+    normalized.blocks = level.blocks.map((block) => ({
+      ...block,
+      kind: LEGACY_KIND_MAP[block.kind] ?? block.kind,
+    }));
+  }
+  return normalized;
+}
 
 async function read(path, bundled) {
   if (bundled) return bundled;
@@ -49,7 +81,8 @@ async function read(path, bundled) {
  */
 export async function open() {
   if (index) return index;
-  index = await read('index.json', BUNDLED.index);
+  const rawIndex = await read('index.json', BUNDLED.index);
+  index = { ...rawIndex, realms: (rawIndex.realms || []).map(normalizeRealm) };
   if (index.calibration) await loadCalibration(index.calibration);
   return index;
 }
@@ -136,9 +169,10 @@ async function loadRealm(id) {
   if (!realm) throw new Error(`Realm ${id} missing from the catalogue`);
   const file = realm.file ?? realm.fichier;
   const data = await read(file, BUNDLED.realms[file]);
-  realmLevels.set(id, data.levels);
-  for (const level of data.levels) byNumber.set(level.number, level);
-  return data.levels;
+  const levels = (data.levels || []).map(normalizeLevel);
+  realmLevels.set(id, levels);
+  for (const level of levels) byNumber.set(level.number, level);
+  return levels;
 }
 
 /**
@@ -154,7 +188,7 @@ export async function getLevel(n) {
   if (!byNumber.has(n)) await loadRealm(realmOf(n).id);
   const level = byNumber.get(n);
   if (!level) throw new Error(`Level ${n} missing from the database`);
-  return applyCalibration(structuredClone(level));
+  return applyCalibration(structuredClone(normalizeLevel(level)));
 }
 
 /** Preloads a whole realm — to smooth out entering a new setting. */

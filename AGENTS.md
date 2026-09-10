@@ -39,21 +39,21 @@ The runtime code already used mostly English identifiers, so the functional rena
 |---|---|---|
 | Add / adjust a world | `src/core/levels.js` | `REALMS` table — one line per world |
 | Change quantities (walls, rails, density, etc.) | `src/core/levels.js` | the world line in `REALMS` |
-| Adjust star thresholds | `src/core/etoiles.js` | `MARGE_3E` / `MARGE_2E` — the only place |
-| Change limit formulas (moves, time) | `src/core/levels.js` | `getLevel()`, end of the file |
-| Recalibrate thresholds against real scores | `src/data/levelStore.js` | `calibrate()` — `levelId → drags` table indexed |
+| Adjust star thresholds | `src/core/stars.js` | `starThresholds()` / `MARGIN_3_STAR` / `MARGIN_2_STAR` — the only place |
+| Change limit formulas (moves, time) | `src/core/levels.js` | `getLevel()` at the end of the file |
+| Recalibrate thresholds against real scores | `src/data/levelStore.js` | `starThresholds(ref)` and the saved `level.starDrags` table |
 | Understand generation | `src/core/levels.js` | `build()` — inverse placement |
-| Regenerate levels | `tools/build-levels.mjs` | mandatory after any `REALMS` change |
-| Add a block type | 4 files — see New block section |
+| Regenerate levels | `tools/build-levels.mjs` | only when the generator or shipped level database actually changed |
+| Add a block type | 4 files — see the New block section |
 
-> Changing `REALMS` has no effect until `node tools/build-levels.mjs` runs, because the game reads the generated JSON in `levels/`, not the generator.
+> Changing `REALMS` has no effect until `node tools/build-levels.mjs` runs, because the game reads the generated JSON in `levels/`, not the generator. However, routine UI, docs, naming, or gameplay-rule edits do not require regenerating the whole level set unless the generator logic or the shipped data itself is intentionally changed.
 
 ### Game rules
 
 | Need | File | Reference |
 |---|---|---|
-| Movement, exits, door capacity | `src/core/board.js` | `step()`, `_gateFor()`, `acceptColor()` |
-| What a block is allowed to do | `src/core/board.js` | `acceptDirection()`, `canMove()`, `conditionMet()` |
+| Movement, exits, door capacity | `src/core/board.js` | `step()`, `_gateFor()`, `canMove()` |
+| What a block is allowed to do | `src/core/board.js` | `conditionMet()`, `canMove()`, `step()` |
 | Block types, shapes, colors | `src/core/block.js` | `KIND`, `SHAPES`, `COLORS`, `capacityCost()` |
 | Stars, win, loss | `src/core/board.js` | `stars()`, `_settle()` |
 | Verify if a grid is solvable | `src/core/solver.js` | `solve()` |
@@ -80,21 +80,21 @@ The runtime code already used mostly English identifiers, so the functional rena
 
 | Need | File | Reference |
 |---|---|---|
-| Prices, packs, ad rewards | `src/monetization/currency.js` | `PRIX`, `PACKS`, `PUB_REWARD` |
+| Prices, packs, ad rewards | `src/monetization/currency.js` | `PRICES`, `PACKS`, `AD_REWARD` |
 | Rewards per level | `src/data/api.js` | `COINS_PER_STAR`, `coinsFor()` |
-| When an ad appears | `src/monetization/regiePolicy.js` | `RULES` |
-| Simulated ad playback | `src/monetization/regieManager.js` | `PLACEMENT`, `RegieManager` |
-| Defeat / continue screen | `src/monetization/failOffer.js` | `propose()`, `BONUSES` |
+| When an ad appears | `src/monetization/brokerPolicy.js` | `RULES` |
+| Simulated ad playback | `src/monetization/brokerManager.js` | `PLACEMENT`, `AdBroker` |
+| Defeat / continue screen | `src/monetization/failOffer.js` | `offer()`, `BONUS` |
 | Shop | `src/main.js` | `updateShop()` |
 
 ### Retention
 
 | Need | File |
 |---|---|
-| Daily streaks, tiers, badges | `src/meta/daily.js` — `SERIE_TIERS` |
+| Daily streaks, tiers, badges | `src/meta/daily.js` — `STREAK_TIERS` |
 | Themes and unlock conditions | `src/meta/themes.js` — `THEMES` |
 | Daily puzzle, score, leaderboard | `src/meta/dailyPuzzle.js` |
-| Editor drafts | `src/meta/mesNiveaux.js` |
+| Editor drafts | `src/meta/myLevels.js` |
 | Bug reporting | `src/meta/feedback.js` |
 | Event names and parameters | `src/data/analytics.js` — `EVENTS` |
 
@@ -126,4 +126,4 @@ node tools/bundle.mjs
 - The project already relies mostly on English code names; documentation and naming were aligned to that standard.
 - The main documentation source is `Technical_Document_Developers.md`.
 - `PROJECT_AGENTS.md` is the English summary version of this project map.
-- Any change in `REALMS` requires rebuilding the generated level files with `node tools/build-levels.mjs`.
+- Only rebuild the generated level files with `node tools/build-levels.mjs` when changing the generator logic, `REALMS`, or the shipped database itself. Routine UI, docs, and naming-only changes should not trigger a full level rebuild.

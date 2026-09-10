@@ -106,7 +106,8 @@ const SCENES = {
            await wait(700); el('debug-panel').hidden = true;
            const g = w.__game;
            for (const step of g.level.solution) {
-             for (const pos of step.chemin.slice(1)) g.board.dragTowards(step.id, pos.x, pos.y);
+             const path = Array.isArray(step.path) ? step.path : Array.isArray(step.chemin) ? step.chemin : [];
+             for (const pos of path.slice(1)) g.board.dragTowards(step.id, pos.x, pos.y);
              const v = { top:[0,-1], right:[1,0], bottom:[0,1], left:[-1,0] }[step.gate];
              if (g.board.blocks.has(step.id)) g.board.step(step.id, v[0], v[1]);
              g.board.endGesture(true);
@@ -158,7 +159,8 @@ for (let i = 0; i < GIF_IMAGES; i++) {
    let done = 0;
    loop:
    for (const step of g.level.solution) {
-     for (const pos of step.chemin.slice(1)) {
+     const path = Array.isArray(step.path) ? step.path : Array.isArray(step.chemin) ? step.chemin : [];
+     for (const pos of path.slice(1)) {
        if (done >= ${i}) break loop;
        g.board.dragTowards(step.id, pos.x, pos.y);
        done++;

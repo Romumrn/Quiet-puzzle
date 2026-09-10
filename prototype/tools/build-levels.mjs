@@ -46,7 +46,7 @@ for (const R of REALMS) {
   const levels = [];
   for (let n = first; n <= last; n++) levels.push(getLevel(n));
 
-  const r = writeJson(realmFile(R.id), { realm: R.id, name: R.nom.fr, levels });
+  const r = writeJson(realmFile(R.id), { realm: R.id, name: R.name.en, levels });
   total += r.size;
   rows.push({ R, first, last, ...r, blocks: levels.reduce((s, L) => s + L.blocks.length, 0) });
 }
@@ -64,18 +64,16 @@ const index = {
   realms: REALMS.map((R) => ({
     id: R.id,
     // All languages travel in the catalogue. The interface then knows nothing
-    // about the generator and can translate itself, while a world added without
-    // a translation falls back cleanly to French.
-    nom: R.nom,
-    difficulte: R.difficulte,
-    apporte: R.apporte,
-    // Flat French label: CLI tools print arrays rather than language tables.
-    name: R.nom.fr,
-    teinte: R.teinte,
+    // about the generator and can translate itself, while a realm added without
+    // a translation falls back cleanly to English.
+    name: R.name.en,
+    difficulty: R.difficulty,
+    introduces: R.introduces,
+    hue: R.hue,
     palette: R.palette,
-    fichier: realmFile(R.id),
-    premier: R.id * LEVELS_PER_REALM + 1,
-    dernier: Math.min(TOTAL_LEVELS, (R.id + 1) * LEVELS_PER_REALM),
+    file: realmFile(R.id),
+    first: R.id * LEVELS_PER_REALM + 1,
+    last: Math.min(TOTAL_LEVELS, (R.id + 1) * LEVELS_PER_REALM),
   })),
 };
 const r = writeJson('index.json', index);
@@ -85,7 +83,7 @@ const ko = (n) => `${(n / 1024).toFixed(0)} Ko`;
 console.log('\nmonde                     niveaux  blocs   poids');
 for (const l of rows) {
   console.log(
-    l.R.nom.fr.padEnd(24),
+  l.R.name.en.padEnd(24),
     `${l.first}–${l.last}`.padStart(8),
     String(l.blocks).padStart(6),
     ko(l.size).padStart(8),

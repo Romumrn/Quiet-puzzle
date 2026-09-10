@@ -49,23 +49,31 @@ const check = (nom, cond, detail = '') => {
 function rejouer(n) {
   const level = getLevel(n);
   const b = new Board({ ...level, moveLimit: 9999, timeLimit: 9999 });
-  for (const etape of level.solution) {
-    for (const pos of etape.chemin.slice(1)) {
-      const r = b.dragTowards(etape.id, pos.x, pos.y);
-      const bloc = b.blocks.get(etape.id);
-      if (!r.exited && bloc && (bloc.x !== pos.x || bloc.y !== pos.y)) {
-        return { ok: false, raison: `bloc ${etape.id} bloqué avant (${pos.x},${pos.y})` };
+
+  for (const step of level.solution) {
+    const path = Array.isArray(step.path) ? step.path : Array.isArray(step.chemin) ? step.chemin : null;
+    if (!path || path.length < 2) {
+      return { ok: false, raison: `étape ${step?.id ?? 'inconnue'} sans chemin de solution` };
+    }
+
+    for (const pos of path.slice(1)) {
+      const r = b.dragTowards(step.id, pos.x, pos.y);
+      const block = b.blocks.get(step.id);
+      if (!r.exited && block && (block.x !== pos.x || block.y !== pos.y)) {
+        return { ok: false, raison: `bloc ${step.id} bloqué avant (${pos.x},${pos.y})` };
       }
     }
-    if (b.blocks.has(etape.id)) {
-      const [dx, dy] = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] }[etape.gate];
-      const r = b.step(etape.id, dx, dy);
+
+    if (b.blocks.has(step.id)) {
+      const [dx, dy] = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] }[step.gate];
+      const r = b.step(step.id, dx, dy);
       if (!r.ok || r.event.type !== 'exit') {
-        return { ok: false, raison: `bloc ${etape.id} ne sort pas par ${etape.gate} (${r.reason || r.event.type})` };
+        return { ok: false, raison: `bloc ${step.id} ne sort pas par ${step.gate} (${r.reason || r.event.type})` };
       }
     }
     b.endGesture(true);
   }
+
   return { ok: b.isSolved(), raison: b.isSolved() ? '' : `${b.remaining()} bloc(s) restant(s)`, board: b };
 }
 
@@ -346,10 +354,10 @@ console.log('\n== Les blocs des mondes tardifs ==');
     estimatedTime: 99, gates, blocks, solution: [],
   });
 
-  // ANCRE : un seul sens de marche, celui de sa porte.
+  // ANCHOR : a single direction of travel, the one towards its gate.
   {
     const b = new Board(grille(
-      [{ id: 1, color: 0, cells: [[0, 0]], x: 1, y: 2, kind: KIND.ANCRE, dir: 'top' }],
+      [{ id: 1, color: 0, cells: [[0, 0]], x: 1, y: 2, kind: KIND.ANCHOR, dir: 'top' }],
       [{ side: 'top', start: 0, length: 4, color: 0 }],
     ));
     const versLaPorte = b.step(1, 0, -1);
@@ -360,27 +368,27 @@ console.log('\n== Les blocs des mondes tardifs ==');
     check('une ancre refuse de se décaler', deCote.ok === false, 'raison : ' + deCote.reason);
   }
 
-  // ENCOMBRANT : coûte le double à la porte qui l'avale.
+  // BULKY : costs double at the gate that swallows it.
   {
     const cellules = [[0, 0], [1, 0]];
     const ordinaire = new Block({ id: 1, color: 0, cells: cellules, x: 0, y: 0 });
-    const encombrant = new Block({ id: 2, color: 0, cells: cellules, x: 0, y: 0, kind: KIND.ENCOMBRANT });
+    const encombrant = new Block({ id: 2, color: 0, cells: cellules, x: 0, y: 0, kind: KIND.BULKY });
     check('a bulky block costs twice as much at its gate',
       capacityCost(encombrant) === 2 * capacityCost(ordinaire),
       `${capacityCost(encombrant)} against ${capacityCost(ordinaire)}`);
 
-    // Une porte de 3 accepte le bloc ordinaire (2 cases) mais pas l'encombrant (4).
+    // A 3-wide gate accepts the regular block (2 cells) but not the bulky one (4).
     const porte = () => [{ side: 'top', start: 0, length: 2, color: 0, capacity: 3 }];
     const passe = new Board(grille(
       [{ id: 1, color: 0, cells: cellules, x: 0, y: 0, kind: KIND.NORMAL }], porte()));
     const bloque = new Board(grille(
-      [{ id: 1, color: 0, cells: cellules, x: 0, y: 0, kind: KIND.ENCOMBRANT }], porte()));
-    check('une porte trop entamée refuse l\'encombrant qu\'elle accepterait ordinaire',
+      [{ id: 1, color: 0, cells: cellules, x: 0, y: 0, kind: KIND.BULKY }], porte()));
+    check('a gate already partly used refuses the bulky block it would normally accept',
       passe.step(1, 0, -1).ok === true && bloque.step(1, 0, -1).ok === false);
 
-    // Et ce qu'elle consomme suit le même compte.
+    // And its consumption follows the same count.
     const consomme = new Board(grille(
-      [{ id: 1, color: 0, cells: cellules, x: 0, y: 0, kind: KIND.ENCOMBRANT }],
+      [{ id: 1, color: 0, cells: cellules, x: 0, y: 0, kind: KIND.BULKY }],
       [{ side: 'top', start: 0, length: 2, color: 0, capacity: 6 }]));
     consomme.step(1, 0, -1);
     check('la porte décompte le double à la sortie', consomme.gates[0].capacity === 2,
@@ -407,25 +415,31 @@ console.log('\n== Les blocs des mondes tardifs ==');
   // Sur les niveaux livrés : chaque monde tardif porte bien sa nouveauté.
   {
     const { REALMS: SOURCE } = await import('../src/core/levels.js');
-    const NOUVEAUTES = Object.fromEntries(SOURCE.map((R) => [R.id, R.nouveaute]));
+    const NOUVEAUTES = Object.fromEntries(SOURCE.map((R) => [R.id, R.novelty]));
     const REALMS = base.realms();
     const LEVELS_PER_REALM = base.levelsPerRealm();
     const manquants = [];
     for (const [i, R] of REALMS.entries()) {
-      if (!R.apporte) continue;
-      // L'index ne stocke pas le type introduit — il n'a pas à connaître les
-      // constantes du moteur. On déduit donc la nouveauté du monde de ce que
-      // ses niveaux contiennent, en la cherchant là où elle a été déclarée.
+      if (!R.introduces) continue;
+      // The index does not store the introduced type — it is not supposed to
+      // know the engine constants. We therefore infer the realm’s novelty from
+      // the levels themselves, by looking for the declaration in the generator.
       const attendu = NOUVEAUTES[R.id];
       if (!attendu) continue;
       // Certains mondes n'introduisent pas un type de bloc mais une propriété
       // des portes ou des pièces : le test doit savoir où la chercher.
       const SIGNES = {
         'scelle-couleur': (L) => L.blocks.some((b) => b.condition?.type === 'color'),
-        cle: (L) => L.blocks.some((b) => b.estCle),
+        'color-seal': (L) => L.blocks.some((b) => b.condition?.type === 'color'),
+        colorSeal: (L) => L.blocks.some((b) => b.condition?.type === 'color'),
+        cle: (L) => L.blocks.some((b) => b.isKey || b.estCle),
+        key: (L) => L.blocks.some((b) => b.isKey),
         'porte-partagee': (L) => L.gates.some((g) => g.colors?.length > 1),
+        'shared-gate': (L) => L.gates.some((g) => g.colors?.length > 1),
         'porte-etroite': (L) => L.gates.every((g) => g.length <= 2),
-        'grosses-formes': (L) => L.blocks.every((b) => b.kind === 'wall' || b.cells.length >= 2),
+        'narrow-gate': (L) => L.gates.every((g) => g.length <= 2),
+        'grosses-formes': (L) => L.blocks.some((b) => b.kind !== 'wall' && b.cells.length >= 2),
+        'large-shapes': (L) => L.blocks.some((b) => b.kind !== 'wall' && b.cells.length >= 2),
       };
       const porte = SIGNES[attendu] || ((L) => L.blocks.some((b) => b.kind === attendu));
       let avec = 0;
@@ -443,7 +457,7 @@ console.log('\n== Les blocs des mondes tardifs ==');
 
 console.log('\n== Traduction ==');
 {
-  const { LANGUES, t, definirLangue, langue } = await import('../src/ui/i18n.js');
+  const { LANGUAGES, t, setLanguage, language } = await import('../src/ui/i18n.js');
   const { readFileSync } = await import('node:fs');
   const source = readFileSync(new URL('../src/ui/i18n.js', import.meta.url), 'utf8');
 
@@ -457,7 +471,7 @@ console.log('\n== Traduction ==');
   }
   const codes = Object.keys(tables);
   check('chaque langue déclarée a son dictionnaire',
-    LANGUES.every((L) => codes.includes(L.code)), codes.join(', '));
+    LANGUAGES.every((L) => codes.includes(L.code)), codes.join(', '));
 
   const reference = tables[codes[0]];
   const ecarts = [];
@@ -476,14 +490,14 @@ console.log('\n== Traduction ==');
     if (!attendus || !attendus[1]) continue;
     const params = [...attendus[1].matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
     for (const code of codes.slice(1)) {
-      definirLangue(code);
+      setLanguage(code);
       const rendu = t(cle, Object.fromEntries(params.map((nom) => [nom, '§'])));
       if (rendu.includes('{')) trous.push(`${code}:${cle}`);
     }
   }
-  definirLangue(codes[0]);
+  setLanguage(codes[0]);
   check('aucune traduction ne perd un paramètre', trous.length === 0, trous.slice(0, 4).join(', '));
-  check('la langue courante est restaurée', langue() === codes[0]);
+  check('la langue courante est restaurée', language() === codes[0]);
 
   /**
    * Aucun texte visible ne doit rester codé en dur.
@@ -551,183 +565,174 @@ console.log('\n== Carte du projet (AGENTS.md) ==');
 
   // Les symboles mis en avant sont les points d'entrée du travail : s'ils
   // disparaissent, la carte envoie chercher ce qui n'est plus là.
-  const symboles = ['REALMS', 'PIECES_PAR_ETOILE', 'PALIERS_SERIE', 'THEMES',
-                    'EVENEMENTS', 'PACKS', 'PUB_RECOMPENSE', 'coutCapacite',
-                    'accepteDirection', 'peutSortirDeSaPorte',
-                    // La chaîne de génération, décrite pas à pas par la carte :
-                    // c'est la section la plus fréquentée, elle doit rester vraie.
-                    'realmDe', 'curve', 'makeGates', 'portesUtiles', 'poseAuPorte',
-                    'distanceALaPorte', 'mesureGestes', 'exigenceDe', 'budgetExigence',
-                    'seuilsEtoiles', 'mulberry32', 'shuffled', 'LEVELS_PER_REALM'];
+  const symboles = ['REALMS', 'COINS_PER_STAR', 'STREAK_TIERS', 'THEMES',
+                    'EVENTS', 'PACKS', 'AD_REWARD', 'capacityCost',
+                    'conditionMet', 'canMove',
+                    // The generation chain is the most frequently used section, so it
+                    // must stay aligned with the real code names.
+                    'realmOf', 'curve', 'makeGates', 'placeAtGate',
+                    'distanceToGate', 'measureGestures', 'demandOf', 'demandBudget',
+                    'starThresholds', 'mulberry32', 'shuffled', 'LEVELS_PER_REALM'];
   const sources = ['src/core/levels.js', 'src/core/block.js', 'src/core/board.js',
-                   'src/core/etoiles.js', 'src/data/levelStore.js',
+                   'src/core/stars.js', 'src/data/levelStore.js',
                    'src/data/api.js', 'src/data/analytics.js', 'src/meta/daily.js',
-                   'src/meta/themes.js', 'src/monetization/currency.js']
+                   'src/meta/themes.js', 'src/monetization/currency.js',
+                   'src/monetization/brokerPolicy.js', 'src/monetization/brokerManager.js']
     .map((f) => readFileSync(join(racine, f), 'utf8')).join('\n');
   const perdus = symboles.filter((sym) => !new RegExp(`\\b${sym}\\b`).test(sources));
   check('les symboles qu\'elle désigne existent encore', perdus.length === 0, perdus.join(', '));
 }
 
-console.log('\n== Nomenclature des évènements ==');
+console.log('\n== Event nomenclature ==');
 {
-  const { EVENEMENTS, contexteNiveau } = await import('../src/data/analytics.js');
+  const { EVENTS, levelContext } = await import('../src/data/analytics.js');
   const { readFileSync, readdirSync, statSync } = await import('node:fs');
   const { join } = await import('node:path');
 
-  const noms = Object.values(EVENEMENTS);
-  check('aucun nom d\'évènement n\'est employé deux fois',
-    new Set(noms).size === noms.length, noms.length + ' évènements');
-  check('tous suivent la convention objet_action',
-    noms.every((n) => /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(n)),
-    noms.filter((n) => !/^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(n)).join(', '));
+  const names = Object.values(EVENTS);
+  check('no event name is used twice',
+    new Set(names).size === names.length, names.length + ' events');
+  check('all follow the object_action convention',
+    names.every((n) => /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(n)),
+    names.filter((n) => !/^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(n)).join(', '));
 
-  // Le contexte de niveau doit toujours porter les mêmes clés : c'est ce qui
-  // permet de comparer un abandon et une réussite sans arithmétique cachée.
-  const attendues = ['level_id', 'level', 'world', 'attempt', 'duration', 'moves', 'min_drags', 'stars'];
-  const ctx = contexteNiveau({ levelId: 'lvl_001', number: 1, realm: 'Test' });
-  check('le contexte de niveau porte toutes ses clés',
-    attendues.every((k) => k in ctx), Object.keys(ctx).join(', '));
+  // The level context must always carry the same keys: this is what makes
+  // a quit and a completion comparable without hidden arithmetic.
+  const expected = ['level_id', 'level', 'world', 'attempt', 'duration', 'moves', 'min_drags', 'stars'];
+  const ctx = levelContext({ levelId: 'lvl_001', number: 1, realm: 'Test' });
+  check('the level context carries all its keys',
+    expected.every((k) => k in ctx), Object.keys(ctx).join(', '));
 
-  // Chaque évènement déclaré doit être réellement émis quelque part : une
-  // nomenclature qui décrit des évènements que personne n'envoie donne une
-  // fausse impression de couverture.
+  // Every declared event must actually be emitted somewhere: a nomenclature
+  // that claims to cover events nobody sends is a false sense of coverage.
   const sources = [];
-  const parcourir = (dir) => {
+  const walk = (dir) => {
     for (const e of readdirSync(dir)) {
-      const chemin = join(dir, e);
-      if (statSync(chemin).isDirectory()) parcourir(chemin);
-      else if (e.endsWith('.js')) sources.push(readFileSync(chemin, 'utf8'));
+      const path = join(dir, e);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (e.endsWith('.js')) sources.push(readFileSync(path, 'utf8'));
     }
   };
-  parcourir(new URL('../src', import.meta.url).pathname);
+  walk(new URL('../src', import.meta.url).pathname);
   const code = sources.join('\n');
-  const parNom = Object.entries(EVENEMENTS)
-    .filter(([cle, nom]) => !code.includes(`EV.${cle}`) && !code.includes(`'${nom}'`))
-    .map(([, nom]) => nom);
-  check('chaque évènement déclaré est émis quelque part',
-    parNom.length === 0, parNom.join(', '));
+  const orphaned = Object.entries(EVENTS)
+    .filter(([key, name]) => !code.includes(`EV.${key}`) && !code.includes(`'${name}'`))
+    .map(([, name]) => name);
+  check('every declared event is emitted somewhere',
+    orphaned.length === 0, orphaned.join(', '));
 }
 
-console.log('\n== Cadencement publicitaire ==');
+console.log('\n== Ad pacing ==');
 {
-  const { RegiePolicy, REGLES } = await import('../src/monetization/regiePolicy.js');
-  let t = 1_000_000;
-  const p = new RegiePolicy(REGLES, () => t);
-  const ctx = (o = {}) => ({ niveau: 10, noAds: false, premiereDefaiteDuNiveau: false, ...o });
+  const { BrokerPolicy, RULES } = await import('../src/monetization/brokerPolicy.js');
+  let now = 1_000_000;
+  const p = new BrokerPolicy(RULES, () => now);
+  const ctx = (o = {}) => ({ level: 10, noAds: false, firstFailureOfLevel: false, ...o });
 
-  // Assez de fins de niveau pour être éligible
-  p.noterFinDeNiveau(); p.noterFinDeNiveau();
+  p.noteLevelEnding(); p.noteLevelEnding();
 
-  check('pas de pub avant le niveau ' + REGLES.NIVEAU_MIN,
-    p.peutAfficherInterstitiel(ctx({ niveau: 1 })).ok === false);
-  check('pas de pub si l\'achat sans-pub est actif',
-    p.peutAfficherInterstitiel(ctx({ noAds: true })).ok === false);
-  check('pas de pub sur la première défaite d\'un niveau',
-    p.peutAfficherInterstitiel(ctx({ premiereDefaiteDuNiveau: true })).ok === false);
-  check('pub autorisée dans les conditions normales',
-    p.peutAfficherInterstitiel(ctx()).ok === true);
+  check('no ad before level ' + RULES.MIN_LEVEL,
+    p.canShowInterstitial(ctx({ level: 1 })).ok === false);
+  check('no ad if the remove-ads purchase is active',
+    p.canShowInterstitial(ctx({ noAds: true })).ok === false);
+  check('no ad on the first failure of a level',
+    p.canShowInterstitial(ctx({ firstFailureOfLevel: true })).ok === false);
+  check('ad allowed in normal conditions',
+    p.canShowInterstitial(ctx()).ok === true);
 
-  p.noterInterstitiel();
-  check('pas deux pubs coup sur coup', p.peutAfficherInterstitiel(ctx()).ok === false);
+  p.noteInterstitial();
+  check('no two ads back to back', p.canShowInterstitial(ctx()).ok === false);
 
-  t += REGLES.INTERVALLE_MIN_MS + 1000;
-  check('le compteur de fins de niveau repart à zéro après une pub',
-    p.peutAfficherInterstitiel(ctx()).ok === false,
-    p.peutAfficherInterstitiel(ctx()).raison);
+  now += RULES.MIN_INTERVAL_MS + 1000;
+  check('the level-ending counter resets after an ad',
+    p.canShowInterstitial(ctx()).ok === false,
+    p.canShowInterstitial(ctx()).reason);
 
-  p.noterFinDeNiveau(); p.noterFinDeNiveau();
-  check('pub à nouveau autorisée une fois le quota de fins atteint',
-    p.peutAfficherInterstitiel(ctx()).ok === true);
+  p.noteLevelEnding(); p.noteLevelEnding();
+  check('ad allowed again once the quota is reached',
+    p.canShowInterstitial(ctx()).ok === true);
 
-  p.noterRecompensee();
-  check('pas de pub juste après une pub récompensée',
-    p.peutAfficherInterstitiel(ctx()).ok === false);
+  p.noteRewarded();
+  check('no ad just after a rewarded ad',
+    p.canShowInterstitial(ctx()).ok === false);
 
-  check('bannière autorisée au menu', p.peutAfficherBanniere('menu', false) === true);
-  check('bannière interdite pendant une partie', p.peutAfficherBanniere('game', false) === false);
-  check('bannière interdite avec l\'achat sans-pub', p.peutAfficherBanniere('menu', true) === false);
+  check('banner allowed in menu', p.canShowBanner('menu', false) === true);
+  check('banner forbidden during a game', p.canShowBanner('game', false) === false);
+  check('banner forbidden with the remove-ads purchase', p.canShowBanner('menu', true) === false);
 }
 
-console.log('\n== Récompense des niveaux ==');
+console.log('\n== Level rewards ==');
 {
   const api = await import('../src/data/api.js');
   const store = await import('../src/data/save.js');
   store.reset();
 
-  check('trois étoiles rapportent dix pièces', api.piecesPour(3) === 10);
-  check('deux étoiles en rapportent cinq', api.piecesPour(2) === 5);
-  check('une étoile en rapporte deux', api.piecesPour(1) === 2);
-  check('un niveau perdu ne rapporte rien', api.piecesPour(0) === 0);
+  check('three stars pay ten coins', api.coinsFor(3) === 10);
+  check('two stars pay five coins', api.coinsFor(2) === 5);
+  check('one star pays two coins', api.coinsFor(1) === 2);
+  check('a lost level pays nothing', api.coinsFor(0) === 0);
 
-  // Le garde-fou anti-farm : sans lui, le premier niveau du jeu — trois
-  // étoiles en quelques secondes — devient la meilleure source de revenus.
-  check('rejouer sans faire mieux ne rapporte qu\'une pièce',
-    [1, 2, 3].every((s) => api.piecesPour(s, false) === 1));
+  check('replaying without improving pays a single coin',
+    [1, 2, 3].every((s) => api.coinsFor(s, false) === 1));
 
-  const premier = await api.completeLevel(1, { score: 8, stars: 3, failed: false });
-  const rejeu = await api.completeLevel(1, { score: 8, stars: 3, failed: false });
-  check('la première réussite paie le barème, le rejeu non',
-    premier.coinsEarned === 10 && rejeu.coinsEarned === 1,
-    `${premier.coinsEarned} puis ${rejeu.coinsEarned}`);
+  const first = await api.completeLevel(1, { score: 8, stars: 3, failed: false });
+  const replay = await api.completeLevel(1, { score: 8, stars: 3, failed: false });
+  check('the first success pays the scale, the replay does not',
+    first.coinsEarned === 10 && replay.coinsEarned === 1,
+    `${first.coinsEarned} then ${replay.coinsEarned}`);
 
-  // Progresser de 1★ à 3★ paie le barème de 3★, et non la différence : le
-  // joueur touche ce que le tableau lui promet, sans arithmétique cachée.
   store.reset();
   await api.completeLevel(2, { score: 30, stars: 1, failed: false });
-  const mieux = await api.completeLevel(2, { score: 9, stars: 3, failed: false });
-  check('progresser paie le barème du nouveau score',
-    mieux.coinsEarned === 10, mieux.coinsEarned + ' pièces');
+  const better = await api.completeLevel(2, { score: 9, stars: 3, failed: false });
+  check('improving pays the new score scale',
+    better.coinsEarned === 10, better.coinsEarned + ' coins');
 
-  const perdu = await api.completeLevel(3, { score: 0, stars: 0, failed: true });
-  check('un échec ne verse rien', perdu.coinsEarned === 0);
+  const lost = await api.completeLevel(3, { score: 0, stars: 0, failed: true });
+  check('a failure pays nothing', lost.coinsEarned === 0);
   store.reset();
 }
 
-console.log('\n== Boutique de pièces ==');
+console.log('\n== Coin shop ==');
 {
   const currency = await import('../src/monetization/currency.js');
   const store = await import('../src/data/save.js');
   store.reset();
 
-  const depart = currency.solde();
-  const gagne = currency.crediterPub();
-  check('une pub récompensée verse le montant annoncé',
-    gagne === currency.PUB_RECOMPENSE.PIECES && currency.solde() === depart + gagne,
-    `${gagne} pièces`);
-  check('elle entame le quota du jour',
-    currency.pubsRestantes() === currency.PUB_RECOMPENSE.PAR_JOUR - 1,
-    currency.pubsRestantes() + ' restantes');
+  const start = currency.balance();
+  const earned = currency.creditAdReward();
+  check('a rewarded ad pays the announced amount',
+    earned === currency.AD_REWARD.COINS && currency.balance() === start + earned,
+    `${earned} coins`);
+  check('it burns through the daily quota',
+    currency.adsRemaining() === currency.AD_REWARD.PER_DAY - 1,
+    currency.adsRemaining() + ' remaining');
 
-  // Le quota protège l'économie : sans lui, une réserve infinie de pièces
-  // gratuites rendrait tous les bonus indolores.
-  while (currency.pubsRestantes() > 0) currency.crediterPub();
-  const avant = currency.solde();
-  const refuse = currency.crediterPub();
-  check('le quota épuisé, elle ne verse plus rien',
-    refuse === 0 && currency.solde() === avant);
+  while (currency.adsRemaining() > 0) currency.creditAdReward();
+  const before = currency.balance();
+  const refused = currency.creditAdReward();
+  check('once the quota is spent, it pays nothing',
+    refused === 0 && currency.balance() === before);
 
   const pack = currency.PACKS[1];
-  const soldeAvant = currency.solde();
-  const verse = currency.acheterPack(pack.id);
-  const attendu = Math.round(pack.pieces * (1 + pack.bonus / 100));
-  check('un pack verse ses pièces, bonus compris',
-    verse === attendu && currency.solde() === soldeAvant + attendu,
-    `${verse} pour ${pack.pieces} +${pack.bonus} %`);
+  const beforeBalance = currency.balance();
+  const paid = currency.buyPack(pack.id);
+  const expected = Math.round(pack.coins * (1 + pack.bonus / 100));
+  check('a pack pays its coins, bonus included',
+    paid === expected && currency.balance() === beforeBalance + expected,
+    `${paid} for ${pack.coins} +${pack.bonus} %`);
 
-  const avantInconnu = currency.solde();
-  check('un identifiant de pack inconnu ne verse rien',
-    currency.acheterPack('com.puzzle.coins.inexistant') === 0
-    && currency.solde() === avantInconnu);
+  const beforeUnknown = currency.balance();
+  check('an unknown pack id pays nothing',
+    currency.buyPack('com.puzzle.coins.inexistant') === 0
+    && currency.balance() === beforeUnknown);
 
-  // Les paliers doivent rester intéressants dans l'ordre : payer plus cher
-  // pour une pièce plus chère serait un piège, pas une offre.
-  const parEuro = currency.PACKS.map((p) => {
-    const total = p.pieces * (1 + p.bonus / 100);
-    return total / Number(p.prix.replace(',', '.').replace(/[^\d.]/g, ''));
+  const perEuro = currency.PACKS.map((p) => {
+    const total = p.coins * (1 + p.bonus / 100);
+    return total / Number(p.price.replace(',', '.').replace(/[^\d.]/g, ''));
   });
-  const croissant = parEuro.every((v, i) => i === 0 || v > parEuro[i - 1]);
-  check('chaque pack offre plus de pièces par euro que le précédent',
-    croissant, parEuro.map((v) => Math.round(v)).join(' < '));
+  const ascending = perEuro.every((v, i) => i === 0 || v > perEuro[i - 1]);
+  check('each pack offers more coins per euro than the previous one',
+    ascending, perEuro.map((v) => Math.round(v)).join(' < '));
 
   store.reset();
 }
