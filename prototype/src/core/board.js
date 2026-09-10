@@ -373,15 +373,18 @@ export class Board {
       const block = this.blocks.get(step.id);
       if (!block || !this.canMove(block)) continue;
 
+      const rawPath = Array.isArray(step.path) ? step.path : Array.isArray(step.chemin) ? step.chemin : [];
+      if (!rawPath.length) continue;
+
       const snap = this.snapshot();
-      for (const pos of step.path.slice(1)) this.dragTowards(step.id, pos.x, pos.y);
+      for (const pos of rawPath.slice(1)) this.dragTowards(step.id, pos.x, pos.y);
       let leaves = !this.blocks.has(step.id);
       if (!leaves) {
         const [dx, dy] = SIDES[step.gate];
         leaves = this.step(step.id, dx, dy).ok;
       }
       this.restore(snap);
-      if (leaves) return { id: step.id, gate: step.gate, path: step.path };
+      if (leaves) return { id: step.id, gate: step.gate, path: rawPath };
     }
     return null;
   }

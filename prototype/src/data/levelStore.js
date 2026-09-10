@@ -55,6 +55,15 @@ function normalizeRealm(raw) {
   return realm;
 }
 
+function normalizeStep(step) {
+  if (!step || typeof step !== 'object') return step;
+  const path = Array.isArray(step.path) ? step.path : Array.isArray(step.chemin) ? step.chemin : [];
+  return {
+    ...step,
+    path: path.filter((pos) => pos && typeof pos.x === 'number' && typeof pos.y === 'number'),
+  };
+}
+
 function normalizeLevel(level) {
   if (!level) return level;
   const normalized = { ...level };
@@ -63,6 +72,9 @@ function normalizeLevel(level) {
       ...block,
       kind: LEGACY_KIND_MAP[block.kind] ?? block.kind,
     }));
+  }
+  if (Array.isArray(level.solution)) {
+    normalized.solution = level.solution.map(normalizeStep);
   }
   return normalized;
 }

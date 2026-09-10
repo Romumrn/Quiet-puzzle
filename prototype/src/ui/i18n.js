@@ -948,6 +948,9 @@ const STRINGS = {
     'offer.continue': '继续，获得', 'offer.bonus': '+{s} 秒，+{c} 步',
 
     'lock.open': '已开启', 'lock.left': '还差 {n}',
+    'lock.exits': '门已开启，剩余 {n} 个出口',
+    'lock.color.done': '已解锁颜色：{color}',
+    'lock.color.left': '剩余颜色：{color}',
     'gate.exit': '{color}出口',
 
     'boot.missing': '找不到关卡数据',

@@ -1250,7 +1250,9 @@ el('debug-solve').onclick = async () => {
   busy = true;
   input.locked = true;
   for (const step of level.solution) {
-    for (const pos of step.path.slice(1)) {
+    const path = Array.isArray(step.path) ? step.path : Array.isArray(step.chemin) ? step.chemin : [];
+    if (!path.length) continue;
+    for (const pos of path.slice(1)) {
       const { events } = board.dragTowards(step.id, pos.x, pos.y);
       await view.apply(events);
       await new Promise((r) => setTimeout(r, 90));
