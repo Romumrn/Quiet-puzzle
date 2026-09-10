@@ -1,32 +1,32 @@
 /**
- * Politique d'affichage publicitaire — logique pure, sans SDK ni DOM.
+ * Ad display policy — pure logic, no SDK and no DOM.
  *
- * C'est ici que se joue l'essentiel : intégrer AppLovin MAX est mécanique
- * (doc §5.2), décider QUAND montrer une pub ne l'est pas. Une interstitielle
- * de trop au mauvais moment fait plus de dégâts en rétention qu'elle ne
- * rapporte, et les premières minutes d'un joueur sont les plus fragiles.
+ * This is where the key decision lives: integrating AppLovin MAX is mechanical
+ * (doc §5.2), deciding WHEN to show an ad is not. Too many interstitials at the
+ * wrong moment hurt retention more than they help, and a player's first minutes
+ * are the most fragile.
  *
- * Séparée du reste pour être testable sous Node : voir tools/test.mjs.
+ * Kept separate from the rest for Node testing: see tools/test.mjs.
  */
 
 export const REGLES = Object.freeze({
-  /** Aucune interstitielle avant ce niveau : on laisse le joueur s'attacher. */
+  /** No interstitial before this level: let the player settle into the game. */
   NIVEAU_MIN: 3,
-  /** Délai plancher entre deux interstitielles. */
+  /** Minimum delay between two interstitials. */
   INTERVALLE_MIN_MS: 90_000,
-  /** Une interstitielle une fin de niveau sur N. */
+  /** One interstitial every N level endings. */
   FINS_PAR_PUB: 2,
-  /** Après une pub récompensée, on laisse respirer. */
+  /** After a rewarded ad, give the player a breather. */
   DELAI_APRES_RECOMPENSE_MS: 45_000,
   /**
-   * Jamais d'interstitielle sur la première défaite d'un niveau : c'est
-   * exactement le moment où le joueur veut recommencer immédiatement, et
-   * l'interrompre là est le meilleur moyen de le faire quitter.
+   * Never show an interstitial on the first defeat of a level: that's exactly
+   * when the player wants to restart immediately, and interrupting them there is
+   * the surest way to make them quit.
    */
   PAS_SUR_PREMIERE_DEFAITE: true,
 });
 
-/** Écrans où une bannière est acceptable. Jamais pendant une partie. */
+/** Screens where a banner is acceptable. Never during a game. */
 const ECRANS_BANNIERE = new Set(['menu', 'map', 'brief']);
 
 export class RegiePolicy {
@@ -40,29 +40,29 @@ export class RegiePolicy {
 
   /**
    * @param {{niveau:number, noAds:boolean, premiereDefaiteDuNiveau:boolean}} ctx
-   * @returns {{ok:boolean, raison:string}} la raison sert au journal analytics
-   *          et au panneau QA : on doit pouvoir expliquer chaque pub non montrée.
+   * @returns {{ok:boolean, raison:string}} the reason is used in analytics logs and
+   *          the QA panel: we must be able to explain why an ad was not shown.
    */
   peutAfficherInterstitiel(ctx) {
-    if (ctx.noAds) return { ok: false, raison: 'achat sans pub' };
-    if (ctx.niveau < this.regles.NIVEAU_MIN) return { ok: false, raison: `avant le niveau ${this.regles.NIVEAU_MIN}` };
+    if (ctx.noAds) return { ok: false, raison: 'purchase without ads' };
+    if (ctx.niveau < this.regles.NIVEAU_MIN) return { ok: false, raison: `before level ${this.regles.NIVEAU_MIN}` };
     if (this.regles.PAS_SUR_PREMIERE_DEFAITE && ctx.premiereDefaiteDuNiveau) {
-      return { ok: false, raison: 'première défaite du niveau' };
+      return { ok: false, raison: 'first defeat of the level' };
     }
     const t = this.now();
     if (t - this.derniereInterstitielle < this.regles.INTERVALLE_MIN_MS) {
-      return { ok: false, raison: 'intervalle minimum non écoulé' };
+      return { ok: false, raison: 'minimum interval not elapsed' };
     }
     if (t - this.derniereRecompensee < this.regles.DELAI_APRES_RECOMPENSE_MS) {
-      return { ok: false, raison: 'pub récompensée trop récente' };
+      return { ok: false, raison: 'rewarded ad too recent' };
     }
     if (this.finsDepuisPub < this.regles.FINS_PAR_PUB) {
-      return { ok: false, raison: `${this.finsDepuisPub}/${this.regles.FINS_PAR_PUB} fins de niveau` };
+      return { ok: false, raison: `${this.finsDepuisPub}/${this.regles.FINS_PAR_PUB} level endings` };
     }
     return { ok: true, raison: 'ok' };
   }
 
-  /** À appeler à chaque fin de niveau, qu'une pub soit montrée ou non. */
+  /** Call at every level ending, with or without an ad. */
   noterFinDeNiveau() { this.finsDepuisPub++; }
 
   noterInterstitiel() {
@@ -72,8 +72,8 @@ export class RegiePolicy {
 
   noterRecompensee() { this.derniereRecompensee = this.now(); }
 
-  /** Une bannière ne s'affiche que hors partie : pendant le jeu, elle vole de
-   *  la place au plateau et provoque des clics accidentels sur un glissé. */
+  /** A banner is only shown outside play: during a game, it steals space from the board
+   *  and causes accidental taps on a drag gesture. */
   peutAfficherBanniere(ecran, noAds) {
     return !noAds && ECRANS_BANNIERE.has(ecran);
   }

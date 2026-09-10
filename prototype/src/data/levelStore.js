@@ -134,7 +134,8 @@ async function loadRealm(id) {
   if (realmLevels.has(id)) return realmLevels.get(id);
   const realm = requireOpen().realms.find((r) => r.id === id);
   if (!realm) throw new Error(`Realm ${id} missing from the catalogue`);
-  const data = await read(realm.file, BUNDLED.realms[realm.file]);
+  const file = realm.file ?? realm.fichier;
+  const data = await read(file, BUNDLED.realms[file]);
   realmLevels.set(id, data.levels);
   for (const level of data.levels) byNumber.set(level.number, level);
   return data.levels;

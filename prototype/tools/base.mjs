@@ -1,32 +1,30 @@
 /**
- * Ouvre la base de niveaux sous Node — `import { getLevel } from './base.mjs'`
+ * Loads the level database under Node — `import { getLevel } from './base.mjs'`
  *
- * Les outils doivent mesurer et vérifier CE QUI EST LIVRÉ, c'est-à-dire les
- * fichiers de `levels/`, et non ce que le générateur produirait s'il tournait à
- * nouveau. Les deux peuvent diverger : un niveau retouché à la main, une base
- * pas régénérée après un réglage.
+ * Tools must measure and validate the shipped data in `levels/`, not whatever the
+ * generator would produce if we ran it again. They can diverge: a level edited by
+ * hand, or a database not rebuilt after a tuning change.
  *
- * On passe par le lecteur de l'application plutôt que d'en réécrire un : c'est
- * le même chemin de code, les mêmes copies défensives, les mêmes messages
- * d'erreur. `EMBARQUE` est le point de couture prévu pour ça — le bundler
- * l'utilise exactement de la même façon pour le fichier unique.
+ * We reuse the application's reader instead of re-implementing one: same code
+ * path, same defensive copies, same error messages. `BUNDLED` is the seam the
+ * single-file build uses in exactly the same way.
  */
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { EMBARQUE, ouvrir } from '../src/data/levelStore.js';
+import { BUNDLED, open } from '../src/data/levelStore.js';
 
-const racine = join(dirname(fileURLToPath(import.meta.url)), '..', 'levels');
-const lire = (nom) => JSON.parse(readFileSync(join(racine, nom), 'utf8'));
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'levels');
+const read = (name) => JSON.parse(readFileSync(join(root, name), 'utf8'));
 
-if (!existsSync(join(racine, 'index.json'))) {
-  console.error('\nBase de niveaux absente. Lancer : node tools/build-levels.mjs\n');
+if (!existsSync(join(root, 'index.json'))) {
+  console.error('\nLevel database missing. Run: node tools/build-levels.mjs\n');
   process.exit(1);
 }
 
-EMBARQUE.index = lire('index.json');
-for (const monde of EMBARQUE.index.realms) EMBARQUE.mondes[monde.fichier] = lire(monde.fichier);
-await ouvrir();
+BUNDLED.index = read('index.json');
+for (const realm of BUNDLED.index.realms) BUNDLED.realms[realm.file ?? realm.fichier] = read(realm.file ?? realm.fichier);
+await open();
 
 export * from '../src/data/levelStore.js';

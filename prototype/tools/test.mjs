@@ -21,7 +21,7 @@
  */
 
 import { Board } from '../src/core/board.js';
-import { KIND, couleursDe } from '../src/core/block.js';
+import { KIND, colorsOf } from '../src/core/block.js';
 import * as base from './base.mjs';
 
 /**
@@ -71,7 +71,7 @@ function rejouer(n) {
 
 console.log('\n== La base de niveaux ==');
 {
-  const cat = base.catalogue();
+  const cat = base.catalog();
   const numeros = [...niveaux.values()].map((L) => L.number).sort((a, b) => a - b);
   const attendus = Array.from({ length: TOTAL_LEVELS }, (_, i) => i + 1);
   check('la base contient tous les niveaux annoncés par son index',
@@ -85,7 +85,7 @@ console.log('\n== La base de niveaux ==');
   check('chaque niveau porte tous les champs du format d\'API',
     incomplets.length === 0, incomplets.slice(0, 5).join(', '));
 
-  const horsMonde = [...niveaux.values()].filter((L) => base.realmDe(L.number).name !== L.realm)
+  const horsMonde = [...niveaux.values()].filter((L) => base.realmOf(L.number).name !== L.realm)
     .map((L) => L.number);
   check('chaque niveau est rangé dans le monde que dit l\'index',
     horsMonde.length === 0, horsMonde.slice(0, 5).join(', '));
@@ -249,17 +249,17 @@ console.log('\n== Portes et couleurs ==');
     for (const b of L.blocks) {
       if (b.kind === KIND.WALL) continue;
       if (b.kind === KIND.JOKER) { joker = true; continue; }
-      for (const c of couleursDe(b)) if (c >= 0) couleurs.add(c);
+      for (const c of colorsOf(b)) if (c >= 0) couleurs.add(c);
     }
     if (!joker) {
       for (const g of L.gates) {
-        if (!couleursDe(g).some((c) => couleurs.has(c))) {
-          orphelines.push(`${L.number}/${g.side} c${couleursDe(g).join('+')}`);
+        if (!colorsOf(g).some((c) => couleurs.has(c))) {
+          orphelines.push(`${L.number}/${g.side} c${colorsOf(g).join('+')}`);
         }
       }
     }
     for (const c of couleurs) {
-      if (!L.gates.some((g) => couleursDe(g).includes(c))) sansPorte.push(`${L.number}/c${c}`);
+      if (!L.gates.some((g) => colorsOf(g).includes(c))) sansPorte.push(`${L.number}/c${c}`);
     }
   }
   check('aucune porte ne sert une couleur absente de la grille',
@@ -283,7 +283,7 @@ console.log('\n== Résolubilité vérifiée indépendamment ==');
 if (!SOLVEUR) {
   console.log('  PASSÉ  --solveur pour la lancer (quelques minutes)');
 } else {
-  const { resoudre, BUDGET_HORS_LIGNE } = await import('../src/core/solver.js');
+  const { solve, OFFLINE_BUDGET } = await import('../src/core/solver.js');
 
   /**
    * Cette vérification est la SECONDE : la résolubilité de chaque niveau est
@@ -316,7 +316,7 @@ if (!SOLVEUR) {
   let etatsMax = 0;
   for (const n of aVerifier) {
     const b = new Board({ ...getLevel(n), moveLimit: 9999, timeLimit: 9999 });
-    const r = resoudre(b, BUDGET_HORS_LIGNE);
+    const r = solve(b, OFFLINE_BUDGET);
     etatsMax = Math.max(etatsMax, r.etats);
     // Une recherche COUPÉE ne prouve rien : le solveur a épuisé son budget, pas
     // l'espace des solutions. Seul un échec au terme d'une exploration complète
@@ -338,7 +338,7 @@ if (!SOLVEUR) {
 console.log('\n== Les blocs des mondes tardifs ==');
 {
   const { Block } = await import('../src/core/block.js');
-  const { coutCapacite } = await import('../src/core/block.js');
+  const { capacityCost } = await import('../src/core/block.js');
   const grille = (blocks, gates) => ({
     levelId: 'test', number: 0, realm: 'test', difficulty: 'test',
     width: 4, height: 4, colorCount: 2, moveLimit: 99, timeLimit: 99, minDrags: 1,
@@ -365,9 +365,9 @@ console.log('\n== Les blocs des mondes tardifs ==');
     const cellules = [[0, 0], [1, 0]];
     const ordinaire = new Block({ id: 1, color: 0, cells: cellules, x: 0, y: 0 });
     const encombrant = new Block({ id: 2, color: 0, cells: cellules, x: 0, y: 0, kind: KIND.ENCOMBRANT });
-    check('un encombrant coûte le double à sa porte',
-      coutCapacite(encombrant) === 2 * coutCapacite(ordinaire),
-      `${coutCapacite(encombrant)} contre ${coutCapacite(ordinaire)}`);
+    check('a bulky block costs twice as much at its gate',
+      capacityCost(encombrant) === 2 * capacityCost(ordinaire),
+      `${capacityCost(encombrant)} against ${capacityCost(ordinaire)}`);
 
     // Une porte de 3 accepte le bloc ordinaire (2 cases) mais pas l'encombrant (4).
     const porte = () => [{ side: 'top', start: 0, length: 2, color: 0, capacity: 3 }];
