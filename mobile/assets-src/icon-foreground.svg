@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <!-- Gate -->
-  <rect x="655" y="302" width="96" height="420" rx="48" fill="#f6f1ff"/>
+  <rect x="655" y="302" width="96" height="420" rx="48" fill="#4a3540"/>
 
   <!-- Blocks converging on the gate, the foremost one mid-exit -->
   <g fill="#4f86e0">

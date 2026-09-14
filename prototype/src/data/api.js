@@ -150,8 +150,9 @@ export async function completeLevel(n, { score, stars, failed, timeMs }) {
   d.lastPlayedAt = new Date().toISOString();
 
   if (failed) {
+    d.levelStreak = 0;
     store.save(d);
-    return { stars: 0, coinsEarned: 0, xpEarned: 0, nextLevelUnlocked: false, rewardItems: [] };
+    return { stars: 0, coinsEarned: 0, xpEarned: 0, nextLevelUnlocked: false, rewardItems: [], levelStreak: 0 };
   }
 
   const prev = d.levels[n] || { stars: 0, bestScore: 0 };
@@ -170,7 +171,9 @@ export async function completeLevel(n, { score, stars, failed, timeMs }) {
   const nextLevelUnlocked = n === d.unlockedLevel && n < levels.totalLevels();
   if (nextLevelUnlocked) d.unlockedLevel = n + 1;
 
+  d.levelStreak = (d.levelStreak || 0) + 1;
+
   store.save(d);
   _syncCompleteLevel(n, { score, failed, timeMs }).catch(() => {});
-  return { stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems: [] };
+  return { stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems: [], levelStreak: d.levelStreak };
 }

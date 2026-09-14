@@ -37,7 +37,6 @@ const MODULES = [
   'src/monetization/brokerPolicy.js',
   'src/monetization/brokerManager.js',
   'src/meta/daily.js',
-  'src/meta/themes.js',
   'src/meta/dailyPuzzle.js',
   'src/meta/myLevels.js',
   'src/meta/feedback.js',

@@ -27,6 +27,7 @@ export const EVENTS = Object.freeze({
   LEVEL_FAILED: 'level_failed',
   LEVEL_RESTARTED: 'level_restarted',
   LEVEL_ABANDONED: 'level_abandoned',
+  REALM_COMPLETED: 'realm_completed',
 
   // Monetisation
   REWARDED_OFFER_SHOWN: 'rewarded_offer_shown',

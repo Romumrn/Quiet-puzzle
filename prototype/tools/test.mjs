@@ -546,7 +546,7 @@ console.log('\n== Carte du projet (AGENTS.md) ==');
 
   // Les symboles mis en avant sont les points d'entrée du travail : s'ils
   // disparaissent, la carte envoie chercher ce qui n'est plus là.
-  const symboles = ['REALMS', 'COINS_PER_STAR', 'STREAK_TIERS', 'THEMES',
+  const symboles = ['REALMS', 'COINS_PER_STAR', 'STREAK_TIERS',
                     'EVENTS', 'PACKS', 'AD_REWARD', 'capacityCost',
                     'conditionMet', 'canMove',
                     // The generation chain is the most frequently used section, so it
@@ -559,7 +559,7 @@ console.log('\n== Carte du projet (AGENTS.md) ==');
                    'src/core/block.js', 'src/core/board.js',
                    'src/core/stars.js', 'src/data/levelStore.js',
                    'src/data/api.js', 'src/data/analytics.js', 'src/meta/daily.js',
-                   'src/meta/themes.js', 'src/monetization/currency.js',
+                   'src/monetization/currency.js',
                    'src/monetization/brokerPolicy.js', 'src/monetization/brokerManager.js']
     .map((f) => readFileSync(join(racine, f), 'utf8')).join('\n');
   const perdus = symboles.filter((sym) => !new RegExp(`\\b${sym}\\b`).test(sources));

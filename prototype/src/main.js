@@ -24,12 +24,12 @@ import * as editor from './ui/editor.js';
 import { solve } from './core/solver.js';
 import * as hud from './ui/gameplayUI.js';
 import * as result from './ui/resultScreen.js';
+import * as realmComplete from './ui/realmComplete.js';
 import { AdBroker, PLACEMENT } from './monetization/brokerManager.js';
 import * as currency from './monetization/currency.js';
 import * as failOffer from './monetization/failOffer.js';
 import * as daily from './meta/daily.js';
 import * as dailyPuzzle from './meta/dailyPuzzle.js';
-import * as themes from './meta/themes.js';
 import { EVENTS as EV, levelContext } from './data/analytics.js';
 import * as feedback from './meta/feedback.js';
 import { track, recent, subscribe } from './data/events.js';
@@ -44,6 +44,12 @@ import { registerBackHandler, registerLifecycle } from './native/lifecycle.js';
 import { Browser } from '../vendor/capacitor-browser.esm.js';
 
 const el = (id) => document.getElementById(id);
+
+// The "device frame" look (styles/main.css `.device`) simulates a phone on
+// the published desktop web page. Inside the packaged app there is no page
+// to frame — the app IS the whole screen, of whatever aspect ratio the
+// device has, so that look must be dropped before first paint.
+if (isNative()) document.documentElement.classList.add('native-app');
 
 let view = null;
 let input = null;
@@ -139,7 +145,6 @@ function payStreakRewards() {
   for (const tier of daily.rewardsDue()) {
     const r = tier.reward;
     if (r.type === 'coins') currency.credit(r.amount, 'streak_reward');
-    else if (r.type === 'theme') themes.unlock(r.id, 'streak');
     else if (r.type === 'hints') {
       const d = store.load();
       d.hints = (d.hints || 0) + r.amount;
@@ -213,6 +218,7 @@ function updateBanner(screen) {
 function showMap() {
   stopClock();
   result.hide();
+  realmComplete.hide();
   mapScreen.render(showBrief);
   screens.show('map');
   updateBanner('map');
@@ -279,6 +285,7 @@ async function adBeforeLevel() {
 async function startLevel() {
   openPanel(false);
   result.hide();
+  realmComplete.hide();
   await adBeforeLevel();
   theme.apply(level.number);
   audio.resetRun();
@@ -505,6 +512,27 @@ async function finishLevel() {
   // indeed what makes an ad eligible.
   ads.policy.noteLevelEnding();
 
+  // A win on the last level of a realm gets the celebration screen instead of
+  // the plain result screen — it carries the same stars/reward, plus the next
+  // realm's preview, so nothing is lost by replacing rather than stacking.
+  if (won && level.number === levels.realmOf(level.number).last) {
+    track(EV.REALM_COMPLETED, levelContext(level, { attempt: levelFailures + 1, board, duration }));
+    const finishedRealm = levels.realmOf(level.number);
+    const isGameOver = level.number >= levels.totalLevels();
+    realmComplete.show({
+      realm: finishedRealm,
+      next: isGameOver ? null : levels.realmOf(level.number + 1),
+      stars,
+      coinsEarned: res.coinsEarned,
+      onContinue: async () => {
+        if (isGameOver) { showMap(); return; }
+        await showBrief(level.number + 1);
+        startLevel();
+      },
+    });
+    return;
+  }
+
   result.show({
     won,
     stars,
@@ -512,6 +540,7 @@ async function finishLevel() {
     duration,
     level: level.number,
     coinsEarned: res.coinsEarned,
+    levelStreak: res.levelStreak,
     reason: board.failReason,
     remaining: board.remaining(),
     noAds: currency.hasRemovedAds(),
@@ -664,9 +693,9 @@ async function updatePanel() {
   el('opt-sfx').checked = d.sfx !== false;
   el('opt-vibration').checked = d.vibration !== false;
   el('opt-glyphs').checked = d.glyphs === true;
+  el('opt-night').checked = d.night === true;
   el('opt-noads').checked = currency.hasRemovedAds();
   buildLanguageChoice();
-  updateThemes();
   updateMuteDot();
   await updateAuthStatus();
   await updateAdminSection();
@@ -722,6 +751,22 @@ el('opt-glyphs').onchange = (ev) => {
   const d = store.load(); d.glyphs = on; store.save(d);
   applyGlyphs(on);
   track('glyphs_toggled', { on });
+};
+
+/**
+ * Night mode. Only the surfaces/ink tokens flip to a dark palette (see
+ * `.night` in main.css) — `--h` itself is untouched, so the app stays tinted
+ * by whatever realm the player is in, just lit differently.
+ */
+function applyNight(on) {
+  document.documentElement.classList.toggle('night', on);
+}
+
+el('opt-night').onchange = (ev) => {
+  const on = ev.target.checked;
+  const d = store.load(); d.night = on; store.save(d);
+  applyNight(on);
+  track('night_toggled', { on });
 };
 
 /**
@@ -1126,43 +1171,6 @@ function showLeaderboard(myScore) {
   el('overlay-rank').hidden = false;
 }
 
-/**
- * Theme grid. A locked theme stays VISIBLE, with its condition: what you cannot
- * have yet is what makes you want to carry on, provided you know what to do to
- * get it.
- */
-async function updateThemes() {
-  const host = el('opt-themes');
-  const profile = await api.getProfile();
-  const current = themes.chosen();
-
-  const followRealms = document.createElement('button');
-  followRealms.className = 'theme-tile' + (current ? '' : ' sel');
-  followRealms.innerHTML = '<span class="theme-emoji">🎨</span>';
-  const name = document.createElement('small');
-  name.textContent = t('theme.worlds');
-  followRealms.append(name);
-  followRealms.onclick = () => { themes.choose(null); theme.apply(profile.currentLevel); updateThemes(); };
-
-  host.replaceChildren(followRealms, ...themes.THEMES.map((th) => {
-    const open = themes.isUnlocked(th, profile);
-    const tile = document.createElement('button');
-    tile.className = 'theme-tile' + (current === th.id ? ' sel' : '') + (open ? '' : ' locked');
-    tile.style.setProperty('--preview', th.palette[0]);
-    tile.innerHTML = `<span class="theme-emoji">${th.emoji}</span>`;
-    const label = document.createElement('small');
-    label.textContent = open ? th.id : themes.conditionLabel(th, t);
-    tile.append(label);
-    if (!open) {
-      tile.disabled = true;
-      tile.title = t('theme.locked', { what: themes.conditionLabel(th, t) });
-    } else {
-      tile.onclick = () => { themes.choose(th.id); theme.apply(profile.currentLevel); updateThemes(); };
-    }
-    return tile;
-  }));
-}
-
 el('opt-noads').onchange = (ev) => {
   currency.setAdsRemoved(ev.target.checked);
   if (ev.target.checked) track(EV.REMOVE_ADS_PURCHASED, { simulated: true });
@@ -1452,6 +1460,7 @@ function refreshDebug() {
   // The language first: everything after this writes text on screen.
   i18n.init();
   applyGlyphs(store.load().glyphs === true);
+  applyNight(store.load().night === true);
   try {
     await levels.open();
     // The "go to level" field follows the database's total. Hard-coded in the

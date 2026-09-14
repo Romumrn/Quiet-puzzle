@@ -38,6 +38,8 @@ const EMPTY = () => ({
   coinAdsCount: 0,
   streak: 0,         // consecutive days played
   streakTiers: [],   // streak tiers already rewarded
+  levelStreak: 0,    // consecutive levels won in a row, reset on any loss
+  night: false,      // night mode (else the realm's usual light palette)
   themes: [],        // unlocked themes, on top of the original one
   theme: null,       // chosen theme, or null for the realm's hue
   badges: [],        // badges earned

@@ -34,6 +34,18 @@ export function show(r) {
     ? t('result.reward', { n: r.coinsEarned })
     : t(r.reason === 'time' ? 'result.timeout.sub' : 'result.nomoves.sub');
 
+  // A streak of at least 2 wins in a row: a single win is just... a win, not
+  // yet a "streak" worth calling out. The tier (1/2/3) drives the CSS —
+  // bigger and more saturated the longer it runs — rather than an inline size
+  // computed in JS, to keep the escalation as a look defined once in CSS.
+  const streak = el('result-streak');
+  const n = r.won ? (r.levelStreak || 0) : 0;
+  streak.hidden = n < 2;
+  if (n >= 2) {
+    streak.textContent = t('result.streak', { n });
+    streak.className = 'result-streak streak-' + (n >= 10 ? 3 : n >= 5 ? 2 : 1);
+  }
+
   // A near miss: saying so is motivating and honest — it is the real gap.
   const near = el('result-near');
   if (!r.won && r.remaining > 0 && r.remaining <= 2) {
@@ -86,7 +98,7 @@ export function show(r) {
   const isLast = r.level >= totalLevels();
   const next = el('btn-result-next');
   next.hidden = !r.won || isLast;
-  el('btn-result-retry').hidden = r.won && !isLast;
+  el('btn-result-retry').hidden = false;
 
   el('btn-result-map').onclick = r.onMap;
   el('btn-result-retry').onclick = r.onRetry;

@@ -68,16 +68,15 @@ export function claim() {
 /**
  * Streak tiers: the badge shown, and what reaching one pays out.
  *
- * The rewards are of DIFFERENT natures — coins, a theme, hints, a badge — and
- * that is deliberate: a streak that only pays currency gets compared to the
- * currency earned by playing, and always loses. A theme cannot be earned
- * anywhere else.
+ * The rewards are of DIFFERENT natures — coins, hints, a badge — and that is
+ * deliberate: a streak that only pays currency gets compared to the currency
+ * earned by playing, and always loses.
  */
 export const STREAK_TIERS = Object.freeze([
   { days: 1, badge: '🔥' },
   { days: 2, badge: '🔥' },
   { days: 3, badge: '🔥', reward: { type: 'coins', amount: 50 } },
-  { days: 7, badge: '🔥', reward: { type: 'theme', id: 'sakura' } },
+  { days: 7, badge: '🔥', reward: { type: 'coins', amount: 100 } },
   { days: 14, badge: '🔥', reward: { type: 'hints', amount: 3 } },
   { days: 30, badge: '🏅', reward: { type: 'badge', id: 'loyal' } },
 ]);

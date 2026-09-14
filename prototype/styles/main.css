@@ -58,6 +58,24 @@
   --accent-wash: hsl(var(--h) 72% 94%);
 }
 
+/* Mode nuit : mêmes jetons, luminosité inversée — `--h` ne change pas, donc
+   la nuit reste teintée par le monde en cours, juste éclairée autrement. */
+html.night, html.night .app, html.night .realm {
+  --ground: hsl(var(--h) 30% 14%);
+  --ground-deep: hsl(var(--h) 34% 9%);
+  --surface: hsl(var(--h) 26% 19%);
+  --line: hsl(var(--h) 24% 30%);
+  --line-soft: hsl(var(--h) 22% 25%);
+
+  --ink: hsl(var(--h) 20% 93%);
+  --ink-soft: hsl(var(--h) 14% 74%);
+  --ink-faint: hsl(var(--h) 12% 55%);
+
+  --accent: hsl(var(--h) 55% 62%);
+  --accent-deep: hsl(var(--h) 55% 72%);
+  --accent-wash: hsl(var(--h) 40% 25%);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 /* `hidden` doit gagner contre les display: grid/flex des composants. */
@@ -84,6 +102,17 @@ body { display: grid; place-items: center; }
   overflow: hidden;
   border-radius: clamp(0px, calc((100vw - 430px) * 999), 26px);
   box-shadow: 0 24px 60px rgba(60, 40, 55, 0.16);
+}
+
+/* Packaged app: no page to frame a phone mockup on, so the board fills the
+   real device screen instead of being letterboxed to a fixed 9:16 card. */
+.native-app .device {
+  width: 100vw;
+  height: 100vh;
+  aspect-ratio: auto;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .app {
@@ -762,6 +791,21 @@ body { display: grid; place-items: center; }
 
 .fx-layer { position: absolute; inset: 0; pointer-events: none; z-index: 6; overflow: visible; }
 
+/* Realm-complete celebration: a screen-sized version of the spark above,
+   scaled up and freed from any one block's colour (see render/confetti.js). */
+.confetti-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
+.confetti-piece {
+  position: absolute; top: -12px; left: var(--x);
+  width: 8px; height: 12px; border-radius: 2px;
+  transform: rotate(0deg);
+  animation: confetti-fall var(--fall) cubic-bezier(0.3, 0.1, 0.4, 1) var(--delay) forwards;
+}
+@keyframes confetti-fall {
+  0% { transform: translate(0, -10%) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translate(var(--drift), 115vh) rotate(var(--rot)); opacity: 0.9; }
+}
+
 .spark {
   position: absolute; border-radius: 50%;
   background: var(--tile);
@@ -916,20 +960,6 @@ body { display: grid; place-items: center; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* Thèmes : les verrouillés restent visibles, avec ce qu'il faut pour les
-   ouvrir — c'est ce qu'on ne peut pas encore avoir qui donne envie. */
-.theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
-.theme-tuile {
-  display: grid; gap: 2px; justify-items: center; padding: 8px 4px;
-  background: var(--ground); border: 1px solid var(--line); border-radius: 14px;
-  color: var(--ink-soft); font: inherit; cursor: pointer;
-  transition: border-color 0.16s ease, background 0.16s ease;
-}
-.theme-tuile small { font-size: 9px; line-height: 1.15; text-align: center; opacity: 0.85; }
-.theme-emoji { font-size: 18px; line-height: 1; }
-.theme-tuile:hover:not([disabled]) { border-color: var(--accent); }
-.theme-tuile.sel { background: var(--accent-wash); border-color: var(--accent-deep); color: var(--accent-deep); }
-.theme-tuile.verrouille { opacity: 0.45; cursor: not-allowed; }
 
 /* Écran de défaite : UNE offre principale, une option discrète, une sortie.
    Trois boutons de même poids ne se choisissent pas, ils se subissent. */
@@ -1102,7 +1132,7 @@ body { display: grid; place-items: center; }
   backdrop-filter: blur(8px);
   animation: screen-in 0.26s ease both;
 }
-.result-card, .offer-card {
+.result-card, .offer-card, .realm-card {
   width: 100%; padding: 30px 24px 24px;
   background: var(--surface);
   border: 1px solid var(--line); border-radius: 26px;
@@ -1112,11 +1142,28 @@ body { display: grid; place-items: center; }
 }
 @keyframes card-in { from { transform: scale(0.94) translateY(14px); opacity: 0; } }
 
-.result-card h2, .offer-card h2 {
+.result-card h2, .offer-card h2, .realm-card h2 {
   font: 300 26px var(--font-display);
   font-variation-settings: 'SOFT' 40;
   margin-bottom: 20px;
 }
+
+.realm-card { position: relative; z-index: 1; }
+.realm-done-name {
+  font: 400 17px var(--font-ui); color: var(--accent-deep); margin-bottom: 14px;
+}
+.realm-reward { color: var(--award); margin: 14px 0 22px; }
+.realm-next {
+  margin: 6px 0 24px; padding: 16px; border-radius: 16px;
+  background: var(--ground); border: 1px solid var(--line);
+}
+.realm-next-label {
+  display: block; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-faint); margin-bottom: 6px;
+}
+.realm-next-name { font: 400 19px var(--font-display); margin-bottom: 4px; }
+.realm-next-intro { color: var(--ink-soft); font-size: 13px; }
+.realm-next-intro[hidden] { display: none; }
 .result-score { margin: 20px 0 6px; }
 .result-score span { font: 400 40px var(--font-ui); font-variant-numeric: tabular-nums; }
 .result-score small {
@@ -1129,8 +1176,24 @@ body { display: grid; place-items: center; }
   color: var(--accent-deep); font-size: 13px;
 }
 .result-reward { color: var(--award); margin: 14px 0 18px; min-height: 21px; }
-.result-actions { display: flex; gap: 9px; }
-.result-actions .btn { flex: 1; }
+
+/* Levels won in a row. Three tiers, each a notch bigger and more saturated
+   than the last — the escalation itself is the reward, no counter needed. */
+.result-streak {
+  display: inline-block; margin: -8px 0 18px; padding: 6px 14px;
+  border-radius: 999px; font: 500 13px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  background: hsl(28 70% 93%); color: hsl(28 60% 40%);
+}
+.result-streak.streak-2 { font-size: 14px; background: hsl(20 75% 90%); color: hsl(20 65% 42%); }
+.result-streak.streak-3 {
+  font-size: 16px; font-weight: 600; background: hsl(12 80% 88%); color: hsl(12 70% 42%);
+  animation: streak-pop 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes streak-pop { from { transform: scale(0.8); opacity: 0; } }
+
+.result-actions { display: flex; gap: 9px; flex-wrap: wrap; }
+.result-actions .btn { flex: 1; min-width: 84px; }
 
 .btn-reward {
   display: flex; align-items: center; justify-content: center; gap: 9px;
@@ -1348,6 +1411,8 @@ body { display: grid; place-items: center; }
 .user-panel {
   position: absolute; top: calc(max(18px, env(safe-area-inset-top)) + 46px); right: 14px;
   z-index: 19; width: min(280px, calc(100% - 28px));
+  max-height: calc(100% - max(18px, env(safe-area-inset-top)) - 46px - 14px);
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
   padding: 16px; border-radius: 20px;
   background: var(--surface); border: 1px solid var(--line);
   box-shadow: 0 18px 44px hsl(var(--h) 30% 50% / 0.18);
