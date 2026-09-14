@@ -1,17 +1,16 @@
 /**
- * Catalogue des fichiers audio.
+ * Catalogue of the audio files.
  *
- * Ce module est un point de couture volontaire : tools/bundle.mjs le réécrit en
- * remplaçant les chemins par des URI `data:` au moment de fabriquer le fichier
- * unique. Le jeu servi depuis un dossier charge donc des fichiers séparés,
- * tandis que la version en un seul fichier embarque tout, sans qu'une ligne de
- * code du lecteur ne change.
+ * This module is a deliberate seam: tools/bundle.mjs rewrites it, replacing the
+ * paths with `data:` URIs when building the single-file version. The game
+ * served from a folder therefore loads separate files, while the one-file
+ * version embeds everything, without a single line of the player changing.
  */
 
-export const MUSIQUE = 'audio/3-verriere.mp3';
+export const MUSIC = 'audio/3-verriere.mp3';
 
-/** Carillons de sortie, du grave à l'aigu. Voir AudioManager.sortie(). */
-export const SORTIES = [
+/** Exit chimes, from low to high. See AudioManager.exit(). */
+export const EXIT_SOUNDS = [
   'audio/sfx-sortie-1.mp3',
   'audio/sfx-sortie-2.mp3',
   'audio/sfx-sortie-3.mp3',

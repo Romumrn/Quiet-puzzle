@@ -898,6 +898,24 @@ body { display: grid; place-items: center; }
   font-variant-numeric: tabular-nums;
 }
 
+/* "Bonjour Prénom" — only for a real account, on the opposite corner from the
+   streak badge so the two never fight for the same space. */
+.menu-greeting {
+  position: absolute; top: max(18px, env(safe-area-inset-top)); right: 18px; z-index: 18;
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 12px 5px 5px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--ink-soft); font: 500 13px var(--font-ui);
+  cursor: pointer; max-width: 46vw;
+}
+.menu-greeting-avatar {
+  width: 24px; height: 24px; border-radius: 50%; object-fit: cover;
+  background: var(--accent-wash); flex-shrink: 0;
+}
+.menu-greeting-text {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* Thèmes : les verrouillés restent visibles, avec ce qu'il faut pour les
    ouvrir — c'est ce qu'on ne peut pas encore avoir qui donne envie. */
 .theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }

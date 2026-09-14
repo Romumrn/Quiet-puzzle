@@ -2,8 +2,9 @@
  * Level database — the source of truth for what the application plays.
  *
  * The application NO LONGER GENERATES its levels: it reads them.
- * `core/levels.js` is still the generator, but it has moved to the authoring
- * tools — `tools/build-levels.mjs` calls it, offline, to fill `levels/`.
+ * The generator lives outside the application entirely, in `generator/` at the
+ * repository root — `tools/build-levels.mjs` calls it, offline, to fill
+ * `levels/`. No module served to the browser imports it.
  *
  * What that changes, and it is the whole point:
  *
@@ -17,15 +18,23 @@
  * The database is split by realm: the index is loaded at startup (a few
  * kilobytes), each realm on first demand. Loading all six hundred levels at
  * once would mean waiting for three quarters of a megabyte to play just one.
+ *
+ * WHERE those two reads go is not decided here — `levelSource.js` tries the
+ * local cache, then Supabase, then the seed on disk. This file only cares about
+ * the SHAPE of what comes back, and about keeping the catalogue readable
+ * synchronously once `open()` has resolved: `totalLevels()`, `realms()` and
+ * `realmOf()` are called from render paths that cannot await.
  */
 
 /**
  * Bundled database. `tools/bundle.mjs` fills this object when building the
- * single-file version: that file has no server to load anything from, and a
- * `fetch` on `file://` would fail. Left empty, we go over the network.
+ * single-file version, and `tools/base.mjs` fills it so the node tools measure
+ * the JSON in the repository rather than whatever the database currently holds.
+ * It wins over every other source, so a tool never reaches the network.
  */
 import { t } from '../ui/i18n.js';
 import { starThresholds } from '../core/stars.js';
+import { loadCatalog, loadRealmLevels } from './levelSource.js';
 
 export const BUNDLED = { index: null, realms: {}, calibration: null };
 
@@ -42,13 +51,23 @@ let index = null;
 const realmLevels = new Map();   // realm id -> array of levels
 const byNumber = new Map();
 
+/**
+ * Renames the legacy French keys, and NOTHING else.
+ *
+ * It used to also collapse each `{ fr, en, … }` table to its English string,
+ * which silently undid the reason those tables exist: `i18n.realmText()` reads
+ * them to show a realm in the player's language, and by the time it got one
+ * there was only English left — a French interface announced "learning the
+ * ropes". The database stores these labels as jsonb in every language, so
+ * flattening them here would throw away exactly what we came to fetch.
+ *
+ * `realmText` accepts both a table and a bare string, so a seed index whose
+ * `name` is already a plain string still works.
+ */
 function normalizeRealm(raw) {
   const realm = { ...raw };
-  if (typeof realm.name === 'object' && realm.name) realm.name = realm.name.en ?? realm.name.fr ?? realm.name;
-  if (!realm.name && raw.nom) realm.name = raw.nom.en ?? raw.nom.fr ?? raw.nom;
-  if (typeof realm.difficulty === 'object' && realm.difficulty) realm.difficulty = realm.difficulty.en ?? realm.difficulty.fr ?? realm.difficulty;
+  if (!realm.name && raw.nom) realm.name = raw.nom;
   if (!realm.difficulty && raw.difficulte) realm.difficulty = raw.difficulte;
-  if (typeof realm.introduces === 'object' && realm.introduces) realm.introduces = realm.introduces.en ?? realm.introduces.fr ?? realm.introduces;
   if (!realm.introduces && raw.apporte) realm.introduces = raw.apporte;
   if (realm.hue == null && raw.teinte != null) realm.hue = raw.teinte;
   if (!realm.file && raw.fichier) realm.file = raw.fichier;
@@ -93,7 +112,7 @@ async function read(path, bundled) {
  */
 export async function open() {
   if (index) return index;
-  const rawIndex = await read('index.json', BUNDLED.index);
+  const rawIndex = BUNDLED.index ?? await loadCatalog();
   index = { ...rawIndex, realms: (rawIndex.realms || []).map(normalizeRealm) };
   if (index.calibration) await loadCalibration(index.calibration);
   return index;
@@ -166,9 +185,19 @@ export const totalLevels = () => requireOpen().totalLevels;
 export const levelsPerRealm = () => requireOpen().levelsPerRealm;
 export const realms = () => requireOpen().realms;
 
-/** The realm level `n` belongs to (1-indexed). */
+/**
+ * The realm level `n` belongs to (1-indexed).
+ *
+ * The catalogue carries each realm's real range, so we read it rather than
+ * dividing: a realm is free to hold a different number of levels from its
+ * neighbours, and dividing by `levelsPerRealm` would silently send the player to
+ * the wrong palette the day one does. The division stays as the fallback, for a
+ * seed index whose realms predate `first`/`last`.
+ */
 export function realmOf(n) {
   const cat = requireOpen();
+  const found = cat.realms.find((r) => n >= r.first && n <= r.last);
+  if (found) return found;
   const i = Math.floor((n - 1) / cat.levelsPerRealm);
   return cat.realms[Math.min(cat.realms.length - 1, Math.max(0, i))];
 }
@@ -180,8 +209,9 @@ async function loadRealm(id) {
   const realm = requireOpen().realms.find((r) => r.id === id);
   if (!realm) throw new Error(`Realm ${id} missing from the catalogue`);
   const file = realm.file ?? realm.fichier;
-  const data = await read(file, BUNDLED.realms[file]);
-  const levels = (data.levels || []).map(normalizeLevel);
+  const bundled = file ? BUNDLED.realms[file] : null;
+  const raw = bundled ? (bundled.levels || []) : await loadRealmLevels(realm);
+  const levels = raw.map(normalizeLevel);
   realmLevels.set(id, levels);
   for (const level of levels) byNumber.set(level.number, level);
   return levels;

@@ -20,6 +20,12 @@
            on the home screen, not on `.app`, so it does not overlap the back
            arrow in the map and level views. Hidden until a streak is active. -->
       <div class="streak-badge" id="streak-badge" hidden></div>
+      <!-- Greeting: only for a real (non-anonymous) account — offline/anonymous
+           play has no name or photo to show. -->
+      <button class="menu-greeting" id="menu-greeting" hidden>
+        <img class="menu-greeting-avatar" id="menu-greeting-avatar" alt="">
+        <span class="menu-greeting-text" id="menu-greeting-text"></span>
+      </button>
       <div class="menu-art" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
       <h1 class="logo">Quiet<em>Puzzle</em></h1>
       <p class="tagline" data-i18n="menu.baseline">Clear the board through the color gates</p>
@@ -173,6 +179,11 @@
           <input type="checkbox" id="opt-sfx" checked>
           <i></i>
         </label>
+        <label class="switch">
+          <span data-i18n="user.vibration">Vibration</span>
+          <input type="checkbox" id="opt-vibration" checked>
+          <i></i>
+        </label>
       </div>
 
       <div class="user-section">
@@ -197,6 +208,7 @@
           <i></i>
         </label>
         <p class="user-note" data-i18n="user.ads.note">Simulated purchase — no ad network is connected.</p>
+        <button class="btn btn-ghost btn-sm user-large" id="btn-ad-consent" hidden data-i18n="user.ads.consent">Manage ad consent</button>
       </div>
 
       <div class="user-section">
@@ -232,6 +244,7 @@
         <button class="btn btn-ghost btn-sm user-large" id="btn-logout" hidden
                 data-i18n="user.logout">Log out</button>
         <p class="user-note" id="auth-status-text"></p>
+        <button class="btn btn-ghost btn-sm user-large" id="btn-privacy" data-i18n="user.privacy">Privacy policy</button>
       </div>
 
       <button class="btn btn-ghost btn-sm user-danger" id="btn-reset"

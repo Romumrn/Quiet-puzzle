@@ -1,112 +1,112 @@
 /**
- * Signalements : bugs, suggestions, remarques.
+ * Reports: bugs, suggestions, remarks.
  *
- * Le joueur écrit, joint des captures s'il veut, et repart avec un rapport
- * complet. Ce que ce module NE fait pas, et c'est le point à comprendre : il
- * n'envoie rien. Le prototype n'a pas de serveur, et rien ne part d'un
- * navigateur sans destinataire.
+ * The player writes, attaches screenshots if they want, and leaves with a
+ * complete report. What this module does NOT do, and this is the part to
+ * understand: it sends nothing. The prototype has no server, and nothing leaves
+ * a browser without a recipient.
  *
- * Il prépare donc le rapport et laisse le joueur choisir sa route : le copier,
- * le télécharger, ou ouvrir son courrielleur avec le texte déjà écrit. Les
- * captures ne peuvent voyager que par le fichier téléchargé — aucun `mailto:`
- * ne sait joindre une pièce.
+ * So it prepares the report and lets the player choose their route: copy it,
+ * download it, or open their mail client with the text already written.
+ * Screenshots can only travel through the downloaded file — no `mailto:` knows
+ * how to attach anything.
  *
- * Le CONTEXTE TECHNIQUE est joint automatiquement : version, langue, écran,
- * niveau en cours, taille de fenêtre, navigateur. C'est ce qui manque toujours
- * dans un rapport de bug, et ce que personne ne pense à donner.
+ * The TECHNICAL CONTEXT is attached automatically: version, language, screen,
+ * current level, window size, browser. That is what is always missing from a
+ * bug report, and what nobody thinks to provide.
  */
 
 import * as store from '../data/save.js';
 import { track } from '../data/events.js';
 
-const CLE = 'puzzlequest.feedback.v1';
+const KEY = 'puzzlequest.feedback.v1';
 const MAX = 20;
 
-/** Catégories proposées. L'identifiant part dans le rapport, pas le libellé. */
+/** Offered categories. The id goes into the report, not the label. */
 export const CATEGORIES = ['bug', 'idea', 'other'];
 
 /**
- * Les captures ne sont PAS conservées dans le stockage local : quelques images
- * de téléphone en base64 dépassent à elles seules le quota d'un navigateur, et
- * l'historique deviendrait la raison pour laquelle le jeu ne sauvegarde plus.
- * Elles vivent le temps de la rédaction, et voyagent dans le fichier exporté.
+ * Screenshots are NOT kept in local storage: a few phone images in base64
+ * exceed a browser's quota on their own, and the history would become the
+ * reason the game stops saving. They live for the duration of the writing, and
+ * travel in the exported file.
  */
-const lire = () => {
+const read = () => {
   try {
-    const brut = localStorage.getItem(CLE);
-    const l = brut ? JSON.parse(brut) : [];
+    const raw = localStorage.getItem(KEY);
+    const l = raw ? JSON.parse(raw) : [];
     return Array.isArray(l) ? l : [];
   } catch {
     return [];
   }
 };
 
-const ecrire = (l) => {
-  try { localStorage.setItem(CLE, JSON.stringify(l.slice(0, MAX))); } catch { /* quota */ }
+const write = (l) => {
+  try { localStorage.setItem(KEY, JSON.stringify(l.slice(0, MAX))); } catch { /* quota */ }
 };
 
-/** Ce que le développeur voudra savoir et que le joueur ne pensera pas à dire. */
-export function contexte(extra = {}) {
+/** What the developer will want to know and the player will not think to say. */
+export function context(extra = {}) {
   const d = store.load();
   return {
     version: 'prototype',
     date: new Date().toISOString(),
-    langue: d.langue || 'auto',
-    niveauDebloque: d.unlockedLevel,
-    pieces: d.coins,
-    glyphes: d.glyphes === true,
-    ecran: typeof window === 'undefined' ? null
+    language: d.language || 'auto',
+    unlockedLevel: d.unlockedLevel,
+    coins: d.coins,
+    glyphs: d.glyphs === true,
+    screen: typeof window === 'undefined' ? null
       : `${window.innerWidth}×${window.innerHeight}`,
-    navigateur: typeof navigator === 'undefined' ? null : navigator.userAgent,
+    browser: typeof navigator === 'undefined' ? null : navigator.userAgent,
     ...extra,
   };
 }
 
 /**
- * Compose le rapport. `captures` est une liste de { nom, type, taille, data },
- * `data` étant une URI `data:` — c'est sous cette forme qu'elles peuvent être
- * relues par qui reçoit le fichier.
+ * Composes the report. `screenshots` is a list of { name, type, size, data },
+ * `data` being a `data:` URI — that is the form in which whoever receives the
+ * file can read them back.
  */
-export function composer({ categorie, message, captures = [], extra = {} }) {
+export function compose({ category, message, screenshots = [], extra = {} }) {
   return {
-    categorie: CATEGORIES.includes(categorie) ? categorie : 'other',
+    category: CATEGORIES.includes(category) ? category : 'other',
     message: String(message || '').slice(0, 4000),
-    contexte: contexte(extra),
-    captures,
+    context: context(extra),
+    screenshots,
   };
 }
 
-/** Enregistre le rapport, sans ses captures. @returns {string} identifiant */
-export function enregistrer(rapport) {
-  const l = lire();
+/** Stores the report, without its screenshots. @returns {string} id */
+export function record(report) {
+  const l = read();
   const id = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
   l.unshift({
     id,
-    categorie: rapport.categorie,
-    message: rapport.message,
-    contexte: rapport.contexte,
-    captures: rapport.captures.length,   // le compte, pas les images
+    category: report.category,
+    message: report.message,
+    context: report.context,
+    screenshots: report.screenshots.length,   // the count, not the images
   });
-  ecrire(l);
-  track('feedback_submitted', { id, categorie: rapport.categorie, captures: rapport.captures.length });
+  write(l);
+  track('feedback_submitted', { id, category: report.category, screenshots: report.screenshots.length });
   return id;
 }
 
-export const liste = () => lire();
-export const vider = () => ecrire([]);
+export const list = () => read();
+export const clear = () => write([]);
 
-/** Le rapport en texte lisible — c'est ce qui part dans un courriel. */
-export function enTexte(rapport) {
-  const lignes = [
-    `[${rapport.categorie}] Quiet Puzzle`,
+/** The report as readable text — this is what goes into an e-mail. */
+export function asText(report) {
+  const lines = [
+    `[${report.category}] Quiet Puzzle`,
     '',
-    rapport.message,
+    report.message,
     '',
-    '--- contexte ---',
-    ...Object.entries(rapport.contexte).map(([k, v]) => `${k}: ${v}`),
+    '--- context ---',
+    ...Object.entries(report.context).map(([k, v]) => `${k}: ${v}`),
   ];
-  if (rapport.captures.length) {
-    lignes.push('', `${rapport.captures.length} capture(s) dans le fichier joint.`);
+  if (report.screenshots.length) {
+    lines.push('', `${report.screenshots.length} screenshot(s) in the attached file.`);
   }
-  return lignes.join('\n');
+  return lines.join('\n');
 }

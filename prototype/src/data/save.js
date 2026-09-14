@@ -18,6 +18,7 @@ const EMPTY = () => ({
   noAds: false,      // "remove ads" purchase (doc §5.3, PRODUCT_NO_ADS)
   music: true,
   sfx: true,
+  vibration: true,
   /**
    * Interface language, or null while the player has not chosen — in which case
    * we follow the browser's. Storing a default choice would have frozen the

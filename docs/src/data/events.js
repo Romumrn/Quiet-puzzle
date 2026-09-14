@@ -1,47 +1,46 @@
 /**
- * EventTracker — équivalent de Scripts/Backend/EventTracker.cs (doc §4)
+ * EventTracker — equivalent of Scripts/Backend/EventTracker.cs (tech doc §4)
  *
- * Journal d'évènements analytics. Les noms sont exactement ceux listés au §6.1
- * du document (`level_started`, `ad_watched`, …) : brancher Firebase Analytics
- * ou AppsFlyer reviendra à remplacer le corps de `track()`.
+ * Analytics event log. The names are exactly those listed in §6.1 of the
+ * document (`level_started`, `ad_watched`, …): wiring up Firebase Analytics or
+ * AppsFlyer will amount to replacing the body of `track()`.
  *
- * Sans ce journal, aucun réglage publicitaire n'est pilotable : on ne saurait
- * pas combien de pubs sont réellement affichées, ni à quel moment les joueurs
- * abandonnent.
+ * Without this log no advertising setting is steerable: we would not know how
+ * many ads are actually shown, nor at what point players drop out.
  */
 
-const MAX = 200; // le prototype ne garde qu'une fenêtre récente
+const MAX = 200; // the prototype only keeps a recent window
 
-const journal = [];
-const abonnes = new Set();
+const log = [];
+const subscribers = new Set();
 const sessionId = `s_${Date.now().toString(36)}`;
 
-/** POST /api/event/track — asynchrone, ne bloque jamais le jeu. */
+/** POST /api/event/track — asynchronous, never blocks the game. */
 export function track(eventName, eventData = {}) {
-  const entree = {
+  const entry = {
     eventName,
     eventData,
     timestamp: new Date().toISOString(),
     sessionId,
   };
-  journal.push(entree);
-  if (journal.length > MAX) journal.shift();
-  for (const fn of abonnes) fn(entree);
-  return entree;
+  log.push(entry);
+  if (log.length > MAX) log.shift();
+  for (const fn of subscribers) fn(entry);
+  return entry;
 }
 
 export function recent(n = 40) {
-  return journal.slice(-n).reverse();
+  return log.slice(-n).reverse();
 }
 
 export function subscribe(fn) {
-  abonnes.add(fn);
-  return () => abonnes.delete(fn);
+  subscribers.add(fn);
+  return () => subscribers.delete(fn);
 }
 
-/** Compte les occurrences d'un évènement — utilisé par le cadencement des pubs. */
+/** Counts occurrences of an event — used by the ad pacing rules. */
 export function count(eventName) {
-  return journal.reduce((n, e) => n + (e.eventName === eventName ? 1 : 0), 0);
+  return log.reduce((n, e) => n + (e.eventName === eventName ? 1 : 0), 0);
 }
 
 export const SESSION_ID = sessionId;

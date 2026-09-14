@@ -20,7 +20,20 @@ const racine = join(dirname(fileURLToPath(import.meta.url)), '..');
 const cible = process.argv[2] || join(racine, '..', 'docs');
 
 /** Ce que le navigateur demande réellement. Rien d'autre n'a à être publié. */
-const CONTENU = ['index.html', 'src', 'styles', 'levels', 'audio', 'images'];
+const CONTENU = ['index.html', 'privacy.html', 'src', 'styles', 'levels', 'audio', 'images', 'vendor'];
+
+/**
+ * De `levels/`, on ne publie que l'AMORCE.
+ *
+ * Les niveaux viennent de Supabase désormais, et le client garde en cache ce
+ * qu'il a téléchargé. Les trente mondes sur disque pesaient 3,8 Mo publiés pour
+ * n'être lus qu'au premier lancement sans réseau — l'index et le premier monde
+ * suffisent à ce cas, et c'est 60 Ko.
+ *
+ * Les vingt-neuf autres restent dans le dépôt : les outils node mesurent la
+ * base livrée, et `publish-levels.mjs` la pousse en base depuis ces fichiers.
+ */
+const AMORCE = ['index.json', 'monde-0.json'];
 
 rmSync(cible, { recursive: true, force: true });
 mkdirSync(cible, { recursive: true });
@@ -29,6 +42,11 @@ for (const nom of CONTENU) {
   const source = join(racine, nom);
   if (!existsSync(source)) {
     console.warn(`  absent, ignoré : ${nom}`);
+    continue;
+  }
+  if (nom === 'levels') {
+    mkdirSync(join(cible, nom), { recursive: true });
+    for (const fichier of AMORCE) cpSync(join(source, fichier), join(cible, nom, fichier));
     continue;
   }
   cpSync(source, join(cible, nom), { recursive: true });

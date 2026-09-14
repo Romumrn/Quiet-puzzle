@@ -8,7 +8,7 @@
 # Colonnes : clé, nom affiché, sujet à dessiner, palette des fleurs,
 #            puis (couleur du papier en RVB, teinte HSL du monde).
 #
-# L'ordre de cette table est celui de `REALMS` dans src/core/levels.js et celui
+# L'ordre de cette table est celui de `REALMS` dans generator/realms.js et celui
 # des règles `.realm:nth-child()` dans styles/main.css : les trois doivent
 # rester alignés.
 

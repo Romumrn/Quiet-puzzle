@@ -26,18 +26,20 @@ const MODULES = [
   'src/core/solver.js',
   'src/data/save.js',
   'src/ui/i18n.js',
+  'src/core/stars.js',
+  'src/data/levelSource.js',
   'src/data/levelStore.js',
   'src/data/events.js',
   'src/data/analytics.js',
   'src/audio/manifest.js',
   'src/audio/audioManager.js',
   'src/monetization/currency.js',
-  'src/monetization/regiePolicy.js',
-  'src/monetization/regieManager.js',
+  'src/monetization/brokerPolicy.js',
+  'src/monetization/brokerManager.js',
   'src/meta/daily.js',
   'src/meta/themes.js',
   'src/meta/dailyPuzzle.js',
-  'src/meta/mesNiveaux.js',
+  'src/meta/myLevels.js',
   'src/meta/feedback.js',
   'src/data/api.js',
   'src/render/boardView.js',
@@ -106,21 +108,28 @@ for (const chemin of [...new Set(audios)]) {
  * Base de niveaux, embarquée elle aussi.
  *
  * Un fichier unique n'a pas de serveur d'où charger ses données, et un `fetch`
- * sur `file://` échoue. `levelStore` expose donc un objet `EMBARQUE` que ce
- * script remplit : le lecteur passe par lui quand il est garni, par le réseau
- * sinon. Aucune ligne du jeu ne change entre les deux modes.
+ * sur `file://` échoue — et Supabase n'est pas une option non plus, puisque le
+ * fichier unique existe précisément pour être joué hors ligne. `levelStore`
+ * expose donc un objet `BUNDLED` que ce script remplit, et qui passe AVANT le
+ * cache, la base et l'amorce sur disque.
+ *
+ * Les noms sont ceux du code anglais (`BUNDLED`, `realms`, `file`) : ce bloc
+ * cherchait encore `EMBARQUE`/`mondes`/`fichier` et échouait sur son propre
+ * garde-fou depuis la traduction.
  */
-const base = { index: null, mondes: {}, calibration: null };
+const base = { index: null, realms: {}, calibration: null };
 base.index = JSON.parse(read('levels/index.json'));
-for (const monde of base.index.realms) base.mondes[monde.fichier] = JSON.parse(read(`levels/${monde.fichier}`));
+for (const realm of base.index.realms) base.realms[realm.file] = JSON.parse(read(`levels/${realm.file}`));
 // La calibration du barème n'existe que si la base l'annonce (voir levelStore).
 if (base.index.calibration) base.calibration = JSON.parse(read(`levels/${base.index.calibration}`));
 const poidsBase = JSON.stringify(base).length;
+// Sans `export` : `transform()` a déjà retiré le mot-clé de tous les modules
+// au moment où l'on cherche cette ligne.
 bundle = bundle.replace(
-  'const EMBARQUE = { index: null, mondes: {}, calibration: null };',
-  `const EMBARQUE = ${JSON.stringify(base)};`,
+  'const BUNDLED = { index: null, realms: {}, calibration: null };',
+  `const BUNDLED = ${JSON.stringify(base)};`,
 );
-if (!bundle.includes('const EMBARQUE = {"index"')) {
+if (!bundle.includes('const BUNDLED = {"index"')) {
   throw new Error('bundle : la base de niveaux n\'a pas pu être injectée dans levelStore');
 }
 

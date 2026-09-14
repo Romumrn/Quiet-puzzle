@@ -1,185 +1,185 @@
 /**
- * Puzzle du jour : les grilles dessinées par les joueurs.
+ * Daily puzzle: the grids drawn by players.
  *
- * Un niveau proposé dans l'éditeur entre dans une file d'attente. Chaque jour,
- * une grille en est tirée — la même pour tout le monde — et chacun la joue une
- * fois, pour un score qui mêle rapidité et économie de gestes. Les scores du
- * jour forment un classement.
+ * A level submitted from the editor joins a queue. Every day one grid is drawn
+ * from it — the same for everybody — and each player runs it once, for a score
+ * that mixes speed and economy of gestures. The day's scores form a
+ * leaderboard.
  *
- * TOUT EST LOCAL. Ce module joue le rôle qu'un backend tiendra : la file, le
- * tirage et le classement vivent dans `localStorage`, derrière les mêmes
- * signatures qu'auront les routes REST. Deux conséquences à connaître :
+ * EVERYTHING IS LOCAL. This module plays the part a backend will hold: the
+ * queue, the draw and the leaderboard live in `localStorage`, behind the same
+ * signatures the REST routes will have. Two consequences worth knowing:
  *
- *  - le classement ne montre que les scores de CE navigateur. Il n'y a pas de
- *    serveur à qui les envoyer, et le prototype ne fait semblant de rien ;
- *  - l'AUTEUR d'une proposition et d'un score est identifié par un jeton tiré
- *    au sort au premier lancement, et non par son adresse IP. Une page web ne
- *    connaît pas sa propre IP : seul le serveur qui reçoit la requête la voit.
- *    Le champ `auteur` est donc là, à la bonne place, prêt à recevoir l'IP côté
- *    serveur ; le remplir côté client demanderait d'interroger un service tiers
- *    à chaque partie, ce qui enverrait les joueurs se faire pister ailleurs pour
- *    rien.
+ *  - the leaderboard only shows the scores from THIS browser. There is no
+ *    server to send them to, and the prototype pretends nothing;
+ *  - the AUTHOR of a submission and of a score is identified by a token drawn
+ *    at random on first launch, not by their IP address. A web page does not
+ *    know its own IP: only the server receiving the request sees it. The
+ *    `author` field is therefore there, in the right place, ready to receive
+ *    the IP server-side; filling it client-side would mean querying a third
+ *    party on every game, which would send players off to be tracked elsewhere
+ *    for nothing.
  */
 
 import * as store from './../data/save.js';
 import { track } from '../data/events.js';
 
-const CLE_FILE = 'puzzlequest.dailypuzzle.v1';
+const QUEUE_KEY = 'puzzlequest.dailypuzzle.v1';
 
-const jour = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toISOString().slice(0, 10);
 
-/** Petit RNG seedé, pour que le tirage du jour soit le même pour tous. */
-function graineDe(texte) {
+/** Small seeded RNG, so that the day's draw is the same for everyone. */
+function seedOf(text) {
   let h = 2166136261;
-  for (let i = 0; i < texte.length; i++) {
-    h ^= texte.charCodeAt(i);
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
   return h >>> 0;
 }
 
-// --- Dépôt local -----------------------------------------------------------
+// --- Local store -----------------------------------------------------------
 
-const vide = () => ({ version: 1, propositions: [], scores: {} });
+const empty = () => ({ version: 1, submissions: [], scores: {} });
 
-function lire() {
+function read() {
   try {
-    const brut = localStorage.getItem(CLE_FILE);
-    return brut ? { ...vide(), ...JSON.parse(brut) } : vide();
+    const raw = localStorage.getItem(QUEUE_KEY);
+    return raw ? { ...empty(), ...JSON.parse(raw) } : empty();
   } catch {
-    return vide();
+    return empty();
   }
 }
 
-function ecrire(data) {
+function write(data) {
   try {
-    localStorage.setItem(CLE_FILE, JSON.stringify(data));
-  } catch { /* stockage plein ou bloqué : le jeu continue sans */ }
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(data));
+  } catch { /* storage full or blocked: the game carries on without */ }
 }
 
 /**
- * Jeton d'auteur, tiré au premier usage et gardé avec la sauvegarde.
+ * Author token, drawn on first use and kept with the save.
  *
- * Il tient la place de l'identifiant que le backend attribuera. Voir l'en-tête
- * du module sur la question de l'adresse IP.
+ * It stands in for the identifier the backend will assign. See the module
+ * header on the IP address question.
  */
-export function auteur() {
+export function author() {
   const d = store.load();
-  if (!d.auteurId) {
-    d.auteurId = 'j' + Math.random().toString(36).slice(2, 8);
+  if (!d.authorId) {
+    d.authorId = 'p' + Math.random().toString(36).slice(2, 8);
     store.save(d);
   }
-  return d.auteurId;
+  return d.authorId;
 }
 
-// --- Propositions ----------------------------------------------------------
+// --- Submissions -----------------------------------------------------------
 
 /**
- * Dépose un niveau dans la file. Le niveau est supposé VÉRIFIÉ : c'est
- * l'éditeur qui passe le solveur avant d'appeler ici, et lui seul sait si la
- * grille tient debout.
+ * Drops a level into the queue. The level is assumed VERIFIED: the editor runs
+ * the solver before calling in here, and it alone knows whether the grid holds
+ * up.
  *
- * @returns {{id:string, rang:number}} l'identifiant attribué et le rang dans la file
+ * @returns {{id:string, rank:number}} the assigned id and the rank in the queue
  */
-export function proposer(niveau, titre) {
-  const data = lire();
+export function submit(level, title) {
+  const data = read();
   const id = `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
-  data.propositions.push({
+  data.submissions.push({
     id,
-    titre: (titre || '').slice(0, 40),
-    auteur: auteur(),
-    deposeLe: jour(),
-    niveau,
+    title: (title || '').slice(0, 40),
+    author: author(),
+    submittedOn: today(),
+    level,
   });
-  ecrire(data);
-  track('daily_puzzle_submitted', { id, blocs: niveau.blocks.length });
-  return { id, rang: data.propositions.length };
+  write(data);
+  track('daily_puzzle_submitted', { id, blocks: level.blocks.length });
+  return { id, rank: data.submissions.length };
 }
 
-export const propositions = () => lire().propositions;
+export const submissions = () => read().submissions;
 
-// --- Le puzzle du jour -----------------------------------------------------
+// --- The daily puzzle ------------------------------------------------------
 
 /**
- * La proposition du jour, ou null si la file est vide.
+ * Today's submission, or null if the queue is empty.
  *
- * Le tirage est seedé sur la DATE : tout le monde joue la même grille le même
- * jour, et le résultat ne dépend pas de l'ordre dans lequel on a ouvert le jeu.
- * Une file d'une seule proposition la ressert chaque jour, ce qui est le
- * comportement juste : mieux vaut la même grille qu'aucune.
+ * The draw is seeded on the DATE: everybody plays the same grid on the same
+ * day, and the result does not depend on the order in which the game was
+ * opened. A queue with a single submission serves it up again every day, which
+ * is the right behaviour: the same grid beats no grid.
  */
-export function duJour(date = jour()) {
-  const liste = lire().propositions;
-  if (!liste.length) return null;
-  return liste[graineDe(date) % liste.length];
+export function ofTheDay(date = today()) {
+  const list = read().submissions;
+  if (!list.length) return null;
+  return list[seedOf(date) % list.length];
 }
 
-// --- Score et classement ---------------------------------------------------
+// --- Score and leaderboard -------------------------------------------------
 
 /**
- * Score d'une partie du puzzle du jour.
+ * Score for one run of the daily puzzle.
  *
- * Deux termes, et l'ordre compte : on part d'un socle, on retire ce que coûtent
- * les gestes superflus, puis ce que coûte le temps. Un joueur qui réfléchit
- * longtemps mais joue juste finit donc devant un joueur rapide et brouillon —
- * c'est la hiérarchie qu'un jeu de réflexion doit récompenser.
+ * Two terms, and the order matters: we start from a base, subtract what the
+ * superfluous gestures cost, then what the time costs. A player who thinks for
+ * a long time but plays accurately therefore finishes ahead of a fast, sloppy
+ * one — that is the hierarchy a puzzle game ought to reward.
  *
- * Le score ne descend jamais sous 100 : une grille finie vaut toujours mieux
- * qu'une grille abandonnée, et un barème qui rendrait zéro pour une victoire
- * lente serait vexant sans être informatif.
+ * The score never drops below 100: a finished grid is always worth more than an
+ * abandoned one, and a scale returning zero for a slow win would be insulting
+ * without being informative.
  */
-export const BAREME = Object.freeze({
-  SOCLE: 1000,
-  PAR_GESTE_SUPERFLU: 25,
-  PAR_SECONDE: 2,
-  PLANCHER: 100,
+export const SCORING = Object.freeze({
+  BASE: 1000,
+  PER_WASTED_GESTURE: 25,
+  PER_SECOND: 2,
+  FLOOR: 100,
 });
 
-export function calculerScore({ drags, minDrags, secondes }) {
-  const superflus = Math.max(0, drags - minDrags);
-  const brut = BAREME.SOCLE
-    - superflus * BAREME.PAR_GESTE_SUPERFLU
-    - Math.round(secondes) * BAREME.PAR_SECONDE;
-  return Math.max(BAREME.PLANCHER, brut);
+export function computeScore({ drags, minDrags, seconds }) {
+  const wasted = Math.max(0, drags - minDrags);
+  const raw = SCORING.BASE
+    - wasted * SCORING.PER_WASTED_GESTURE
+    - Math.round(seconds) * SCORING.PER_SECOND;
+  return Math.max(SCORING.FLOOR, raw);
 }
 
 /**
- * Enregistre un score. Un joueur ne garde que son MEILLEUR score du jour :
- * rejouer doit pouvoir améliorer, jamais dégrader.
+ * Records a score. A player only keeps their BEST score of the day: replaying
+ * must be able to improve it, never to degrade it.
  */
-export function enregistrerScore({ score, drags, secondes, date = jour() }) {
-  const data = lire();
+export function recordScore({ score, drags, seconds, date = today() }) {
+  const data = read();
   const table = (data.scores[date] ||= []);
-  const moi = auteur();
-  const existant = table.find((e) => e.auteur === moi);
-  if (existant) {
-    if (score <= existant.score) return { ameliore: false, entree: existant };
-    Object.assign(existant, { score, drags, secondes, a: Date.now() });
+  const me = author();
+  const existing = table.find((e) => e.author === me);
+  if (existing) {
+    if (score <= existing.score) return { improved: false, entry: existing };
+    Object.assign(existing, { score, drags, seconds, at: Date.now() });
   } else {
-    table.push({ auteur: moi, score, drags, secondes, a: Date.now() });
+    table.push({ author: me, score, drags, seconds, at: Date.now() });
   }
-  ecrire(data);
-  track('daily_puzzle_scored', { score, drags, secondes });
-  return { ameliore: true, entree: table.find((e) => e.auteur === moi) };
+  write(data);
+  track('daily_puzzle_scored', { score, drags, seconds });
+  return { improved: true, entry: table.find((e) => e.author === me) };
 }
 
 /**
- * Classement du jour, du meilleur au moins bon. À score égal, celui qui a joué
- * en premier passe devant : deux joueurs qui font la même partie ne peuvent pas
- * être départagés autrement sans inventer un critère.
+ * The day's leaderboard, best first. On equal scores, whoever played first
+ * comes out ahead: two players with identical runs cannot be separated any
+ * other way without inventing a criterion.
  */
-export function classement(date = jour()) {
-  const table = [...(lire().scores[date] || [])];
-  table.sort((a, b) => b.score - a.score || a.a - b.a);
-  return table.map((e, i) => ({ ...e, rang: i + 1, moi: e.auteur === auteur() }));
+export function leaderboard(date = today()) {
+  const table = [...(read().scores[date] || [])];
+  table.sort((a, b) => b.score - a.score || a.at - b.at);
+  return table.map((e, i) => ({ ...e, rank: i + 1, me: e.author === author() }));
 }
 
-/** A-t-on déjà joué le puzzle d'aujourd'hui ? */
-export function dejaJoue(date = jour()) {
-  return classement(date).some((e) => e.moi);
+/** Has today's puzzle already been played? */
+export function alreadyPlayed(date = today()) {
+  return leaderboard(date).some((e) => e.me);
 }
 
-/** Remet la file et les scores à zéro — panneau QA. */
-export function reinitialiser() {
-  ecrire(vide());
+/** Wipes the queue and the scores — QA panel. */
+export function reset() {
+  write(empty());
 }

@@ -34,10 +34,14 @@ import { EVENTS as EV, levelContext } from './data/analytics.js';
 import * as feedback from './meta/feedback.js';
 import { track, recent, subscribe } from './data/events.js';
 import { AudioManager } from './audio/audioManager.js';
+import * as haptics from './audio/haptics.js';
 import { supabase } from './data/supabaseClient.js';
 import { createLoginScreen } from './ui/loginScreen.js';
 import * as admin from './data/admin.js';
 import * as adminPanel from './ui/adminPanel.js';
+import { isNative } from './native/capacitor.js';
+import { registerBackHandler, registerLifecycle } from './native/lifecycle.js';
+import { Browser } from '../vendor/capacitor-browser.esm.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -95,6 +99,7 @@ async function showMenu() {
   updateStreakBadge();
   updateDailyGift();
   updateMuteDot();
+  await updateGreeting();
   theme.apply(p.currentLevel); // the menu takes the colour of where the player is
   screens.show('menu');
   audio.startMusic();
@@ -339,6 +344,7 @@ function onRefused(id) {
   const b = board.blocks.get(id);
   if (!b) return;
   view.bump(id);
+  haptics.refused();
   if (b.kind === KIND.WALL) screens.toast(t('toast.sealed'));
   else if (b.kind === KIND.LOCKED) screens.toast(t('toast.locked', { what: conditionLabel(b.condition, board) }));
 }
@@ -349,7 +355,7 @@ function onDrag(id, x, y) {
   const before = gestureRemembered ? null : board.snapshot();
   const { events } = board.dragTowards(id, x, y);
   if (!events.length) return false;
-  for (const e of events) if (e.type === 'exit') audio.exit();
+  for (const e of events) if (e.type === 'exit') { audio.exit(); haptics.tick(); }
   if (!gestureRemembered) { board.remember(before); gestureRemembered = true; }
   view.apply(events);
   hud.update(board);
@@ -400,7 +406,10 @@ async function finishLevel() {
   if (won) {
     await pause(PAUSE_BEFORE_SUCCESS);
     audio.victory();
+    haptics.success();
     await pause(PAUSE_AFTER_ARPEGGIO);
+  } else {
+    haptics.refused();
   }
 
   // Defeat: offer to continue BEFORE recording the failure.
@@ -653,6 +662,7 @@ async function updatePanel() {
   const d = store.load();
   el('opt-music').checked = d.music !== false;
   el('opt-sfx').checked = d.sfx !== false;
+  el('opt-vibration').checked = d.vibration !== false;
   el('opt-glyphs').checked = d.glyphs === true;
   el('opt-noads').checked = currency.hasRemovedAds();
   buildLanguageChoice();
@@ -685,6 +695,13 @@ el('opt-sfx').onchange = (ev) => {
   if (on) audio.exit();          // immediate feedback: you hear what you turn on
   updateMuteDot();
   track('sound_toggled', { channel: 'sfx', on });
+};
+
+el('opt-vibration').onchange = (ev) => {
+  const on = ev.target.checked;
+  const d = store.load(); d.vibration = on; store.save(d);
+  if (on) haptics.tick();        // immediate feedback: you feel what you turn on
+  track('sound_toggled', { channel: 'vibration', on });
 };
 
 /**
@@ -825,6 +842,36 @@ window.addEventListener('popstate', () => {
 document.querySelector('#screen-editor [data-nav="menu"]')
   ?.addEventListener('click', (ev) => { ev.stopImmediatePropagation(); leaveEditor(); }, true);
 el('btn-mine-close').onclick = () => { el('overlay-mine').hidden = true; };
+
+// ---------------------------------------------------------------------------
+// Android hardware back button (no-op on the published web site)
+// ---------------------------------------------------------------------------
+
+/** Plain overlays a back press can dismiss outright — no state to unwind. */
+const DISMISSABLE_OVERLAYS = ['overlay-shop', 'overlay-mine', 'overlay-rank', 'overlay-feedback'];
+
+registerBackHandler(() => {
+  if (!el('user-panel').hidden) { openPanel(false); return true; }
+  const openOverlay = DISMISSABLE_OVERLAYS.find((id) => !el(id).hidden);
+  if (openOverlay) { el(openOverlay).hidden = true; return true; }
+  // The editor has its own back-button contract (undo one block, then leave)
+  // wired through the popstate listener above — reuse it rather than duplicate it.
+  if (screens.current() === 'editor') { history.back(); return true; }
+  if (screens.current() === 'brief') { showMap(); return true; }
+  if (screens.current() === 'game') { stopClock(); showMap(); return true; }
+  if (screens.current() === 'map') { showMenu(); return true; }
+  return false; // at the menu, nothing left to unwind — let the app exit
+});
+
+// Belt and suspenders alongside the `visibilitychange` handler further down:
+// some Android WebViews are inconsistent about firing document visibility on
+// backgrounding via the app switcher, `pause`/`resume` are not.
+registerLifecycle({
+  onPause: stopClock,
+  onResume: () => {
+    if (board?.gameState === GameState.PLAYING && screens.current() === 'game') startClock();
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Feedback — bug, idea, remark
@@ -1123,6 +1170,13 @@ el('opt-noads').onchange = (ev) => {
   screens.toast(t(ev.target.checked ? 'toast.ads.off' : 'toast.ads.on'));
 };
 
+// Only meaningful with a real ad network behind it — hidden on the web build.
+el('btn-ad-consent').hidden = !isNative();
+el('btn-ad-consent').onclick = async () => {
+  const { manageConsent } = await import('./monetization/admob.js');
+  manageConsent().catch((err) => console.error('Ad consent form failed:', err));
+};
+
 // ---------------------------------------------------------------------------
 // Account and admin mode
 // ---------------------------------------------------------------------------
@@ -1139,6 +1193,46 @@ el('btn-logout').onclick = async () => {
     screens.toast(t('user.logout.failed'));
   }
 };
+
+/**
+ * Required by the Play Console's "Data safety" form, and generally good
+ * practice. Opens in a system tab (Custom Tab on Android via the Browser
+ * plugin, a new browser tab on the web) rather than inside the game's own
+ * WebView — leaving a link the player did not ask to leave the game for.
+ */
+const PRIVACY_URL = 'https://romumrn.github.io/Quiet-puzzle/privacy.html';
+el('btn-privacy').onclick = () => {
+  if (isNative()) Browser.open({ url: PRIVACY_URL });
+  else window.open(PRIVACY_URL, '_blank', 'noopener');
+};
+
+const firstNameOf = (user) => {
+  const meta = user.user_metadata || {};
+  const raw = meta.given_name || meta.full_name || meta.name || '';
+  return raw.trim().split(/\s+/)[0] || null;
+};
+
+const avatarOf = (user) => user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+
+/**
+ * "Bonjour Prénom" on the menu — only for a real, linked account. Anonymous
+ * play (the default, frictionless start) has no name or photo to greet with.
+ */
+async function updateGreeting() {
+  const pill = el('menu-greeting');
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  const name = user && user.is_anonymous !== true ? firstNameOf(user) : null;
+  pill.hidden = !name;
+  if (!name) return;
+  el('menu-greeting-text').textContent = t('menu.greeting', { name });
+  const avatar = el('menu-greeting-avatar');
+  const avatarUrl = avatarOf(user);
+  avatar.hidden = !avatarUrl;
+  if (avatarUrl) avatar.src = avatarUrl;
+}
+
+el('menu-greeting').onclick = () => openPanel(true);
 
 /** Shows the authentication status. */
 async function updateAuthStatus() {
@@ -1366,11 +1460,14 @@ function refreshDebug() {
     // levels it holds.
     el('debug-level').max = levels.totalLevels();
   } catch (e) {
-    // Without the database there is no game: better to say so than to show an
-    // empty menu whose buttons would not answer.
+    // Without the catalogue there is no game: better to say so than to show an
+    // empty menu whose buttons would not answer. The likely cause is no longer a
+    // database missing from disk but a first launch with no network — the
+    // levels come from Supabase now, and only the first realm ships with the
+    // application.
     document.getElementById('app').innerHTML =
       `<div class="boot-error"><h1>${t('boot.missing')}</h1>`
-      + `<p>${t('boot.hint', { cmd: '<code>node tools/build-levels.mjs</code>' })}</p></div>`;
+      + `<p>${t('boot.hint')}</p></div>`;
     console.error(e);
     return;
   }

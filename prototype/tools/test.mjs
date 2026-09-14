@@ -130,7 +130,7 @@ console.log('\n== La base de niveaux ==');
     console.log('  PASSÉ la comparaison avec le générateur — il repasse le solveur '
       + 'sur chaque grille (--solveur)');
   } else {
-    const { getLevel: genererLevel } = await import('../src/core/levels.js');
+    const { getLevel: genererLevel } = await import('../../generator/index.js');
     const differents = [];
     for (let n = 1; n <= TOTAL_LEVELS; n++) {
       if (JSON.stringify(genererLevel(n)) !== JSON.stringify(getLevel(n))) differents.push(n);
@@ -336,12 +336,12 @@ if (!SOLVEUR) {
   for (const n of aVerifier) {
     const b = new Board({ ...getLevel(n), moveLimit: 9999, timeLimit: 9999 });
     const r = solve(b, OFFLINE_BUDGET);
-    etatsMax = Math.max(etatsMax, r.etats);
+    etatsMax = Math.max(etatsMax, r.states);
     // Une recherche COUPÉE ne prouve rien : le solveur a épuisé son budget, pas
     // l'espace des solutions. Seul un échec au terme d'une exploration complète
     // dit quelque chose du niveau — et celui-là est un vrai échec, puisque la
     // solution de référence, elle, vide bien la grille.
-    if (!r.resoluble) (r.abandon ? coupes : echoues).push(n);
+    if (!r.solvable) (r.gaveUp ? coupes : echoues).push(n);
   }
   check(`le solveur vide ${aVerifier.length} niveaux sans lire la solution de référence`,
     echoues.length === 0,
@@ -530,9 +530,17 @@ console.log('\n== Carte du projet (AGENTS.md) ==');
    * fichier qui n'existe plus, et il faut alors lire tout le code pour s'en
    * rendre compte — exactement ce qu'elle prétend éviter.
    */
-  const cites = [...carte.matchAll(/`((?:src|tools|styles)\/[\w./-]+|index\.html)`/g)]
+  const cites = [...carte.matchAll(/`((?:src|tools|styles|generator|supabase)\/[\w./-]+|index\.html)`/g)]
     .map((m) => m[1]);
-  const absents = [...new Set(cites)].filter((f) => !existsSync(join(racine, f)));
+  /**
+   * Deux racines, depuis que le générateur est sorti de l'application : la carte
+   * cite `tools/build-levels.mjs` (prototype/tools) et `tools/publish-levels.mjs`
+   * (tools/ à la racine du dépôt) sous le même préfixe. Un chemin compte comme
+   * existant s'il se résout depuis l'une ou l'autre.
+   */
+  const racines = [racine, join(racine, '..')];
+  const absents = [...new Set(cites)]
+    .filter((f) => !racines.some((r) => existsSync(join(r, f))));
   check('tous les fichiers cités par la carte existent',
     absents.length === 0, absents.join(', ') || `${new Set(cites).size} fichiers`);
 
@@ -546,7 +554,9 @@ console.log('\n== Carte du projet (AGENTS.md) ==');
                     'realmOf', 'curve', 'makeGates', 'placeAtGate',
                     'distanceToGate', 'measureGestures', 'demandOf', 'demandBudget',
                     'starThresholds', 'mulberry32', 'shuffled', 'LEVELS_PER_REALM'];
-  const sources = ['src/core/levels.js', 'src/core/block.js', 'src/core/board.js',
+  const sources = ['../generator/realms.js', '../generator/curve.js',
+                   '../generator/build.js', '../generator/index.js',
+                   'src/core/block.js', 'src/core/board.js',
                    'src/core/stars.js', 'src/data/levelStore.js',
                    'src/data/api.js', 'src/data/analytics.js', 'src/meta/daily.js',
                    'src/meta/themes.js', 'src/monetization/currency.js',

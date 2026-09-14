@@ -1,36 +1,83 @@
 /**
- * Traduction de l'interface.
+ * Interface translation.
  *
- * Un dictionnaire plat, une clé par phrase. Le markup porte des attributs
- * `data-i18n` que `appliquer()` remplit, et le code appelle `t()` pour tout ce
- * qui se construit à l'exécution.
+ * A flat dictionary, one key per sentence. The markup carries `data-i18n`
+ * attributes that `applyToDom()` fills in, and the code calls `t()` for
+ * everything built at runtime.
  *
- * La langue par défaut est celle du navigateur quand elle est connue, et le
- * français sinon. Elle n'est ENREGISTRÉE qu'au moment où le joueur en choisit
- * une : sans cette distinction, le premier chargement figerait pour toujours la
- * langue de la machine sur laquelle le jeu a été ouvert.
+ * The default language is the browser's when it is one we speak, and French
+ * otherwise. It is only STORED when the player picks one: without that
+ * distinction, the first load would freeze forever the language of whatever
+ * machine the game was opened on.
  */
 
 import * as store from '../data/save.js';
 
-export const LANGUES = [
-  { code: 'fr', nom: 'Français' },
-  { code: 'en', nom: 'English' },
-  { code: 'es', nom: 'Español' },
-  { code: 'it', nom: 'Italiano' },
-  { code: 'zh', nom: '中文' },
+export const LANGUAGES = [
+  { code: 'fr', name: 'Français' },
+  { code: 'en', name: 'English' },
+  { code: 'es', name: 'Español' },
+  { code: 'it', name: 'Italiano' },
+  { code: 'zh', name: '中文' },
 ];
 
-const TEXTES = {
+const STRINGS = {
   fr: {
+    'brief.best': '{n} coups',
+    'user.status.anonymous': 'Utilisateur',
+    'user.logout.confirm': 'Se déconnecter ?',
+    'user.logout.failed': 'Erreur lors de la déconnexion',
+    'login.subtitle': 'Connectez-vous pour sauvegarder votre progression en ligne, sur tous vos appareils.',
+    'login.google': 'Continuer avec Google',
+    'login.offline': 'Continuer sans compte',
+    'login.connecting': 'Connexion en cours…', 'login.redirecting': 'Redirection vers l’authentification…',
+    'login.failed': 'Erreur : {error}',
+    'debug.speed.fast': 'Animations ×5', 'debug.speed.slow': 'Animations ×1',
+    'debug.noads.on': 'Activer sans-pub', 'debug.noads.off': 'Désactiver sans-pub',
+    'admin.legend': 'Administration', 'admin.open': 'Ouvrir le panneau admin',
+    'admin.note': 'Modération, niveau du jour, parties suspectes.',
+    'admin.title': 'Administration', 'admin.loading': 'Chargement…',
+    'admin.done': 'Enregistré', 'admin.failed': 'Refusé : {error}',
+    'admin.stat.levels': '{n} niveaux', 'admin.stat.players': '{n} joueurs',
+    'admin.stat.queue': '{n} en attente', 'admin.stat.flagged': '{n} signalées',
+    'admin.tab.moderation': 'Modération', 'admin.tab.daily': 'Niveau du jour',
+    'admin.tab.flagged': 'Parties suspectes',
+    'admin.queue.empty': 'Aucune grille en attente de modération',
+    'admin.approve': 'Approuver', 'admin.reject': 'Refuser',
+    'admin.reject.ask': 'Motif du refus (facultatif)',
+    'admin.daily.levelId': 'id du niveau (vide = tirage auto)',
+    'admin.daily.apply': 'Fixer',
+    'admin.daily.note': 'Sans identifiant, le tirage automatique choisit parmi les niveaux éligibles non servis depuis 60 jours.',
+    'admin.daily.empty': 'Aucun niveau du jour au calendrier',
+    'admin.flagged.empty': 'Aucune partie signalée',
+    'admin.flagged.line': '{moves} coups · {time} s · {stars}★ · {date}',
+    'editor.kind.normal': 'Normal', 'editor.kind.rail.h': 'Glissière ↔',
+    'editor.kind.rail.v': 'Glissière ↕', 'editor.kind.joker': 'Joker',
+    'editor.kind.locked': 'Verrou', 'editor.kind.wall': 'Scellé',
+    'editor.kind.bulky': 'Encombrant ×2',
+    'editor.kind.anchor.top': 'Ancre ▲', 'editor.kind.anchor.right': 'Ancre ▶',
+    'editor.kind.anchor.bottom': 'Ancre ▼', 'editor.kind.anchor.left': 'Ancre ◀',
+    'editor.status.overflow': 'La forme dépasse de la grille',
+    'editor.status.occupied': 'Emplacement déjà occupé',
+    'editor.status.nogate': 'Aucune porte : ouvrez au moins un passage',
+    'editor.status.noblock': 'Aucun bloc à sortir',
+    'editor.status.needboth': 'Il faut au moins une porte et un bloc',
+    'editor.status.solvable': 'Résoluble en {n} sorties ({states} états explorés)',
+    'editor.status.aborted': 'Recherche interrompue : grille trop vaste pour être tranchée',
+    'editor.status.unsolved': 'Non résolu. Le solveur ne déplace pas les blocs sans les sortir : une solution demandant de pousser un bloc de côté lui échappe.',
+    'editor.status.copied': 'JSON copié dans le presse-papiers',
+    'editor.status.shown': 'JSON affiché ci-dessous (copie manuelle)',
+    'editor.status.paste': 'Collez un JSON de niveau dans la zone puis réappuyez',
+    'editor.status.imported': 'Niveau importé',
+    'editor.status.badjson': 'JSON illisible : {error}',
     'theme.legend': 'Thème', 'theme.worlds': 'Mondes',
-    'theme.cond.niveaux': '{n} niveaux', 'theme.cond.etoiles': '{n} étoiles',
-    'theme.cond.serie': 'série de {n} jours', 'theme.cond.premium': 'sans-pub',
-    'theme.locked': 'À débloquer : {quoi}',
-    'streak.badge': '{n} j', 'streak.next': 'Encore {n} j pour {quoi}',
-    'streak.reward.eclats': '{n} éclats', 'streak.reward.theme': 'un thème',
-    'streak.reward.indices': '{n} indices', 'streak.reward.badge': 'un badge',
-    'streak.granted': 'Série de {jours} jours — {quoi} !',
+    'theme.cond.levels': '{n} niveaux', 'theme.cond.stars': '{n} étoiles',
+    'theme.cond.streak': 'série de {n} jours', 'theme.cond.premium': 'sans-pub',
+    'theme.locked': 'À débloquer : {what}',
+    'streak.badge': '{n} j', 'streak.next': 'Encore {n} j pour {what}',
+    'streak.reward.coins': '{n} éclats', 'streak.reward.theme': 'un thème',
+    'streak.reward.hints': '{n} indices', 'streak.reward.badge': 'un badge',
+    'streak.granted': 'Série de {days} jours — {what} !',
     'offer.oups': 'Oups…', 'offer.left': '{n} bloc restant', 'offer.left.plural': '{n} blocs restants',
     'offer.continue.big': 'Continuer', 'offer.continue.small': 'Continuer',
     'offer.free': '🎬 Gratuit', 'offer.restart': 'Recommencer',
@@ -48,7 +95,7 @@ const TEXTES = {
     'editor.eraser': 'Gomme', 'editor.undo': 'Annuler le dernier bloc',
     'editor.undone': 'Dernier bloc retiré',
     'editor.trying': 'Essai',
-    'result.time': 'en {temps}',
+    'result.time': 'en {time}',
     'editor.mine': 'Mes niveaux', 'editor.mine.empty': 'Aucune grille enregistrée pour l’instant',
     'editor.untitled': 'Sans titre', 'editor.blocks': '{n} blocs',
     'editor.proposed': 'proposé', 'editor.loaded': 'Grille chargée',
@@ -70,11 +117,11 @@ const TEXTES = {
     'editor.submit.ask': 'Un nom pour votre puzzle ?',
     'editor.submit.ok': 'Puzzle proposé — il peut sortir un de ces jours',
     'editor.submit.unsolved': 'Vérifiez d’abord que la grille se résout',
-    'daily.title': 'Puzzle du jour', 'daily.by': 'par {auteur}',
+    'daily.title': 'Puzzle du jour', 'daily.by': 'par {author}',
     'daily.none': 'Aucun puzzle proposé — dessinez le premier',
     'daily.done': 'Déjà joué aujourd’hui · {score} pts',
     'daily.play': 'À vous de jouer',
-    'daily.score': 'Score : {score}', 'daily.rank': 'Rang {rang} sur {total}',
+    'daily.score': 'Score : {score}', 'daily.rank': 'Rang {rank} sur {total}',
     'daily.rank.title': 'Classement du jour',
     'daily.rank.note': 'Ce classement est local à cet appareil : le prototype n’a pas de serveur où envoyer les scores.',
     'daily.rank.empty': 'Personne n’a encore joué aujourd’hui',
@@ -91,6 +138,7 @@ const TEXTES = {
     'ad.skip': 'Passer (sans récompense)', 'ad.badge': 'Pub',
     'menu.baseline': 'Videz la grille par les portes de couleur',
     'menu.stars': 'étoiles', 'menu.coins': 'éclats', 'menu.level': 'niveaux',
+    'menu.greeting': 'Bonjour {name}',
     'menu.play': 'Jouer', 'menu.daily': 'Cadeau du jour',
     'menu.streak': 'Série de {n} jour', 'menu.streak.plural': 'Série de {n} jours',
 
@@ -98,7 +146,7 @@ const TEXTES = {
 
     'brief.objective': 'Faire sortir les {n} blocs',
     'brief.moves': 'Coups', 'brief.difficulty': 'Difficulté', 'brief.record': 'Record',
-    'brief.new': 'Nouveau : {quoi}', 'brief.start': 'Jouer', 'brief.final': 'Niveau final',
+    'brief.new': 'Nouveau : {what}', 'brief.start': 'Jouer', 'brief.final': 'Niveau final',
 
     'hud.time': 'Temps', 'hud.blocks': 'Blocs', 'hud.stars': 'Étoiles',
     'hud.moves': '{n} coups',
@@ -118,12 +166,16 @@ const TEXTES = {
     'user.title': 'Profil et réglages', 'user.close': 'Fermer',
     'user.level': 'Niveau', 'user.stars': 'Étoiles', 'user.levels': 'Niveaux',
     'user.coins': 'Éclats',
-    'user.sound': 'Son', 'user.music': 'Musique', 'user.sfx': 'Effets sonores',
+    'user.sound': 'Son', 'user.music': 'Musique', 'user.sfx': 'Effets sonores', 'user.vibration': 'Vibrations',
     'user.display': 'Affichage', 'user.glyphs': 'Symboles sur les blocs',
     'user.glyphs.note': 'Ajoute un symbole à chaque couleur, pour ne pas avoir à s’y fier.',
     'user.language': 'Langue',
     'user.ads': 'Publicité', 'user.noads': 'Supprimer les pubs',
-    'user.ads.note': 'Achat simulé — aucune régie n’est branchée.',
+    'user.ads.note': 'Retire les publicités affichées dans le jeu.',
+    'user.ads.consent': 'Gérer le consentement publicitaire',
+    'user.account': 'Compte', 'user.logout': 'Se déconnecter', 'user.privacy': 'Politique de confidentialité',
+    'user.status.online': 'Connecté en tant que {email}',
+    'user.status.offline': 'Mode hors ligne - données locales',
     'user.reset': 'Réinitialiser la progression',
     'user.reset.confirm': 'Effacer toute la progression ?',
 
@@ -131,8 +183,8 @@ const TEXTES = {
     'action.time': 'Temps', 'action.undo': 'Annuler', 'action.giveup': 'Abandonner',
 
     'toast.sealed': 'Ce bloc est scellé',
-    'toast.locked': 'Verrouillé : {quoi}',
-    'toast.daily': '+{n} éclats — série de {jours} jours',
+    'toast.locked': 'Verrouillé : {what}',
+    'toast.daily': '+{n} éclats — série de {days} jours',
     'toast.hammer.pick': 'Touchez le bloc à retirer',
     'toast.hammer.bad': 'Choisissez un bloc déplaçable',
     'toast.time': '+30 secondes',
@@ -147,25 +199,74 @@ const TEXTES = {
     'offer.lead': 'Il ne reste que', 'offer.lead.end': 'blocs à sortir.',
     'offer.continue': 'Continuez avec', 'offer.bonus': '+{s} s et +{c} coups',
 
-    'lock.open': 'Ouvert', 'lock.remaining': 'Encore {n}',
-    'gate.exit': 'Sortie {couleur}',
+    'lock.open': 'Ouvert', 'lock.left': 'Encore {n}',
+    'lock.exits': '{n} sortis', 'lock.color.done': '{color} fini',
+    'lock.color.left': 'Encore {n} {color}',
+    'gate.exit': 'Sortie {color}',
 
     'boot.missing': 'Base de niveaux introuvable',
-    'boot.hint': 'Lancer {cmd}, puis recharger.',
+    'boot.hint': 'Vérifier la connexion, puis recharger.',
 
     'color.0': 'Rubis', 'color.1': 'Saphir', 'color.2': 'Émeraude',
     'color.3': 'Ambre', 'color.4': 'Améthyste', 'color.5': 'Topaze',
   },
 
   en: {
+    'brief.best': '{n} moves',
+    'user.status.anonymous': 'User',
+    'user.logout.confirm': 'Sign out?',
+    'user.logout.failed': 'Sign-out failed',
+    'login.subtitle': 'Sign in to save your progress online, across all your devices.',
+    'login.google': 'Continue with Google',
+    'login.offline': 'Continue without an account',
+    'login.connecting': 'Signing in…', 'login.redirecting': 'Redirecting to sign-in…',
+    'login.failed': 'Error: {error}',
+    'debug.speed.fast': 'Animations ×5', 'debug.speed.slow': 'Animations ×1',
+    'debug.noads.on': 'Enable ad-free', 'debug.noads.off': 'Disable ad-free',
+    'admin.legend': 'Administration', 'admin.open': 'Open the admin panel',
+    'admin.note': 'Moderation, daily puzzle, suspicious runs.',
+    'admin.title': 'Administration', 'admin.loading': 'Loading…',
+    'admin.done': 'Saved', 'admin.failed': 'Refused: {error}',
+    'admin.stat.levels': '{n} levels', 'admin.stat.players': '{n} players',
+    'admin.stat.queue': '{n} pending', 'admin.stat.flagged': '{n} flagged',
+    'admin.tab.moderation': 'Moderation', 'admin.tab.daily': 'Daily puzzle',
+    'admin.tab.flagged': 'Suspicious runs',
+    'admin.queue.empty': 'No grid awaiting moderation',
+    'admin.approve': 'Approve', 'admin.reject': 'Reject',
+    'admin.reject.ask': 'Reason for rejection (optional)',
+    'admin.daily.levelId': 'level id (blank = automatic draw)',
+    'admin.daily.apply': 'Set',
+    'admin.daily.note': 'With no id, the automatic draw picks among eligible levels not used in the last 60 days.',
+    'admin.daily.empty': 'No daily puzzle in the calendar',
+    'admin.flagged.empty': 'No flagged run',
+    'admin.flagged.line': '{moves} moves · {time} s · {stars}★ · {date}',
+    'editor.kind.normal': 'Normal', 'editor.kind.rail.h': 'Rail ↔',
+    'editor.kind.rail.v': 'Rail ↕', 'editor.kind.joker': 'Joker',
+    'editor.kind.locked': 'Lock', 'editor.kind.wall': 'Sealed',
+    'editor.kind.bulky': 'Bulky ×2',
+    'editor.kind.anchor.top': 'Anchor ▲', 'editor.kind.anchor.right': 'Anchor ▶',
+    'editor.kind.anchor.bottom': 'Anchor ▼', 'editor.kind.anchor.left': 'Anchor ◀',
+    'editor.status.overflow': 'The shape sticks out of the grid',
+    'editor.status.occupied': 'That spot is already taken',
+    'editor.status.nogate': 'No gate: open at least one passage',
+    'editor.status.noblock': 'No block to clear',
+    'editor.status.needboth': 'You need at least one gate and one block',
+    'editor.status.solvable': 'Solvable in {n} exits ({states} states explored)',
+    'editor.status.aborted': 'Search interrupted: grid too large to settle',
+    'editor.status.unsolved': 'Unsolved. The solver does not move blocks without clearing them: a solution requiring a block to be nudged aside escapes it.',
+    'editor.status.copied': 'JSON copied to the clipboard',
+    'editor.status.shown': 'JSON shown below (copy it by hand)',
+    'editor.status.paste': 'Paste a level JSON into the box, then tap again',
+    'editor.status.imported': 'Level imported',
+    'editor.status.badjson': 'Unreadable JSON: {error}',
     'theme.legend': 'Theme', 'theme.worlds': 'Worlds',
-    'theme.cond.niveaux': '{n} levels', 'theme.cond.etoiles': '{n} stars',
-    'theme.cond.serie': '{n} day streak', 'theme.cond.premium': 'ad-free',
-    'theme.locked': 'Unlock with: {quoi}',
-    'streak.badge': '{n} d', 'streak.next': '{n} more days for {quoi}',
-    'streak.reward.eclats': '{n} shards', 'streak.reward.theme': 'a theme',
-    'streak.reward.indices': '{n} hints', 'streak.reward.badge': 'a badge',
-    'streak.granted': '{jours} day streak — {quoi}!',
+    'theme.cond.levels': '{n} levels', 'theme.cond.stars': '{n} stars',
+    'theme.cond.streak': '{n} day streak', 'theme.cond.premium': 'ad-free',
+    'theme.locked': 'Unlock with: {what}',
+    'streak.badge': '{n} d', 'streak.next': '{n} more days for {what}',
+    'streak.reward.coins': '{n} shards', 'streak.reward.theme': 'a theme',
+    'streak.reward.hints': '{n} hints', 'streak.reward.badge': 'a badge',
+    'streak.granted': '{days} day streak — {what}!',
     'offer.oups': 'Oops…', 'offer.left': '{n} block left', 'offer.left.plural': '{n} blocks left',
     'offer.continue.big': 'Continue', 'offer.continue.small': 'Continue',
     'offer.free': '🎬 Free', 'offer.restart': 'Restart',
@@ -183,7 +284,7 @@ const TEXTES = {
     'editor.eraser': 'Eraser', 'editor.undo': 'Undo last block',
     'editor.undone': 'Last block removed',
     'editor.trying': 'Test run',
-    'result.time': 'in {temps}',
+    'result.time': 'in {time}',
     'editor.mine': 'My levels', 'editor.mine.empty': 'No grid saved yet',
     'editor.untitled': 'Untitled', 'editor.blocks': '{n} blocks',
     'editor.proposed': 'submitted', 'editor.loaded': 'Grid loaded',
@@ -205,11 +306,11 @@ const TEXTES = {
     'editor.submit.ask': 'A name for your puzzle?',
     'editor.submit.ok': 'Puzzle submitted — it may come up one of these days',
     'editor.submit.unsolved': 'Check the grid solves first',
-    'daily.title': 'Daily puzzle', 'daily.by': 'by {auteur}',
+    'daily.title': 'Daily puzzle', 'daily.by': 'by {author}',
     'daily.none': 'No puzzle submitted yet — draw the first one',
     'daily.done': 'Already played today · {score} pts',
     'daily.play': 'Your turn',
-    'daily.score': 'Score: {score}', 'daily.rank': 'Rank {rang} of {total}',
+    'daily.score': 'Score: {score}', 'daily.rank': 'Rank {rank} of {total}',
     'daily.rank.title': 'Today’s leaderboard',
     'daily.rank.note': 'This leaderboard is local to this device: the prototype has no server to send scores to.',
     'daily.rank.empty': 'Nobody has played yet today',
@@ -226,6 +327,7 @@ const TEXTES = {
     'ad.skip': 'Skip (no reward)', 'ad.badge': 'Ad',
     'menu.baseline': 'Clear the grid through the coloured gates',
     'menu.stars': 'stars', 'menu.coins': 'shards', 'menu.level': 'levels',
+    'menu.greeting': 'Hello {name}',
     'menu.play': 'Play', 'menu.daily': 'Daily gift',
     'menu.streak': '{n} day streak', 'menu.streak.plural': '{n} day streak',
 
@@ -233,7 +335,7 @@ const TEXTES = {
 
     'brief.objective': 'Clear all {n} blocks',
     'brief.moves': 'Moves', 'brief.difficulty': 'Difficulty', 'brief.record': 'Best',
-    'brief.new': 'New: {quoi}', 'brief.start': 'Play', 'brief.final': 'Final level',
+    'brief.new': 'New: {what}', 'brief.start': 'Play', 'brief.final': 'Final level',
 
     'hud.time': 'Time', 'hud.blocks': 'Blocks', 'hud.stars': 'Stars',
     'hud.moves': '{n} moves',
@@ -253,12 +355,16 @@ const TEXTES = {
     'user.title': 'Profile and settings', 'user.close': 'Close',
     'user.level': 'Level', 'user.stars': 'Stars', 'user.levels': 'Levels',
     'user.coins': 'Shards',
-    'user.sound': 'Sound', 'user.music': 'Music', 'user.sfx': 'Sound effects',
+    'user.sound': 'Sound', 'user.music': 'Music', 'user.sfx': 'Sound effects', 'user.vibration': 'Vibration',
     'user.display': 'Display', 'user.glyphs': 'Symbols on blocks',
     'user.glyphs.note': 'Gives every colour its own symbol, so you never have to rely on hue.',
     'user.language': 'Language',
     'user.ads': 'Advertising', 'user.noads': 'Remove ads',
-    'user.ads.note': 'Simulated purchase — no ad network is wired in.',
+    'user.ads.note': 'Removes the ads shown in the game.',
+    'user.ads.consent': 'Manage ad consent',
+    'user.account': 'Account', 'user.logout': 'Sign out', 'user.privacy': 'Privacy policy',
+    'user.status.online': 'Logged in as {email}',
+    'user.status.offline': 'Offline mode - local data',
     'user.reset': 'Reset progress',
     'user.reset.confirm': 'Erase all progress?',
 
@@ -266,8 +372,8 @@ const TEXTES = {
     'action.time': 'Time', 'action.undo': 'Undo', 'action.giveup': 'Give up',
 
     'toast.sealed': 'This block is sealed',
-    'toast.locked': 'Locked: {quoi}',
-    'toast.daily': '+{n} shards — {jours} day streak',
+    'toast.locked': 'Locked: {what}',
+    'toast.daily': '+{n} shards — {days} day streak',
     'toast.hammer.pick': 'Tap the block to remove',
     'toast.hammer.bad': 'Pick a block that can move',
     'toast.time': '+30 seconds',
@@ -282,25 +388,74 @@ const TEXTES = {
     'offer.lead': 'Only', 'offer.lead.end': 'blocks left to clear.',
     'offer.continue': 'Carry on with', 'offer.bonus': '+{s}s and +{c} moves',
 
-    'lock.open': 'Open', 'lock.remaining': '{n} to go',
-    'gate.exit': '{couleur} exit',
+    'lock.open': 'Open', 'lock.left': '{n} to go',
+    'lock.exits': '{n} cleared', 'lock.color.done': '{color} done',
+    'lock.color.left': '{n} {color} left',
+    'gate.exit': '{color} exit',
 
     'boot.missing': 'Level database not found',
-    'boot.hint': 'Run {cmd}, then reload.',
+    'boot.hint': 'Check your connection, then reload.',
 
     'color.0': 'Ruby', 'color.1': 'Sapphire', 'color.2': 'Emerald',
     'color.3': 'Amber', 'color.4': 'Amethyst', 'color.5': 'Topaz',
   },
 
   es: {
+    'brief.best': '{n} movimientos',
+    'user.status.anonymous': 'Usuario',
+    'user.logout.confirm': '¿Cerrar sesión?',
+    'user.logout.failed': 'Error al cerrar sesión',
+    'login.subtitle': 'Inicia sesión para guardar tu progreso en línea, en todos tus dispositivos.',
+    'login.google': 'Continuar con Google',
+    'login.offline': 'Continuar sin cuenta',
+    'login.connecting': 'Conectando…', 'login.redirecting': 'Redirigiendo a la autenticación…',
+    'login.failed': 'Error: {error}',
+    'debug.speed.fast': 'Animaciones ×5', 'debug.speed.slow': 'Animaciones ×1',
+    'debug.noads.on': 'Activar sin anuncios', 'debug.noads.off': 'Desactivar sin anuncios',
+    'admin.legend': 'Administración', 'admin.open': 'Abrir el panel de administración',
+    'admin.note': 'Moderación, nivel del día, partidas sospechosas.',
+    'admin.title': 'Administración', 'admin.loading': 'Cargando…',
+    'admin.done': 'Guardado', 'admin.failed': 'Rechazado: {error}',
+    'admin.stat.levels': '{n} niveles', 'admin.stat.players': '{n} jugadores',
+    'admin.stat.queue': '{n} pendientes', 'admin.stat.flagged': '{n} señaladas',
+    'admin.tab.moderation': 'Moderación', 'admin.tab.daily': 'Nivel del día',
+    'admin.tab.flagged': 'Partidas sospechosas',
+    'admin.queue.empty': 'Ninguna cuadrícula pendiente de moderación',
+    'admin.approve': 'Aprobar', 'admin.reject': 'Rechazar',
+    'admin.reject.ask': 'Motivo del rechazo (opcional)',
+    'admin.daily.levelId': 'id del nivel (vacío = sorteo automático)',
+    'admin.daily.apply': 'Fijar',
+    'admin.daily.note': 'Sin identificador, el sorteo automático elige entre los niveles elegibles no usados en 60 días.',
+    'admin.daily.empty': 'Ningún nivel del día en el calendario',
+    'admin.flagged.empty': 'Ninguna partida señalada',
+    'admin.flagged.line': '{moves} movimientos · {time} s · {stars}★ · {date}',
+    'editor.kind.normal': 'Normal', 'editor.kind.rail.h': 'Raíl ↔',
+    'editor.kind.rail.v': 'Raíl ↕', 'editor.kind.joker': 'Comodín',
+    'editor.kind.locked': 'Cerrojo', 'editor.kind.wall': 'Sellado',
+    'editor.kind.bulky': 'Voluminoso ×2',
+    'editor.kind.anchor.top': 'Ancla ▲', 'editor.kind.anchor.right': 'Ancla ▶',
+    'editor.kind.anchor.bottom': 'Ancla ▼', 'editor.kind.anchor.left': 'Ancla ◀',
+    'editor.status.overflow': 'La forma se sale de la cuadrícula',
+    'editor.status.occupied': 'Ese lugar ya está ocupado',
+    'editor.status.nogate': 'Ninguna puerta: abre al menos un paso',
+    'editor.status.noblock': 'Ningún bloque que sacar',
+    'editor.status.needboth': 'Hace falta al menos una puerta y un bloque',
+    'editor.status.solvable': 'Resoluble en {n} salidas ({states} estados explorados)',
+    'editor.status.aborted': 'Búsqueda interrumpida: cuadrícula demasiado grande',
+    'editor.status.unsolved': 'Sin resolver. El solucionador no mueve bloques sin sacarlos: se le escapa una solución que exija apartar un bloque.',
+    'editor.status.copied': 'JSON copiado al portapapeles',
+    'editor.status.shown': 'JSON mostrado abajo (cópialo a mano)',
+    'editor.status.paste': 'Pega un JSON de nivel en la zona y vuelve a pulsar',
+    'editor.status.imported': 'Nivel importado',
+    'editor.status.badjson': 'JSON ilegible: {error}',
     'theme.legend': 'Tema', 'theme.worlds': 'Mundos',
-    'theme.cond.niveaux': '{n} niveles', 'theme.cond.etoiles': '{n} estrellas',
-    'theme.cond.serie': 'racha de {n} días', 'theme.cond.premium': 'sin anuncios',
-    'theme.locked': 'Desbloquear con: {quoi}',
-    'streak.badge': '{n} d', 'streak.next': '{n} días más para {quoi}',
-    'streak.reward.eclats': '{n} fragmentos', 'streak.reward.theme': 'un tema',
-    'streak.reward.indices': '{n} pistas', 'streak.reward.badge': 'una insignia',
-    'streak.granted': 'Racha de {jours} días — ¡{quoi}!',
+    'theme.cond.levels': '{n} niveles', 'theme.cond.stars': '{n} estrellas',
+    'theme.cond.streak': 'racha de {n} días', 'theme.cond.premium': 'sin anuncios',
+    'theme.locked': 'Desbloquear con: {what}',
+    'streak.badge': '{n} d', 'streak.next': '{n} días más para {what}',
+    'streak.reward.coins': '{n} fragmentos', 'streak.reward.theme': 'un tema',
+    'streak.reward.hints': '{n} pistas', 'streak.reward.badge': 'una insignia',
+    'streak.granted': 'Racha de {days} días — ¡{what}!',
     'offer.oups': 'Vaya…', 'offer.left': 'Queda {n} bloque', 'offer.left.plural': 'Quedan {n} bloques',
     'offer.continue.big': 'Continuar', 'offer.continue.small': 'Continuar',
     'offer.free': '🎬 Gratis', 'offer.restart': 'Reiniciar',
@@ -318,7 +473,7 @@ const TEXTES = {
     'editor.eraser': 'Goma', 'editor.undo': 'Deshacer el último bloque',
     'editor.undone': 'Último bloque retirado',
     'editor.trying': 'Prueba',
-    'result.time': 'en {temps}',
+    'result.time': 'en {time}',
     'editor.mine': 'Mis niveles', 'editor.mine.empty': 'Aún no hay cuadrículas guardadas',
     'editor.untitled': 'Sin título', 'editor.blocks': '{n} bloques',
     'editor.proposed': 'propuesto', 'editor.loaded': 'Cuadrícula cargada',
@@ -340,11 +495,11 @@ const TEXTES = {
     'editor.submit.ask': '¿Un nombre para tu puzle?',
     'editor.submit.ok': 'Puzle propuesto — puede salir cualquier día',
     'editor.submit.unsolved': 'Comprueba primero que la cuadrícula se resuelve',
-    'daily.title': 'Puzle del día', 'daily.by': 'de {auteur}',
+    'daily.title': 'Puzle del día', 'daily.by': 'de {author}',
     'daily.none': 'Aún no hay puzles propuestos — dibuja el primero',
     'daily.done': 'Ya jugado hoy · {score} pts',
     'daily.play': 'Te toca',
-    'daily.score': 'Puntuación: {score}', 'daily.rank': 'Puesto {rang} de {total}',
+    'daily.score': 'Puntuación: {score}', 'daily.rank': 'Puesto {rank} de {total}',
     'daily.rank.title': 'Clasificación de hoy',
     'daily.rank.note': 'Esta clasificación es local a este dispositivo: el prototipo no tiene servidor al que enviar las puntuaciones.',
     'daily.rank.empty': 'Nadie ha jugado todavía hoy',
@@ -361,6 +516,7 @@ const TEXTES = {
     'ad.skip': 'Saltar (sin recompensa)', 'ad.badge': 'Anuncio',
     'menu.baseline': 'Vacía la cuadrícula por las puertas de color',
     'menu.stars': 'estrellas', 'menu.coins': 'fragmentos', 'menu.level': 'niveles',
+    'menu.greeting': 'Hola {name}',
     'menu.play': 'Jugar', 'menu.daily': 'Regalo del día',
     'menu.streak': 'Racha de {n} día', 'menu.streak.plural': 'Racha de {n} días',
 
@@ -368,7 +524,7 @@ const TEXTES = {
 
     'brief.objective': 'Saca los {n} bloques',
     'brief.moves': 'Movimientos', 'brief.difficulty': 'Dificultad', 'brief.record': 'Récord',
-    'brief.new': 'Nuevo: {quoi}', 'brief.start': 'Jugar', 'brief.final': 'Nivel final',
+    'brief.new': 'Nuevo: {what}', 'brief.start': 'Jugar', 'brief.final': 'Nivel final',
 
     'hud.time': 'Tiempo', 'hud.blocks': 'Bloques', 'hud.stars': 'Estrellas',
     'hud.moves': '{n} movimientos',
@@ -388,12 +544,16 @@ const TEXTES = {
     'user.title': 'Perfil y ajustes', 'user.close': 'Cerrar',
     'user.level': 'Nivel', 'user.stars': 'Estrellas', 'user.levels': 'Niveles',
     'user.coins': 'Fragmentos',
-    'user.sound': 'Sonido', 'user.music': 'Música', 'user.sfx': 'Efectos de sonido',
+    'user.sound': 'Sonido', 'user.music': 'Música', 'user.sfx': 'Efectos de sonido', 'user.vibration': 'Vibración',
     'user.display': 'Pantalla', 'user.glyphs': 'Símbolos en los bloques',
     'user.glyphs.note': 'Da un símbolo propio a cada color, para no depender del tono.',
     'user.language': 'Idioma',
     'user.ads': 'Publicidad', 'user.noads': 'Quitar anuncios',
-    'user.ads.note': 'Compra simulada — no hay ninguna red publicitaria conectada.',
+    'user.ads.note': 'Elimina los anuncios que se muestran en el juego.',
+    'user.ads.consent': 'Gestionar el consentimiento publicitario',
+    'user.account': 'Cuenta', 'user.logout': 'Cerrar sesión', 'user.privacy': 'Política de privacidad',
+    'user.status.online': 'Conectado como {email}',
+    'user.status.offline': 'Modo sin conexión - datos locales',
     'user.reset': 'Reiniciar el progreso',
     'user.reset.confirm': '¿Borrar todo el progreso?',
 
@@ -401,8 +561,8 @@ const TEXTES = {
     'action.time': 'Tiempo', 'action.undo': 'Deshacer', 'action.giveup': 'Abandonar',
 
     'toast.sealed': 'Este bloque está sellado',
-    'toast.locked': 'Bloqueado: {quoi}',
-    'toast.daily': '+{n} fragmentos — racha de {jours} días',
+    'toast.locked': 'Bloqueado: {what}',
+    'toast.daily': '+{n} fragmentos — racha de {days} días',
     'toast.hammer.pick': 'Toca el bloque que quieras quitar',
     'toast.hammer.bad': 'Elige un bloque que pueda moverse',
     'toast.time': '+30 segundos',
@@ -417,25 +577,74 @@ const TEXTES = {
     'offer.lead': 'Solo quedan', 'offer.lead.end': 'bloques por sacar.',
     'offer.continue': 'Sigue con', 'offer.bonus': '+{s} s y +{c} movimientos',
 
-    'lock.open': 'Abierto', 'lock.remaining': 'Faltan {n}',
-    'gate.exit': 'Salida {couleur}',
+    'lock.open': 'Abierto', 'lock.left': 'Faltan {n}',
+    'lock.exits': '{n} salidos', 'lock.color.done': '{color} terminado',
+    'lock.color.left': 'Faltan {n} {color}',
+    'gate.exit': 'Salida {color}',
 
     'boot.missing': 'No se encuentra la base de niveles',
-    'boot.hint': 'Ejecuta {cmd} y vuelve a cargar.',
+    'boot.hint': 'Comprueba la conexión y vuelve a cargar.',
 
     'color.0': 'Rubí', 'color.1': 'Zafiro', 'color.2': 'Esmeralda',
     'color.3': 'Ámbar', 'color.4': 'Amatista', 'color.5': 'Topacio',
   },
 
   it: {
+    'brief.best': '{n} mosse',
+    'user.status.anonymous': 'Utente',
+    'user.logout.confirm': 'Disconnettersi?',
+    'user.logout.failed': 'Errore durante la disconnessione',
+    'login.subtitle': 'Accedi per salvare i tuoi progressi online, su tutti i tuoi dispositivi.',
+    'login.google': 'Continua con Google',
+    'login.offline': 'Continua senza account',
+    'login.connecting': 'Connessione in corso…', 'login.redirecting': 'Reindirizzamento all’autenticazione…',
+    'login.failed': 'Errore: {error}',
+    'debug.speed.fast': 'Animazioni ×5', 'debug.speed.slow': 'Animazioni ×1',
+    'debug.noads.on': 'Attiva senza pubblicità', 'debug.noads.off': 'Disattiva senza pubblicità',
+    'admin.legend': 'Amministrazione', 'admin.open': 'Apri il pannello admin',
+    'admin.note': 'Moderazione, livello del giorno, partite sospette.',
+    'admin.title': 'Amministrazione', 'admin.loading': 'Caricamento…',
+    'admin.done': 'Salvato', 'admin.failed': 'Rifiutato: {error}',
+    'admin.stat.levels': '{n} livelli', 'admin.stat.players': '{n} giocatori',
+    'admin.stat.queue': '{n} in attesa', 'admin.stat.flagged': '{n} segnalate',
+    'admin.tab.moderation': 'Moderazione', 'admin.tab.daily': 'Livello del giorno',
+    'admin.tab.flagged': 'Partite sospette',
+    'admin.queue.empty': 'Nessuna griglia in attesa di moderazione',
+    'admin.approve': 'Approva', 'admin.reject': 'Rifiuta',
+    'admin.reject.ask': 'Motivo del rifiuto (facoltativo)',
+    'admin.daily.levelId': 'id del livello (vuoto = sorteggio automatico)',
+    'admin.daily.apply': 'Imposta',
+    'admin.daily.note': 'Senza identificativo, il sorteggio automatico sceglie fra i livelli idonei non usati da 60 giorni.',
+    'admin.daily.empty': 'Nessun livello del giorno nel calendario',
+    'admin.flagged.empty': 'Nessuna partita segnalata',
+    'admin.flagged.line': '{moves} mosse · {time} s · {stars}★ · {date}',
+    'editor.kind.normal': 'Normale', 'editor.kind.rail.h': 'Binario ↔',
+    'editor.kind.rail.v': 'Binario ↕', 'editor.kind.joker': 'Jolly',
+    'editor.kind.locked': 'Serratura', 'editor.kind.wall': 'Sigillato',
+    'editor.kind.bulky': 'Ingombrante ×2',
+    'editor.kind.anchor.top': 'Ancora ▲', 'editor.kind.anchor.right': 'Ancora ▶',
+    'editor.kind.anchor.bottom': 'Ancora ▼', 'editor.kind.anchor.left': 'Ancora ◀',
+    'editor.status.overflow': 'La forma esce dalla griglia',
+    'editor.status.occupied': 'Posto già occupato',
+    'editor.status.nogate': 'Nessuna porta: aprine almeno una',
+    'editor.status.noblock': 'Nessun blocco da far uscire',
+    'editor.status.needboth': 'Servono almeno una porta e un blocco',
+    'editor.status.solvable': 'Risolvibile in {n} uscite ({states} stati esplorati)',
+    'editor.status.aborted': 'Ricerca interrotta: griglia troppo vasta',
+    'editor.status.unsolved': 'Non risolta. Il risolutore non sposta i blocchi senza farli uscire: una soluzione che richieda di spostare di lato un blocco gli sfugge.',
+    'editor.status.copied': 'JSON copiato negli appunti',
+    'editor.status.shown': 'JSON mostrato qui sotto (copia manuale)',
+    'editor.status.paste': 'Incolla un JSON di livello nell’area e ripremi',
+    'editor.status.imported': 'Livello importato',
+    'editor.status.badjson': 'JSON illeggibile: {error}',
     'theme.legend': 'Tema', 'theme.worlds': 'Mondi',
-    'theme.cond.niveaux': '{n} livelli', 'theme.cond.etoiles': '{n} stelle',
-    'theme.cond.serie': 'serie di {n} giorni', 'theme.cond.premium': 'senza pubblicità',
-    'theme.locked': 'Da sbloccare: {quoi}',
-    'streak.badge': '{n} g', 'streak.next': 'Ancora {n} g per {quoi}',
-    'streak.reward.eclats': '{n} schegge', 'streak.reward.theme': 'un tema',
-    'streak.reward.indices': '{n} indizi', 'streak.reward.badge': 'un distintivo',
-    'streak.granted': 'Serie di {jours} giorni — {quoi}!',
+    'theme.cond.levels': '{n} livelli', 'theme.cond.stars': '{n} stelle',
+    'theme.cond.streak': 'serie di {n} giorni', 'theme.cond.premium': 'senza pubblicità',
+    'theme.locked': 'Da sbloccare: {what}',
+    'streak.badge': '{n} g', 'streak.next': 'Ancora {n} g per {what}',
+    'streak.reward.coins': '{n} schegge', 'streak.reward.theme': 'un tema',
+    'streak.reward.hints': '{n} indizi', 'streak.reward.badge': 'un distintivo',
+    'streak.granted': 'Serie di {days} giorni — {what}!',
     'offer.oups': 'Ops…', 'offer.left': 'Resta {n} blocco', 'offer.left.plural': 'Restano {n} blocchi',
     'offer.continue.big': 'Continua', 'offer.continue.small': 'Continua',
     'offer.free': '🎬 Gratis', 'offer.restart': 'Ricomincia',
@@ -453,7 +662,7 @@ const TEXTES = {
     'editor.eraser': 'Gomma', 'editor.undo': 'Annulla l’ultimo blocco',
     'editor.undone': 'Ultimo blocco rimosso',
     'editor.trying': 'Prova',
-    'result.time': 'in {temps}',
+    'result.time': 'in {time}',
     'editor.mine': 'I miei livelli', 'editor.mine.empty': 'Nessuna griglia salvata per ora',
     'editor.untitled': 'Senza titolo', 'editor.blocks': '{n} blocchi',
     'editor.proposed': 'proposto', 'editor.loaded': 'Griglia caricata',
@@ -475,11 +684,11 @@ const TEXTES = {
     'editor.submit.ask': 'Un nome per il tuo rompicapo?',
     'editor.submit.ok': 'Rompicapo proposto — potrebbe uscire un giorno di questi',
     'editor.submit.unsolved': 'Verifica prima che la griglia si risolva',
-    'daily.title': 'Rompicapo del giorno', 'daily.by': 'di {auteur}',
+    'daily.title': 'Rompicapo del giorno', 'daily.by': 'di {author}',
     'daily.none': 'Nessun rompicapo proposto — disegna il primo',
     'daily.done': 'Già giocato oggi · {score} pt',
     'daily.play': 'Tocca a te',
-    'daily.score': 'Punteggio: {score}', 'daily.rank': 'Posizione {rang} su {total}',
+    'daily.score': 'Punteggio: {score}', 'daily.rank': 'Posizione {rank} su {total}',
     'daily.rank.title': 'Classifica di oggi',
     'daily.rank.note': 'Questa classifica è locale a questo dispositivo: il prototipo non ha un server a cui inviare i punteggi.',
     'daily.rank.empty': 'Oggi non ha ancora giocato nessuno',
@@ -496,6 +705,7 @@ const TEXTES = {
     'ad.skip': 'Salta (senza premio)', 'ad.badge': 'Ann.',
     'menu.baseline': 'Svuota la griglia dalle porte colorate',
     'menu.stars': 'stelle', 'menu.coins': 'schegge', 'menu.level': 'livelli',
+    'menu.greeting': 'Ciao {name}',
     'menu.play': 'Gioca', 'menu.daily': 'Regalo del giorno',
     'menu.streak': 'Serie di {n} giorno', 'menu.streak.plural': 'Serie di {n} giorni',
 
@@ -503,7 +713,7 @@ const TEXTES = {
 
     'brief.objective': 'Fai uscire i {n} blocchi',
     'brief.moves': 'Mosse', 'brief.difficulty': 'Difficoltà', 'brief.record': 'Record',
-    'brief.new': 'Novità: {quoi}', 'brief.start': 'Gioca', 'brief.final': 'Livello finale',
+    'brief.new': 'Novità: {what}', 'brief.start': 'Gioca', 'brief.final': 'Livello finale',
 
     'hud.time': 'Tempo', 'hud.blocks': 'Blocchi', 'hud.stars': 'Stelle',
     'hud.moves': '{n} mosse',
@@ -523,12 +733,16 @@ const TEXTES = {
     'user.title': 'Profilo e impostazioni', 'user.close': 'Chiudi',
     'user.level': 'Livello', 'user.stars': 'Stelle', 'user.levels': 'Livelli',
     'user.coins': 'Schegge',
-    'user.sound': 'Audio', 'user.music': 'Musica', 'user.sfx': 'Effetti sonori',
+    'user.sound': 'Audio', 'user.music': 'Musica', 'user.sfx': 'Effetti sonori', 'user.vibration': 'Vibrazione',
     'user.display': 'Schermo', 'user.glyphs': 'Simboli sui blocchi',
     'user.glyphs.note': 'Dà a ogni colore il suo simbolo, per non doversi fidare della tinta.',
     'user.language': 'Lingua',
     'user.ads': 'Pubblicità', 'user.noads': 'Togli la pubblicità',
-    'user.ads.note': 'Acquisto simulato — nessun circuito pubblicitario è collegato.',
+    'user.ads.note': 'Rimuove gli annunci mostrati nel gioco.',
+    'user.ads.consent': 'Gestisci il consenso pubblicitario',
+    'user.account': 'Account', 'user.logout': 'Esci', 'user.privacy': 'Informativa sulla privacy',
+    'user.status.online': 'Accesso effettuato come {email}',
+    'user.status.offline': 'Modalità offline - dati locali',
     'user.reset': 'Azzera i progressi',
     'user.reset.confirm': 'Cancellare tutti i progressi?',
 
@@ -536,8 +750,8 @@ const TEXTES = {
     'action.time': 'Tempo', 'action.undo': 'Annulla', 'action.giveup': 'Abbandona',
 
     'toast.sealed': 'Questo blocco è sigillato',
-    'toast.locked': 'Bloccato: {quoi}',
-    'toast.daily': '+{n} schegge — serie di {jours} giorni',
+    'toast.locked': 'Bloccato: {what}',
+    'toast.daily': '+{n} schegge — serie di {days} giorni',
     'toast.hammer.pick': 'Tocca il blocco da togliere',
     'toast.hammer.bad': 'Scegli un blocco che possa muoversi',
     'toast.time': '+30 secondi',
@@ -552,25 +766,76 @@ const TEXTES = {
     'offer.lead': 'Restano solo', 'offer.lead.end': 'blocchi da far uscire.',
     'offer.continue': 'Continua con', 'offer.bonus': '+{s} s e +{c} mosse',
 
-    'lock.open': 'Aperto', 'lock.remaining': 'Ancora {n}',
-    'gate.exit': 'Uscita {couleur}',
+    'lock.open': 'Aperto', 'lock.left': 'Ancora {n}',
+    'lock.exits': '已清 {n} 个', 'lock.color.done': '{color} 已清空',
+    'lock.color.left': '还剩 {n} 个{color}',
+    'lock.exits': '{n} usciti', 'lock.color.done': '{color} finito',
+    'lock.color.left': 'Ancora {n} {color}',
+    'gate.exit': 'Uscita {color}',
 
     'boot.missing': 'Base dei livelli non trovata',
-    'boot.hint': 'Esegui {cmd}, poi ricarica.',
+    'boot.hint': 'Controlla la connessione, poi ricarica.',
 
     'color.0': 'Rubino', 'color.1': 'Zaffiro', 'color.2': 'Smeraldo',
     'color.3': 'Ambra', 'color.4': 'Ametista', 'color.5': 'Topazio',
   },
 
   zh: {
+    'brief.best': '{n} 步',
+    'user.status.anonymous': '用户',
+    'user.logout.confirm': '要退出登录吗？',
+    'user.logout.failed': '退出登录失败',
+    'login.subtitle': '登录后可在线保存进度，并在所有设备间同步。',
+    'login.google': '使用 Google 继续',
+    'login.offline': '不登录，直接开始',
+    'login.connecting': '正在登录…', 'login.redirecting': '正在跳转到认证页面…',
+    'login.failed': '错误：{error}',
+    'debug.speed.fast': '动画 ×5', 'debug.speed.slow': '动画 ×1',
+    'debug.noads.on': '开启无广告', 'debug.noads.off': '关闭无广告',
+    'admin.legend': '管理', 'admin.open': '打开管理面板',
+    'admin.note': '审核、每日关卡、可疑对局。',
+    'admin.title': '管理', 'admin.loading': '加载中…',
+    'admin.done': '已保存', 'admin.failed': '被拒绝：{error}',
+    'admin.stat.levels': '{n} 个关卡', 'admin.stat.players': '{n} 名玩家',
+    'admin.stat.queue': '{n} 个待审', 'admin.stat.flagged': '{n} 个已标记',
+    'admin.tab.moderation': '审核', 'admin.tab.daily': '每日关卡',
+    'admin.tab.flagged': '可疑对局',
+    'admin.queue.empty': '没有待审核的棋盘',
+    'admin.approve': '通过', 'admin.reject': '拒绝',
+    'admin.reject.ask': '拒绝理由（可选）',
+    'admin.daily.levelId': '关卡 id（留空则自动抽取）',
+    'admin.daily.apply': '设定',
+    'admin.daily.note': '不填 id 时，自动抽取会从 60 天内未用过的合格关卡中挑选。',
+    'admin.daily.empty': '日历中没有每日关卡',
+    'admin.flagged.empty': '没有被标记的对局',
+    'admin.flagged.line': '{moves} 步 · {time} 秒 · {stars}★ · {date}',
+    'editor.kind.normal': '普通', 'editor.kind.rail.h': '滑轨 ↔',
+    'editor.kind.rail.v': '滑轨 ↕', 'editor.kind.joker': '万能',
+    'editor.kind.locked': '锁', 'editor.kind.wall': '封死',
+    'editor.kind.bulky': '笨重 ×2',
+    'editor.kind.anchor.top': '锚 ▲', 'editor.kind.anchor.right': '锚 ▶',
+    'editor.kind.anchor.bottom': '锚 ▼', 'editor.kind.anchor.left': '锚 ◀',
+    'editor.status.overflow': '形状超出棋盘',
+    'editor.status.occupied': '该位置已被占用',
+    'editor.status.nogate': '没有门：至少开一个出口',
+    'editor.status.noblock': '没有可清除的方块',
+    'editor.status.needboth': '至少需要一道门和一个方块',
+    'editor.status.solvable': '可解，共 {n} 次出门（探索了 {states} 个状态）',
+    'editor.status.aborted': '搜索中断：棋盘过大，无法判定',
+    'editor.status.unsolved': '未解出。求解器不会为了让路而挪动方块：需要把方块推到一旁的解法它找不到。',
+    'editor.status.copied': 'JSON 已复制到剪贴板',
+    'editor.status.shown': 'JSON 显示在下方（请手动复制）',
+    'editor.status.paste': '把关卡 JSON 粘贴到文本框后再按一次',
+    'editor.status.imported': '关卡已导入',
+    'editor.status.badjson': 'JSON 无法解析：{error}',
     'theme.legend': '主题', 'theme.worlds': '随世界变化',
-    'theme.cond.niveaux': '{n} 关', 'theme.cond.etoiles': '{n} 颗星',
-    'theme.cond.serie': '连续 {n} 天', 'theme.cond.premium': '去广告',
-    'theme.locked': '解锁条件：{quoi}',
-    'streak.badge': '{n} 天', 'streak.next': '再过 {n} 天可得{quoi}',
-    'streak.reward.eclats': '{n} 碎片', 'streak.reward.theme': '一个主题',
-    'streak.reward.indices': '{n} 次提示', 'streak.reward.badge': '一枚徽章',
-    'streak.granted': '连续 {jours} 天 — {quoi}！',
+    'theme.cond.levels': '{n} 关', 'theme.cond.stars': '{n} 颗星',
+    'theme.cond.streak': '连续 {n} 天', 'theme.cond.premium': '去广告',
+    'theme.locked': '解锁条件：{what}',
+    'streak.badge': '{n} 天', 'streak.next': '再过 {n} 天可得{what}',
+    'streak.reward.coins': '{n} 碎片', 'streak.reward.theme': '一个主题',
+    'streak.reward.hints': '{n} 次提示', 'streak.reward.badge': '一枚徽章',
+    'streak.granted': '连续 {days} 天 — {what}！',
     'offer.oups': '哎呀…', 'offer.left': '还剩 {n} 个方块', 'offer.left.plural': '还剩 {n} 个方块',
     'offer.continue.big': '继续', 'offer.continue.small': '继续',
     'offer.free': '🎬 免费', 'offer.restart': '重新开始',
@@ -588,7 +853,7 @@ const TEXTES = {
     'editor.eraser': '橡皮', 'editor.undo': '撤销上一个方块',
     'editor.undone': '已移除上一个方块',
     'editor.trying': '试玩',
-    'result.time': '用时 {temps}',
+    'result.time': '用时 {time}',
     'editor.mine': '我的关卡', 'editor.mine.empty': '还没有保存任何棋盘',
     'editor.untitled': '未命名', 'editor.blocks': '{n} 个方块',
     'editor.proposed': '已投稿', 'editor.loaded': '棋盘已载入',
@@ -610,11 +875,11 @@ const TEXTES = {
     'editor.submit.ask': '给你的谜题起个名字？',
     'editor.submit.ok': '已投稿 — 某天可能会被抽中',
     'editor.submit.unsolved': '请先验证棋盘可解',
-    'daily.title': '每日谜题', 'daily.by': '作者 {auteur}',
+    'daily.title': '每日谜题', 'daily.by': '作者 {author}',
     'daily.none': '还没有投稿 — 来画第一个',
     'daily.done': '今天已玩过 · {score} 分',
     'daily.play': '轮到你了',
-    'daily.score': '得分：{score}', 'daily.rank': '第 {rang} 名，共 {total} 人',
+    'daily.score': '得分：{score}', 'daily.rank': '第 {rank} 名，共 {total} 人',
     'daily.rank.title': '今日排行榜',
     'daily.rank.note': '此排行榜仅存于本设备：原型没有可上传成绩的服务器。',
     'daily.rank.empty': '今天还没有人游玩',
@@ -631,6 +896,7 @@ const TEXTES = {
     'ad.skip': '跳过（不领奖励）', 'ad.badge': '广告',
     'menu.baseline': '让方块从同色的门离开棋盘',
     'menu.stars': '星星', 'menu.coins': '碎片', 'menu.level': '关卡',
+    'menu.greeting': '你好，{name}',
     'menu.play': '开始', 'menu.daily': '每日礼物',
     'menu.streak': '连续 {n} 天', 'menu.streak.plural': '连续 {n} 天',
 
@@ -638,7 +904,7 @@ const TEXTES = {
 
     'brief.objective': '清空全部 {n} 个方块',
     'brief.moves': '步数', 'brief.difficulty': '难度', 'brief.record': '纪录',
-    'brief.new': '新元素：{quoi}', 'brief.start': '开始', 'brief.final': '最终关卡',
+    'brief.new': '新元素：{what}', 'brief.start': '开始', 'brief.final': '最终关卡',
 
     'hud.time': '时间', 'hud.blocks': '方块', 'hud.stars': '星星',
     'hud.moves': '{n} 步',
@@ -658,12 +924,16 @@ const TEXTES = {
     'user.title': '个人资料与设置', 'user.close': '关闭',
     'user.level': '等级', 'user.stars': '星星', 'user.levels': '关卡',
     'user.coins': '碎片',
-    'user.sound': '声音', 'user.music': '音乐', 'user.sfx': '音效',
+    'user.sound': '声音', 'user.music': '音乐', 'user.sfx': '音效', 'user.vibration': '震动',
     'user.display': '显示', 'user.glyphs': '方块上显示符号',
     'user.glyphs.note': '为每种颜色配一个符号，不必只靠颜色分辨。',
     'user.language': '语言',
     'user.ads': '广告', 'user.noads': '去除广告',
-    'user.ads.note': '模拟购买 — 未接入任何广告平台。',
+    'user.ads.note': '移除游戏中显示的广告。',
+    'user.ads.consent': '管理广告同意设置',
+    'user.account': '账户', 'user.logout': '退出登录', 'user.privacy': '隐私政策',
+    'user.status.online': '已作为 {email} 登录',
+    'user.status.offline': '离线模式 - 本地数据',
     'user.reset': '重置进度',
     'user.reset.confirm': '要清除全部进度吗？',
 
@@ -671,8 +941,8 @@ const TEXTES = {
     'action.time': '时间', 'action.undo': '撤销', 'action.giveup': '放弃',
 
     'toast.sealed': '这个方块被封住了',
-    'toast.locked': '已锁定：{quoi}',
-    'toast.daily': '+{n} 碎片 — 连续 {jours} 天',
+    'toast.locked': '已锁定：{what}',
+    'toast.daily': '+{n} 碎片 — 连续 {days} 天',
     'toast.hammer.pick': '点击要移除的方块',
     'toast.hammer.bad': '请选择可以移动的方块',
     'toast.time': '+30 秒',
@@ -687,98 +957,101 @@ const TEXTES = {
     'offer.lead': '只剩', 'offer.lead.end': '个方块待清空。',
     'offer.continue': '继续，获得', 'offer.bonus': '+{s} 秒，+{c} 步',
 
-    'lock.open': '已开启', 'lock.remaining': '还差 {n}',
-    'gate.exit': '{couleur}出口',
+    'lock.open': '已开启', 'lock.left': '还差 {n}',
+    'lock.exits': '门已开启，剩余 {n} 个出口',
+    'lock.color.done': '已解锁颜色：{color}',
+    'lock.color.left': '剩余颜色：{color}',
+    'gate.exit': '{color}出口',
 
     'boot.missing': '找不到关卡数据',
-    'boot.hint': '请运行 {cmd}，然后重新加载。',
+    'boot.hint': '请检查网络连接，然后重新加载。',
 
     'color.0': '红宝石', 'color.1': '蓝宝石', 'color.2': '祖母绿',
     'color.3': '琥珀', 'color.4': '紫水晶', 'color.5': '黄玉',
   },
 };
 
-const DEFAUT = 'fr';
+const DEFAULT_LANG = 'fr';
 
-/** Langue du navigateur, si le jeu la parle. */
-function langueDuNavigateur() {
+/** The browser's language, if the game speaks it. */
+function browserLanguage() {
   const codes = typeof navigator === 'undefined' ? [] : (navigator.languages || [navigator.language || '']);
-  for (const brut of codes) {
-    const code = String(brut).slice(0, 2).toLowerCase();
-    if (TEXTES[code]) return code;
+  for (const raw of codes) {
+    const code = String(raw).slice(0, 2).toLowerCase();
+    if (STRINGS[code]) return code;
   }
-  return DEFAUT;
+  return DEFAULT_LANG;
 }
 
-let courante = DEFAUT;
+let current = DEFAULT_LANG;
 
-export const langue = () => courante;
+export const language = () => current;
 
 /**
- * Traduit une clé, en substituant `{nom}` par les valeurs passées.
+ * Translates a key, substituting `{name}` with the values passed in.
  *
- * Une clé absente est rendue telle quelle plutôt que remplacée par du vide :
- * une phrase manquante doit se voir en jeu, pas disparaître silencieusement.
+ * A missing key is returned as-is rather than replaced by nothing: a missing
+ * sentence must be visible in the game, not silently disappear.
  */
-export function t(cle, params = {}) {
-  const brut = TEXTES[courante]?.[cle] ?? TEXTES[DEFAUT][cle] ?? cle;
-  return brut.replace(/\{(\w+)\}/g, (_, nom) => (params[nom] ?? `{${nom}}`));
+export function t(key, params = {}) {
+  const raw = STRINGS[current]?.[key] ?? STRINGS[DEFAULT_LANG][key] ?? key;
+  return raw.replace(/\{(\w+)\}/g, (_, name) => (params[name] ?? `{${name}}`));
 }
 
-/** Nom d'une famille de couleur. */
-export const nomCouleur = (id) => t(`color.${id}`);
+/** Name of a colour family. */
+export const colorName = (id) => t(`color.${id}`);
 
 /**
- * Texte d'un monde dans la langue courante.
+ * A realm's text in the current language.
  *
- * Le catalogue transporte chaque libellé sous forme de table `{ fr, en, … }`,
- * et l'on retombe sur le français quand une langue manque : un monde ajouté
- * sans traduction s'affiche alors dans une langue, plutôt que dans le vide.
+ * The catalogue carries every label as a `{ fr, en, … }` table, and we fall
+ * back to French when a language is missing: a realm added without a
+ * translation then shows up in some language rather than in a void.
  */
-export function texteMonde(monde, champ) {
-  const table = monde?.[champ];
+export function realmText(realm, field) {
+  const table = realm?.[field];
   if (!table) return '';
-  return typeof table === 'string' ? table : (table[courante] || table[DEFAUT] || '');
+  return typeof table === 'string' ? table : (table[current] || table[DEFAULT_LANG] || '');
 }
 
 /**
- * Remplit le markup. Trois attributs, selon l'endroit où le texte atterrit :
- * `data-i18n` pour le contenu, `data-i18n-title` pour l'infobulle,
- * `data-i18n-aria` pour le nom accessible, `data-i18n-placeholder` pour
- * l'invite d'un champ de saisie.
+ * Fills in the markup. Four attributes, depending on where the text lands:
+ * `data-i18n` for the content, `data-i18n-title` for the tooltip,
+ * `data-i18n-aria` for the accessible name, `data-i18n-placeholder` for an
+ * input field's prompt.
  */
-export function appliquer(racine = (typeof document === 'undefined' ? null : document)) {
-  // Sans DOM — sous Node, dans les tests — il n'y a rien à remplir, et le
-  // dictionnaire reste vérifiable pour autant.
-  if (!racine) return;
-  for (const el of racine.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
-  for (const el of racine.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
-  for (const el of racine.querySelectorAll('[data-i18n-aria]')) {
+export function applyToDom(root = (typeof document === 'undefined' ? null : document)) {
+  // With no DOM — under Node, in the tests — there is nothing to fill in, and
+  // the dictionary stays verifiable all the same.
+  if (!root) return;
+  for (const el of root.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  for (const el of root.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
+  for (const el of root.querySelectorAll('[data-i18n-aria]')) {
     el.setAttribute('aria-label', t(el.dataset.i18nAria));
   }
-  for (const el of racine.querySelectorAll('[data-i18n-placeholder]')) {
+  for (const el of root.querySelectorAll('[data-i18n-placeholder]')) {
     el.placeholder = t(el.dataset.i18nPlaceholder);
   }
   if (typeof document !== 'undefined') {
-    document.documentElement.lang = courante;
-    // Le titre de l'onglet ne porte pas d'attribut : il se pose à la main.
+    document.documentElement.lang = current;
+    // The tab title carries no attribute: it is set by hand.
     document.title = t('app.title');
   }
 }
 
-/** Choix explicite du joueur : enregistré, et appliqué à tout le markup. */
-export function definirLangue(code) {
-  if (!TEXTES[code]) return;
-  courante = code;
+/** The player's explicit choice: stored, and applied to the whole markup. */
+export function setLanguage(code) {
+  if (!STRINGS[code]) return;
+  current = code;
   const d = store.load();
-  d.langue = code;
+  d.language = code;
   store.save(d);
-  appliquer();
+  applyToDom();
 }
 
-/** Au démarrage : le choix enregistré, ou la langue du navigateur. */
-export function initialiser() {
-  courante = store.load().langue || langueDuNavigateur();
-  appliquer();
-  return courante;
+/** At startup: the stored choice, or the browser's language. */
+export function init() {
+  current = store.load().language || browserLanguage();
+  applyToDom();
+  return current;
 }

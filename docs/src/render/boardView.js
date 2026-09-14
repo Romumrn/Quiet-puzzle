@@ -1,29 +1,29 @@
 /**
- * BoardView — équivalent de Scripts/Animation/BlockAnimator.cs + VFXManager.cs
+ * BoardView — equivalent of Scripts/Animation/BlockAnimator.cs + VFXManager.cs
  *
- * Seul module autorisé à toucher le DOM du plateau. Il ne décide rien : il
- * rejoue les évènements produits par core/board.js.
+ * The only module allowed to touch the board's DOM. It decides nothing: it
+ * replays the events produced by core/board.js.
  *
- * Les blocs sont des polyominos : chaque case porte un arrondi calculé d'après
- * ses voisines, ce qui donne une forme fusionnée d'un seul tenant plutôt qu'un
- * chapelet de carrés.
+ * Blocks are polyominoes: each cell carries a corner radius computed from its
+ * neighbours, which gives a single merged shape rather than a string of
+ * squares.
  */
 
-import { COLORS, KIND, couleursDe } from '../core/block.js';
-import { t, nomCouleur } from '../ui/i18n.js';
+import { COLORS, KIND, colorsOf } from '../core/block.js';
+import { t, colorName } from '../ui/i18n.js';
 
 /**
- * Option d'accessibilité : le joueur a demandé les symboles de famille.
+ * Accessibility option: the player asked for the family symbols.
  *
- * Les six couleurs se distinguent normalement à la teinte seule ; ce drapeau
- * leur rend leur glyphe, sur les blocs comme sur les portes. On le lit sur le
- * DOM plutôt que de le passer en paramètre à chaque appel : le plateau se
- * redessine entièrement quand l'option change, et un seul endroit décide.
+ * The six colours are normally told apart by hue alone; this flag gives them
+ * their glyph back, on blocks as well as on gates. We read it off the DOM
+ * rather than passing it as a parameter on every call: the board is fully
+ * redrawn when the option changes, and a single place decides.
  */
-const avecGlyphes = () => document.getElementById('app')?.classList.contains('avec-glyphes');
+const withGlyphs = () => document.getElementById('app')?.classList.contains('with-glyphs');
 
-/** Fraction de case au-delà de laquelle une saisie rattrape la case voisine. */
-const MARGE_SAISIE = 0.22;
+/** Fraction of a cell beyond which a grab reaches into the neighbouring cell. */
+const GRAB_MARGIN = 0.22;
 
 const BASE_TIMING = { MOVE: 95, POP: 130, EXIT: 300, UNLOCK: 420, BUMP: 130 };
 export const TIMING = { ...BASE_TIMING };
@@ -35,28 +35,26 @@ export function setSpeed(multiplier) {
 if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) setSpeed(0.15);
 
 /**
- * Attente d'animation. En arrière-plan on ne patiente pas : la logique du coup
- * est déjà résolue, seul l'affichage reste à poser. Sans ce court-circuit,
- * revenir dans l'app rejouerait toute l'animation au ralenti (les navigateurs
- * bloquent les timers des pages cachées à une seconde minimum).
+ * Animation wait. In the background we do not wait: the logic of the move is
+ * already resolved, only the display is left to lay down. Without this
+ * short-circuit, coming back to the app would replay the whole animation in
+ * slow motion (browsers throttle hidden pages' timers to one second minimum).
  */
 const wait = (ms) => (document.hidden ? Promise.resolve() : new Promise((r) => setTimeout(r, ms)));
 
-const VECTEURS = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] };
-
-/** Sens de sortie, tel qu'il s'affiche sur la porte. */
-const FLECHES = { top: '▲', right: '▶', bottom: '▼', left: '◀' };
+/** Exit direction, as shown on the gate. */
+const ARROWS = { top: '▲', right: '▶', bottom: '▼', left: '◀' };
 
 /**
- * Cadenas d'un verrou à clé.
+ * Padlock for a key lock.
  *
- * Dessiné, et non 🔒 : l'emoji arrive en jaune vif au milieu d'une palette
- * pastel et devient le premier endroit où l'œil tombe. Il remplace le losange
- * ◈ qui répondait à celui de la clé — un symbole abstrait qu'il fallait avoir
- * appris, là où un cadenas dit « fermé » sans rien apprendre. La clé, elle,
- * garde son losange : c'est ce qui la distingue de ce qu'elle ouvre.
+ * Drawn, not 🔒: the emoji lands in bright yellow in the middle of a pastel
+ * palette and becomes the first place the eye falls. It replaces the ◈ diamond
+ * that echoed the key's — an abstract symbol you had to have learnt, where a
+ * padlock says "shut" without teaching anything. The key keeps its diamond:
+ * that is what distinguishes it from what it opens.
  */
-const CADENAS = `<svg class="cadenas" viewBox="0 0 20 20" aria-hidden="true">
+const PADLOCK_SVG = `<svg class="padlock" viewBox="0 0 20 20" aria-hidden="true">
   <path d="M6.7 9V6.6a3.3 3.3 0 0 1 6.6 0V9" fill="none" stroke-width="2" stroke-linecap="round"/>
   <rect x="3.9" y="8.7" width="12.2" height="9.1" rx="2.8"/>
   <circle cx="10" cy="12.6" r="1.45"/>
@@ -70,7 +68,7 @@ export class BoardView {
     this.blockLayer = root.querySelector('.block-layer');
     this.fxLayer = root.querySelector('.fx-layer');
     this.gridLayer = root.querySelector('.grid-layer');
-    this.nodes = new Map(); // id -> élément
+    this.nodes = new Map(); // id -> element
     this.board = null;
     this.cell = 0;
 
@@ -80,19 +78,19 @@ export class BoardView {
 
   destroy() { this._ro.disconnect(); }
 
-  // --- Mise en page --------------------------------------------------------
+  // --- Layout --------------------------------------------------------------
 
   layout() {
     if (!this.board) return;
     const { W, H } = this.board;
-    const mur = 14;
-    const dispoW = this.wrap.clientWidth - 2 * mur - 6;
-    const dispoH = this.wrap.clientHeight - 2 * mur - 6;
-    const cell = Math.max(24, Math.floor(Math.min(dispoW / W, dispoH / H)));
+    const wall = 14;
+    const availW = this.wrap.clientWidth - 2 * wall - 6;
+    const availH = this.wrap.clientHeight - 2 * wall - 6;
+    const cell = Math.max(24, Math.floor(Math.min(availW / W, availH / H)));
 
     this.cell = cell;
     this.root.style.setProperty('--cell', `${cell}px`);
-    this.root.style.setProperty('--wall', `${mur}px`);
+    this.root.style.setProperty('--wall', `${wall}px`);
     this.root.style.width = `${cell * W}px`;
     this.root.style.height = `${cell * H}px`;
 
@@ -107,7 +105,7 @@ export class BoardView {
     node.style.transform = `translate3d(${x * this.cell}px, ${y * this.cell}px, 0)`;
   }
 
-  // --- Montage -------------------------------------------------------------
+  // --- Mounting ------------------------------------------------------------
 
   mount(board) {
     this.board = board;
@@ -119,7 +117,7 @@ export class BoardView {
 
     this.layout();
 
-    // Fond quadrillé : repère visuel pour anticiper les déplacements.
+    // Chequered background: a visual guide for anticipating moves.
     for (let y = 0; y < board.H; y++) {
       for (let x = 0; x < board.W; x++) {
         const c = document.createElement('div');
@@ -138,37 +136,37 @@ export class BoardView {
     this.gateLayer.replaceChildren();
     for (const g of this.board.gates) {
       const el = document.createElement('div');
-      const partagee = couleursDe(g).length > 1;
-      el.className = `gate gate-${g.side} c${g.color}` + (partagee ? ' gate-partagee' : '');
-      // Porte partagée : la seconde couleur passe en variable, et le dégradé du
-      // CSS montre les deux familles qu'elle accepte.
-      if (partagee) el.style.setProperty('--c-bis', `var(--c${couleursDe(g)[1]})`);
-      const long = `${g.length * this.cell}px`;
-      const debut = `${g.start * this.cell}px`;
-      if (g.side === 'top' || g.side === 'bottom') { el.style.left = debut; el.style.width = long; }
-      else { el.style.top = debut; el.style.height = long; }
-      // Une flèche qui pointe VERS L'EXTÉRIEUR, dans le sens où les blocs
-      // quittent la grille. Le glyphe de couleur y était auparavant, repris à
-      // l'identique sur les blocs, et servait à apparier bloc et porte sans
-      // dépendre de la couleur ; il reste porté par les blocs, et l'aide au
-      // repérage est déplacée sur l'étiquette de la porte (voir `title`).
-      const fleche = document.createElement('span');
-      fleche.className = 'gate-fleche';
-      // Le glyphe précède la flèche, et non l'inverse : c'est lui qui identifie
-      // la porte, la flèche ne fait que rappeler le sens de sortie.
-      fleche.textContent = (avecGlyphes()
-        ? couleursDe(g).map((c) => COLORS[c]?.glyph ?? '').join('')
-        : '') + FLECHES[g.side];
-      el.appendChild(fleche);
-      el.title = t('gate.exit', { couleur: couleursDe(g).map(nomCouleur).join(' / ') });
+      const shared = colorsOf(g).length > 1;
+      el.className = `gate gate-${g.side} c${g.color}` + (shared ? ' gate-shared' : '');
+      // Shared gate: the second colour goes into a variable, and the CSS
+      // gradient shows both families it accepts.
+      if (shared) el.style.setProperty('--c-alt', `var(--c${colorsOf(g)[1]})`);
+      const length = `${g.length * this.cell}px`;
+      const start = `${g.start * this.cell}px`;
+      if (g.side === 'top' || g.side === 'bottom') { el.style.left = start; el.style.width = length; }
+      else { el.style.top = start; el.style.height = length; }
+      // An arrow pointing OUTWARDS, the way blocks leave the grid. The colour
+      // glyph used to sit here, mirrored exactly on the blocks, and served to
+      // match block and gate without relying on colour; it is still carried by
+      // the blocks, and the matching aid has moved to the gate's tooltip (see
+      // `title`).
+      const arrow = document.createElement('span');
+      arrow.className = 'gate-arrow';
+      // The glyph precedes the arrow, not the other way round: the glyph is
+      // what identifies the gate, the arrow only recalls the exit direction.
+      arrow.textContent = (withGlyphs()
+        ? colorsOf(g).map((c) => COLORS[c]?.glyph ?? '').join('')
+        : '') + ARROWS[g.side];
+      el.appendChild(arrow);
+      el.title = t('gate.exit', { color: colorsOf(g).map(colorName).join(' / ') });
 
-      // Une porte à capacité limitée DOIT afficher ce qu'il lui reste :
-      // une contrainte invisible se lit comme un bug, pas comme une règle.
+      // A gate with limited capacity MUST show what it has left: an invisible
+      // constraint reads like a bug, not like a rule.
       if (g.capacity !== undefined) {
-        const jauge = document.createElement('b');
-        jauge.className = 'gate-cap';
-        jauge.textContent = g.capacity;
-        el.appendChild(jauge);
+        const gauge = document.createElement('b');
+        gauge.className = 'gate-cap';
+        gauge.textContent = g.capacity;
+        el.appendChild(gauge);
       }
       this.gateLayer.appendChild(el);
     }
@@ -177,114 +175,115 @@ export class BoardView {
   _createBlock(b) {
     const node = document.createElement('div');
     node.className = `block k-${b.kind}`
-      + (b.estCle ? ' est-cle' : '')
+      + (b.isKey ? ' is-key' : '')
       + (b.color >= 0 && b.kind !== KIND.JOKER ? ` c${b.color}` : '')
       + (b.kind === KIND.RAIL ? ` axis-${b.axis}` : '')
-      + (b.kind === KIND.ANCRE ? ` dir-${b.dir}` : '');
+      + (b.kind === KIND.ANCHOR ? ` dir-${b.dir}` : '');
     node.dataset.id = b.id;
-    // Bloc double : sa seconde couleur nourrit le dégradé qui le distingue.
-    if (b.kind === KIND.DOUBLE) node.style.setProperty('--c-bis', `var(--c${couleursDe(b)[1]})`);
+    // Dual block: its second colour feeds the gradient that sets it apart.
+    if (b.kind === KIND.DUAL) node.style.setProperty('--c-alt', `var(--c${colorsOf(b)[1]})`);
     node.style.width = `${b.width * this.cell}px`;
     node.style.height = `${b.height * this.cell}px`;
 
-    const a = (dx, dy) => b.cells.some(([p, q]) => p === dx && q === dy);
+    const has = (dx, dy) => b.cells.some(([p, q]) => p === dx && q === dy);
     for (const [dx, dy] of b.cells) {
       const c = document.createElement('i');
       c.className = 'block-cell';
       c.style.left = `${dx * this.cell}px`;
       c.style.top = `${dy * this.cell}px`;
-      // Le reflet est calé sur la BOÎTE DU BLOC, pas sur la case : chaque case
-      // n'en montre que sa portion, et la forme entière paraît d'un seul tenant.
+      // The highlight is anchored on the BLOCK'S BOX, not on the cell: each
+      // cell shows only its own portion, and the whole shape looks like one
+      // piece.
       c.style.backgroundSize = `${b.width * this.cell}px ${b.height * this.cell}px`;
       c.style.backgroundPosition = `${-dx * this.cell}px ${-dy * this.cell}px`;
-      // Les quatre côtés RÉELLEMENT extérieurs à la forme, marqués sur la case.
-      // C'est ce qui permet aux styles de n'éclairer et n'ombrer que la
-      // silhouette du polyomino : une arête intérieure ne doit rien dessiner,
-      // sinon le bloc se recoupe en petits carrés.
-      if (!a(dx, dy - 1)) c.classList.add('e-t');
-      if (!a(dx, dy + 1)) c.classList.add('e-b');
-      if (!a(dx - 1, dy)) c.classList.add('e-l');
-      if (!a(dx + 1, dy)) c.classList.add('e-r');
-      // Arrondi uniquement sur les coins réellement extérieurs à la forme.
+      // The four sides ACTUALLY outside the shape, marked on the cell. That is
+      // what lets the styles light and shade only the polyomino's silhouette:
+      // an interior edge must draw nothing, otherwise the block breaks back
+      // into little squares.
+      if (!has(dx, dy - 1)) c.classList.add('e-t');
+      if (!has(dx, dy + 1)) c.classList.add('e-b');
+      if (!has(dx - 1, dy)) c.classList.add('e-l');
+      if (!has(dx + 1, dy)) c.classList.add('e-r');
+      // Rounded corners only where they are genuinely outside the shape.
       const r = 'var(--bevel)';
-      c.style.borderTopLeftRadius = !a(dx, dy - 1) && !a(dx - 1, dy) ? r : '0';
-      c.style.borderTopRightRadius = !a(dx, dy - 1) && !a(dx + 1, dy) ? r : '0';
-      c.style.borderBottomLeftRadius = !a(dx, dy + 1) && !a(dx - 1, dy) ? r : '0';
-      c.style.borderBottomRightRadius = !a(dx, dy + 1) && !a(dx + 1, dy) ? r : '0';
+      c.style.borderTopLeftRadius = !has(dx, dy - 1) && !has(dx - 1, dy) ? r : '0';
+      c.style.borderTopRightRadius = !has(dx, dy - 1) && !has(dx + 1, dy) ? r : '0';
+      c.style.borderBottomLeftRadius = !has(dx, dy + 1) && !has(dx - 1, dy) ? r : '0';
+      c.style.borderBottomRightRadius = !has(dx, dy + 1) && !has(dx + 1, dy) ? r : '0';
       node.appendChild(c);
     }
 
-    // Un bloc ne porte une marque QUE si elle dit quelque chose sur son
-    // comportement : cadenas, poids, joker. La couleur seule identifie sa porte
-    // — les glyphes de famille (●◆▲★■⬢) l'encombraient sans rien apprendre à
-    // qui joue déjà à la couleur.
-    const glyphe = avecGlyphes() && b.color >= 0 && b.kind !== KIND.WALL && b.kind !== KIND.JOKER;
-    const aUneMarque = glyphe || b.estCle
-      || b.kind === KIND.LOCKED || b.kind === KIND.ENCOMBRANT || b.kind === KIND.JOKER;
-    if (aUneMarque) {
-      const marque = document.createElement('span');
-      marque.className = 'block-mark';
-      const [mx, my, mw, mh] = this._boiteMarque(b);
-      marque.style.left = `${mx}px`;
-      marque.style.top = `${my}px`;
-      marque.style.width = `${mw}px`;
-      marque.style.height = `${mh}px`;
+    // A block only carries a mark if that mark says something about its
+    // behaviour: padlock, weight, joker. Colour alone identifies its gate — the
+    // family glyphs (●◆▲★■⬢) cluttered it without teaching anything to someone
+    // already playing by colour.
+    const glyph = withGlyphs() && b.color >= 0 && b.kind !== KIND.WALL && b.kind !== KIND.JOKER;
+    const hasMark = glyph || b.isKey
+      || b.kind === KIND.LOCKED || b.kind === KIND.BULKY || b.kind === KIND.JOKER;
+    if (hasMark) {
+      const mark = document.createElement('span');
+      mark.className = 'block-mark';
+      const [mx, my, mw, mh] = this._markBox(b);
+      mark.style.left = `${mx}px`;
+      mark.style.top = `${my}px`;
+      mark.style.width = `${mw}px`;
+      mark.style.height = `${mh}px`;
       if (b.kind === KIND.LOCKED) {
-        // Ce que le verrou attend : un cadenas s'il attend la clé, une pastille
-        // de la couleur qu'il guette, un décompte sinon. `_majVerrou` choisit,
-        // et le rafraîchit à chaque bloc sorti.
-        marque.innerHTML = '<b class="lock-count"></b>';
-      } else if (b.kind === KIND.ENCOMBRANT) {
-        // Ce que ce bloc coûtera à sa porte, écrit dessus : sans le chiffre, un
-        // encombrant se confond avec un bloc ordinaire et le joueur ne peut pas
-        // anticiper la porte qu'il va saturer.
-        marque.classList.add('poids-mark');
-        marque.innerHTML = (glyphe ? `<span>${COLORS[b.color].glyph}</span>` : '') + '<b>×2</b>';
+        // What the lock is waiting for: a padlock if it waits for the key, a
+        // dot of the colour it watches, a countdown otherwise. `_updateLock`
+        // chooses, and refreshes it on every block cleared.
+        mark.innerHTML = '<b class="lock-count"></b>';
+      } else if (b.kind === KIND.BULKY) {
+        // What this block will cost its gate, written on it: without the
+        // figure, a bulky block looks like an ordinary one and the player
+        // cannot anticipate which gate it is about to saturate.
+        mark.classList.add('weight-mark');
+        mark.innerHTML = (glyph ? `<span>${COLORS[b.color].glyph}</span>` : '') + '<b>×2</b>';
       } else if (b.kind === KIND.JOKER) {
-        marque.textContent = '✳';
-      } else if (b.estCle) {
-        // La clé porte sa marque même sans l'option « symboles » : c'est une
-        // règle du niveau, pas une aide de lecture des couleurs. Un losange
-        // plutôt qu'une clé en emoji, dans le même ton que le reste du plateau.
-        marque.textContent = '◈';
+        mark.textContent = '✳';
+      } else if (b.isKey) {
+        // The key carries its mark even without the "symbols" option: it is a
+        // rule of the level, not a colour-reading aid. A diamond rather than a
+        // key emoji, in the same register as the rest of the board.
+        mark.textContent = '◈';
       } else {
-        marque.textContent = couleursDe(b).map((c) => COLORS[c].glyph).join('');
+        mark.textContent = colorsOf(b).map((c) => COLORS[c].glyph).join('');
       }
-      node.appendChild(marque);
+      node.appendChild(mark);
     }
 
-    // Glissière : un rail traversant, qui dit d'un coup d'œil sur quel axe le
-    // bloc peut aller.
+    // Rail: a bar running right through, saying at a glance which axis the
+    // block can travel along.
     if (b.kind === KIND.RAIL) {
       const rail = document.createElement('u');
       rail.className = 'block-rail';
       node.appendChild(rail);
     }
 
-    // Ancre : une flèche vers sa porte. Le rail montre un axe et se lit dans les
-    // deux sens ; l'ancre n'en a qu'un, et c'est justement ce qui la distingue —
-    // la marque doit donc pointer, pas traverser.
-    if (b.kind === KIND.ANCRE) {
-      const fleche = document.createElement('u');
-      fleche.className = 'block-fleche';
-      fleche.textContent = { top: '▲', right: '▶', bottom: '▼', left: '◀' }[b.dir] || '';
-      // Même point d'ancrage que les marques — se caler sur la boîte du bloc
-      // posait la flèche d'un L dans le creux de son angle, donc en dehors de
-      // la forme. Une ancre peut aussi être la clé du niveau : la flèche
-      // recule alors dans un coin pour ne pas recouvrir le losange.
-      if (aUneMarque) {
-        fleche.classList.add('fleche-coin');
+    // Anchor: an arrow towards its gate. The rail shows an axis and reads both
+    // ways; the anchor has only one, and that is precisely what sets it apart —
+    // so the mark must point, not cross.
+    if (b.kind === KIND.ANCHOR) {
+      const arrow = document.createElement('u');
+      arrow.className = 'block-arrow';
+      arrow.textContent = ARROWS[b.dir] || '';
+      // Same anchor point as the marks — using the block's box put an L's arrow
+      // in the hollow of its angle, hence outside the shape. An anchor can also
+      // be the level's key: the arrow then retreats into a corner so as not to
+      // cover the diamond.
+      if (hasMark) {
+        arrow.classList.add('arrow-corner');
       } else {
-        const [fx, fy, fw, fh] = this._boiteMarque(b);
-        fleche.style.left = `${fx}px`;
-        fleche.style.top = `${fy}px`;
-        fleche.style.width = `${fw}px`;
-        fleche.style.height = `${fh}px`;
+        const [fx, fy, fw, fh] = this._markBox(b);
+        arrow.style.left = `${fx}px`;
+        arrow.style.top = `${fy}px`;
+        arrow.style.width = `${fw}px`;
+        arrow.style.height = `${fh}px`;
       }
-      node.appendChild(fleche);
+      node.appendChild(arrow);
     }
 
-    if (b.kind === KIND.LOCKED) this._majVerrou(node, b);
+    if (b.kind === KIND.LOCKED) this._updateLock(node, b);
 
     this._place(node, b.x, b.y);
     this.blockLayer.appendChild(node);
@@ -293,48 +292,48 @@ export class BoardView {
   }
 
   /**
-   * Où poser une marque : `[gauche, haut, largeur, hauteur]` en pixels.
+   * Where to put a mark: `[left, top, width, height]` in pixels.
    *
-   * Sur la BOÎTE DU BLOC dès que son centre tombe dans la forme — un « ×2 » ou
-   * un cadenas calé au centre d'une CASE se lisait de travers sur tout bloc
-   * qui en compte plusieurs. Un L ou un T, dont le centre tombe dans le creux
-   * de l'angle, se rabat sur la case de l'angle (voir `_centreCell`).
+   * On the BLOCK'S BOX as soon as its centre falls inside the shape — a "×2" or
+   * a padlock centred on a CELL read crooked on any block with several of them.
+   * An L or a T, whose centre falls into the hollow of the angle, falls back on
+   * the corner cell (see `_centerCell`).
    */
-  _boiteMarque(b) {
+  _markBox(b) {
     const cx = b.width / 2, cy = b.height / 2;
     const xs = [...new Set([Math.ceil(cx) - 1, Math.floor(cx)])];
     const ys = [...new Set([Math.ceil(cy) - 1, Math.floor(cy)])];
-    const dedans = xs.every((x) => ys.every((y) => b.cells.some(([p, q]) => p === x && q === y)));
-    if (dedans) return [0, 0, b.width * this.cell, b.height * this.cell];
-    const [dx, dy] = this._centreCell(b);
+    const inside = xs.every((x) => ys.every((y) => b.cells.some(([p, q]) => p === x && q === y)));
+    if (inside) return [0, 0, b.width * this.cell, b.height * this.cell];
+    const [dx, dy] = this._centerCell(b);
     return [dx * this.cell, dy * this.cell, this.cell, this.cell];
   }
 
   /**
-   * Case où poser une marque quand le centre du bloc tombe hors de la forme :
-   * celle de L'ANGLE, c'est-à-dire la plus entourée.
+   * The cell to put a mark on when the block's centre falls outside the shape:
+   * the ANGLE's cell, that is, the most surrounded one.
    *
-   * Le seul critère de distance au centre ne départageait pas un L — ses trois
-   * cases sont à égale distance — et rendait la première venue, donc un bout
-   * de branche, au hasard de l'ordre de `cells`. La case la plus entourée est
-   * le coude d'un L, la jonction d'un T, le milieu d'une ligne : à chaque fois
-   * celle que l'œil lit comme le centre de la forme. La distance au centre ne
-   * sert plus qu'à départager les ex æquo.
+   * Distance to the centre alone did not separate an L — its three cells are
+   * equidistant — and returned whichever came first, hence the tip of an arm,
+   * at the mercy of the order of `cells`. The most surrounded cell is an L's
+   * elbow, a T's junction, the middle of a line: every time, the one the eye
+   * reads as the centre of the shape. Distance to the centre now only breaks
+   * ties.
    */
-  _centreCell(b) {
-    const occupee = (x, y) => b.cells.some(([p, q]) => p === x && q === y);
+  _centerCell(b) {
+    const occupied = (x, y) => b.cells.some(([p, q]) => p === x && q === y);
     const cx = (b.width - 1) / 2, cy = (b.height - 1) / 2;
     let best = b.cells[0], score = -Infinity;
     for (const [dx, dy] of b.cells) {
-      const voisines = occupee(dx, dy - 1) + occupee(dx, dy + 1)
-        + occupee(dx - 1, dy) + occupee(dx + 1, dy);
-      const s = voisines - ((dx - cx) ** 2 + (dy - cy) ** 2) / 1000;
+      const neighbours = occupied(dx, dy - 1) + occupied(dx, dy + 1)
+        + occupied(dx - 1, dy) + occupied(dx + 1, dy);
+      const s = neighbours - ((dx - cx) ** 2 + (dy - cy) ** 2) / 1000;
       if (s > score) { score = s; best = [dx, dy]; }
     }
     return best;
   }
 
-  // --- Rejeu des évènements ------------------------------------------------
+  // --- Event replay --------------------------------------------------------
 
   async apply(events) {
     for (const e of events) {
@@ -350,10 +349,10 @@ export class BoardView {
   }
 
   /**
-   * Sortie d'un bloc, en deux temps : il se gonfle une fraction de seconde
-   * (l'accusé de réception du geste), puis file par la porte pendant qu'une
-   * gerbe d'étincelles part de l'ouverture. C'est le seul moment de
-   * récompense du jeu : il doit se voir.
+   * A block leaving, in two beats: it swells for a fraction of a second (the
+   * gesture's acknowledgement), then shoots through the gate while a spray of
+   * sparks bursts from the opening. This is the game's only moment of reward:
+   * it has to be seen.
    */
   async _exit(e) {
     const node = this.nodes.get(e.id);
@@ -361,8 +360,8 @@ export class BoardView {
     this.nodes.delete(e.id);
     const base = node.style.transform;
 
-    // Le bloc sort en pleine saisie : on lui rend ses transitions, que la
-    // classe « grabbed » avait coupées pour coller au doigt.
+    // The block exits mid-grab: its transitions are given back, having been cut
+    // by the "grabbed" class so it would stick to the finger.
     node.classList.remove('grabbed');
     node.classList.add('exiting');
     node.style.transition = 'transform 0ms ease-out, opacity 0ms linear';
@@ -371,7 +370,7 @@ export class BoardView {
     await wait(TIMING.POP);
 
     this._flashGate(e.gate);
-    this._gerbe(e.gate, node);
+    this._burst(e.gate, node);
 
     node.style.transitionTimingFunction = 'cubic-bezier(.45,0,.85,.5)';
     node.style.transitionDuration = `${TIMING.EXIT}ms`;
@@ -382,46 +381,46 @@ export class BoardView {
     node.remove();
   }
 
-  /** Centre d'une porte, en pixels du plateau. */
-  _centrePorte(gate) {
-    const milieu = (gate.start + gate.length / 2) * this.cell;
-    if (gate.side === 'top') return { x: milieu, y: 0 };
-    if (gate.side === 'bottom') return { x: milieu, y: this.board.H * this.cell };
-    if (gate.side === 'left') return { x: 0, y: milieu };
-    return { x: this.board.W * this.cell, y: milieu };
+  /** Centre of a gate, in board pixels. */
+  _gateCenter(gate) {
+    const middle = (gate.start + gate.length / 2) * this.cell;
+    if (gate.side === 'top') return { x: middle, y: 0 };
+    if (gate.side === 'bottom') return { x: middle, y: this.board.H * this.cell };
+    if (gate.side === 'left') return { x: 0, y: middle };
+    return { x: this.board.W * this.cell, y: middle };
   }
 
-  /** Anneau + étincelles à la porte, dans la couleur du bloc sorti. */
-  _gerbe(gate, source) {
-    const { x, y } = this._centrePorte(gate);
-    const teinte = getComputedStyle(source).getPropertyValue('--tile') || 'currentColor';
+  /** Ring + sparks at the gate, in the colour of the block that left. */
+  _burst(gate, source) {
+    const { x, y } = this._gateCenter(gate);
+    const tint = getComputedStyle(source).getPropertyValue('--tile') || 'currentColor';
 
-    const anneau = document.createElement('div');
-    anneau.className = 'ring';
-    anneau.style.setProperty('--tile', teinte);
-    anneau.style.left = `${x}px`;
-    anneau.style.top = `${y}px`;
-    anneau.style.width = anneau.style.height = `${this.cell * 1.4}px`;
-    this.fxLayer.appendChild(anneau);
-    setTimeout(() => anneau.remove(), 560);
+    const ring = document.createElement('div');
+    ring.className = 'ring';
+    ring.style.setProperty('--tile', tint);
+    ring.style.left = `${x}px`;
+    ring.style.top = `${y}px`;
+    ring.style.width = ring.style.height = `${this.cell * 1.4}px`;
+    this.fxLayer.appendChild(ring);
+    setTimeout(() => ring.remove(), 560);
 
-    const normale = Math.atan2(
+    const normal = Math.atan2(
       gate.side === 'bottom' ? 1 : gate.side === 'top' ? -1 : 0,
       gate.side === 'right' ? 1 : gate.side === 'left' ? -1 : 0,
     );
     for (let i = 0; i < 10; i++) {
-      const angle = normale + (Math.random() - 0.5) * 2.1;
+      const angle = normal + (Math.random() - 0.5) * 2.1;
       const dist = this.cell * (0.7 + Math.random() * 1.5);
       const p = document.createElement('div');
       p.className = 'spark';
-      p.style.setProperty('--tile', teinte);
+      p.style.setProperty('--tile', tint);
       p.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
       p.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
       p.style.left = `${x}px`;
       p.style.top = `${y}px`;
       p.style.animationDelay = `${Math.random() * 70}ms`;
-      const taille = this.cell * (0.12 + Math.random() * 0.14);
-      p.style.width = p.style.height = `${taille}px`;
+      const size = this.cell * (0.12 + Math.random() * 0.14);
+      p.style.width = p.style.height = `${size}px`;
       this.fxLayer.appendChild(p);
       setTimeout(() => p.remove(), 700);
     }
@@ -440,19 +439,18 @@ export class BoardView {
     if (!node) return;
     node.classList.remove('k-locked');
     node.classList.add('k-normal', 'unlocking');
-    // Le bloc redevient ordinaire : sa marque de verrou n'a plus rien à dire.
+    // The block is ordinary again: its lock mark has nothing left to say.
     node.querySelector('.block-mark')?.remove();
     node.querySelector('.block-cond')?.remove();
     setTimeout(() => node.classList.remove('unlocking'), TIMING.UNLOCK);
   }
 
   /**
-   * L'option « symboles » vient de changer : on remonte les blocs et les portes.
-   * Les ajouter à chaud reviendrait à dupliquer, dans une seconde branche, la
-   * logique qui décide de leur marque — la reconstruction coûte quelques
-   * millisecondes et ne peut pas diverger.
+   * The "symbols" option has just changed: blocks and gates are rebuilt.
+   * Adding them on the fly would duplicate, in a second branch, the logic that
+   * decides their mark — rebuilding costs a few milliseconds and cannot drift.
    */
-  rafraichirGlyphes() {
+  refreshGlyphs() {
     if (!this.board) return;
     this.blockLayer.replaceChildren();
     this.nodes.clear();
@@ -460,7 +458,7 @@ export class BoardView {
     this._drawGates();
   }
 
-  /** Refus de déplacement : petite secousse, pour que l'échec soit lisible. */
+  /** Move refused: a small shake, so the failure is legible. */
   bump(id) {
     const node = this.nodes.get(id);
     if (!node || node.classList.contains('bumping')) return;
@@ -469,57 +467,57 @@ export class BoardView {
   }
 
   /**
-   * Rafraîchit les étiquettes de verrou. Le décompte doit descendre à chaque
-   * bloc sorti : c'est ce qui rend la condition lisible en cours de partie.
+   * Refreshes the lock labels. The countdown must go down with every block
+   * cleared: that is what makes the condition legible mid-game.
    */
   refreshLocks() {
     for (const [id, node] of this.nodes) {
       const b = this.board.blocks.get(id);
-      if (b && b.kind === KIND.LOCKED) this._majVerrou(node, b);
+      if (b && b.kind === KIND.LOCKED) this._updateLock(node, b);
     }
   }
 
-  _majVerrou(node, b) {
-    const compteur = node.querySelector('.lock-count');
-    if (!compteur) return;
-    // Un scellé de couleur n'a pas de décompte à afficher : il porte le glyphe
-    // de la couleur qu'il attend, et le joueur compte à l'écran ce qui reste.
-    // Verrou à clé : il montre la clé qu'il attend, et non un décompte.
+  _updateLock(node, b) {
+    const counter = node.querySelector('.lock-count');
+    if (!counter) return;
+    // A colour seal has no countdown to show: it carries the glyph of the
+    // colour it waits for, and the player counts what is left on screen.
+    // A key lock shows the key it waits for, not a countdown.
     if (b.condition?.type === 'block') {
-      const ouvert = this.board.conditionMet(b);
-      compteur.innerHTML = ouvert ? '' : CADENAS;
-      compteur.classList.remove('lock-couleur');
-      compteur.classList.toggle('lock-cadenas', !ouvert);
-      node.classList.toggle('lock-open', ouvert);
+      const open = this.board.conditionMet(b);
+      counter.innerHTML = open ? '' : PADLOCK_SVG;
+      counter.classList.remove('lock-color');
+      counter.classList.toggle('lock-padlock', !open);
+      node.classList.toggle('lock-open', open);
       return;
     }
     if (b.condition?.type === 'color') {
-      // Une pastille de la couleur attendue, et non son glyphe : les familles
-      // ne se lisent plus qu'à la couleur, la condition doit se lire pareil.
-      const ouvert = this.board.conditionMet(b);
-      compteur.textContent = '';
-      compteur.classList.toggle('lock-couleur', !ouvert);
-      compteur.style.setProperty('--attendu', `var(--c${b.condition.color})`);
-      node.classList.toggle('lock-open', ouvert);
+      // A dot of the awaited colour rather than its glyph: families are now
+      // read by colour alone, and the condition must read the same way.
+      const open = this.board.conditionMet(b);
+      counter.textContent = '';
+      counter.classList.toggle('lock-color', !open);
+      counter.style.setProperty('--expected', `var(--c${b.condition.color})`);
+      node.classList.toggle('lock-open', open);
       return;
     }
-    const reste = this.board.restantAvantOuverture(b);
-    compteur.textContent = reste > 0 ? reste : '';
-    node.classList.toggle('lock-open', reste === 0);
+    const left = this.board.remainingBeforeUnlock(b);
+    counter.textContent = left > 0 ? left : '';
+    node.classList.toggle('lock-open', left === 0);
   }
 
-  /** Rafraîchit les capacités restantes affichées sur les portes. */
+  /** Refreshes the remaining capacities shown on the gates. */
   refreshGates() {
-    const jauges = this.gateLayer.querySelectorAll('.gate');
+    const gauges = this.gateLayer.querySelectorAll('.gate');
     this.board.gates.forEach((g, i) => {
-      const jauge = jauges[i]?.querySelector('.gate-cap');
-      if (!jauge) return;
-      jauge.textContent = g.capacity;
-      jauges[i].classList.toggle('gate-full', g.capacity <= 0);
+      const gauge = gauges[i]?.querySelector('.gate-cap');
+      if (!gauge) return;
+      gauge.textContent = g.capacity;
+      gauges[i].classList.toggle('gate-full', g.capacity <= 0);
     });
   }
 
-  /** Retire un bloc du plateau (marteau). */
+  /** Removes a block from the board (hammer). */
   async removeBlock(id) {
     const node = this.nodes.get(id);
     if (!node) return;
@@ -529,7 +527,7 @@ export class BoardView {
     node.remove();
   }
 
-  /** Reconstruit l'affichage depuis l'état du plateau (annulation). */
+  /** Rebuilds the display from the board's state (undo). */
   resync() {
     const board = this.board;
     for (const [id, node] of [...this.nodes]) {
@@ -542,7 +540,7 @@ export class BoardView {
     this.refreshLocks();
   }
 
-  /** Met en évidence le bloc désigné par un indice. */
+  /** Highlights the block pointed at by a hint. */
   highlight(id) {
     const node = this.nodes.get(id);
     if (!node) return;
@@ -555,18 +553,19 @@ export class BoardView {
     if (!node) return;
     node.classList.toggle('grabbed', on);
     if (!on) {
-      // Fin du geste : on efface le débord et on rend sa transition au bloc.
+      // End of the gesture: the overhang is cleared and the block gets its
+      // transition back.
       const b = this.board.blocks.get(id);
       if (b) this._place(node, b.x, b.y);
     }
   }
 
   /**
-   * Débord du bloc vers le doigt, en fraction de case.
+   * Overhang of the block towards the finger, as a fraction of a cell.
    *
-   * Le bloc se déplace de case en case, mais le doigt, lui, est continu. Sans
-   * ce décalage le mouvement paraît saccadé ; avec lui, le bloc suit le doigt
-   * et vient buter visiblement contre ce qui le bloque.
+   * The block moves cell by cell, but the finger is continuous. Without this
+   * offset the motion looks jerky; with it, the block follows the finger and
+   * visibly bumps into whatever is blocking it.
    */
   setLean(id, lx, ly) {
     const node = this.nodes.get(id);
@@ -578,15 +577,15 @@ export class BoardView {
     node.style.transform = `translate3d(${b.x * this.cell + cx}px, ${b.y * this.cell + cy}px, 0)`;
   }
 
-  // --- Repérage ------------------------------------------------------------
+  // --- Hit testing ---------------------------------------------------------
 
-  /** Position en cases, en valeur continue — sert au suivi du doigt. */
+  /** Position in cells, as a continuous value — used to follow the finger. */
   cellFromPointFloat(clientX, clientY) {
     const r = this.root.getBoundingClientRect();
     return { x: (clientX - r.left) / this.cell, y: (clientY - r.top) / this.cell };
   }
 
-  /** Case de la grille sous un point écran (peut sortir des bornes). */
+  /** Grid cell under a screen point (may fall out of bounds). */
   cellFromPoint(clientX, clientY) {
     const r = this.root.getBoundingClientRect();
     return {
@@ -596,43 +595,43 @@ export class BoardView {
   }
 
   /**
-   * Case sous un point, avec un rattrapage : un doigt qui rate un bloc de peu
-   * — case vide, mur, porte — retombe sur la case voisine s'il en est tout
-   * près. Le bloc lui-même ne grandit pas, seule sa zone de saisie déborde.
+   * The cell under a point, with a catch-up: a finger that just misses a block
+   * — empty cell, wall, gate — falls back on the neighbouring cell if it is
+   * very close. The block itself does not grow, only its grab zone spills over.
    */
   blockIdFromPoint(clientX, clientY) {
-    const essai = (x, y) => (this.board.inside(x, y) ? this.board.blockAt(x, y)?.id : undefined);
+    const at = (x, y) => (this.board.inside(x, y) ? this.board.blockAt(x, y)?.id : undefined);
 
     const f = this.cellFromPointFloat(clientX, clientY);
     const cx = Math.floor(f.x), cy = Math.floor(f.y);
-    let id = essai(cx, cy);
+    let id = at(cx, cy);
     if (id !== undefined) return id;
 
     const rx = f.x - cx, ry = f.y - cy;
-    const dx = rx < MARGE_SAISIE ? -1 : rx > 1 - MARGE_SAISIE ? 1 : 0;
-    const dy = ry < MARGE_SAISIE ? -1 : ry > 1 - MARGE_SAISIE ? 1 : 0;
-    if (dx && (id = essai(cx + dx, cy)) !== undefined) return id;
-    if (dy && (id = essai(cx, cy + dy)) !== undefined) return id;
-    if (dx && dy && (id = essai(cx + dx, cy + dy)) !== undefined) return id;
+    const dx = rx < GRAB_MARGIN ? -1 : rx > 1 - GRAB_MARGIN ? 1 : 0;
+    const dy = ry < GRAB_MARGIN ? -1 : ry > 1 - GRAB_MARGIN ? 1 : 0;
+    if (dx && (id = at(cx + dx, cy)) !== undefined) return id;
+    if (dy && (id = at(cx, cy + dy)) !== undefined) return id;
+    if (dx && dy && (id = at(cx + dx, cy + dy)) !== undefined) return id;
     return null;
   }
 }
 
 /**
- * Libellé d'une condition de déverrouillage. Avec un plateau en argument, on
- * affiche ce qu'il RESTE à faire plutôt que la condition brute : « Encore 2 »
- * se comprend en cours de partie, « 3 sortis » demande au joueur de compter.
+ * Label for an unlock condition. Given a board, we show what is LEFT to do
+ * rather than the raw condition: "2 to go" makes sense mid-game, "3 cleared"
+ * asks the player to count.
  */
 export function conditionLabel(condition, board = null) {
   if (!condition) return '';
   if (condition.type === 'exits') {
-    if (!board) return `${condition.count} sortis`;
-    const reste = Math.max(0, condition.count - board.exited.length);
-    return reste === 0 ? 'Ouvert' : `Encore ${reste}`;
+    if (!board) return t('lock.exits', { n: condition.count });
+    const left = Math.max(0, condition.count - board.exited.length);
+    return left === 0 ? t('lock.open') : t('lock.left', { n: left });
   }
   if (condition.type === 'block') return '◈';
-  const nom = COLORS[condition.color]?.name ?? '';
-  if (!board) return `${nom} fini`;
-  const reste = [...board.blocks.values()].filter((b) => b.color === condition.color).length;
-  return reste === 0 ? 'Ouvert' : `Encore ${reste} ${nom}`;
+  const name = colorName(condition.color);
+  if (!board) return t('lock.color.done', { color: name });
+  const left = [...board.blocks.values()].filter((b) => b.color === condition.color).length;
+  return left === 0 ? t('lock.open') : t('lock.color.left', { n: left, color: name });
 }

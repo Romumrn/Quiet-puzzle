@@ -1,6 +1,6 @@
 /**
- * GameplayUI — équivalent de Scripts/UI/GameplayUI.cs (doc §4)
- * HUD in-game : chrono, coups restants, blocs restants, aperçu des étoiles.
+ * GameplayUI — equivalent of Scripts/UI/GameplayUI.cs (tech doc §4)
+ * In-game HUD: clock, moves left, blocks left, star preview.
  */
 
 import { objectiveLabel } from '../data/levelStore.js';
@@ -9,45 +9,45 @@ import { renderStars } from './screens.js';
 
 const el = (id) => document.getElementById(id);
 
-/** Libellé de l'objectif (réutilisé par le pré-niveau). */
+/** Objective label (reused by the briefing screen). */
 export function labelFor(level) { return objectiveLabel(level); }
 
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, '0')}`;
 
 export function mount(level) {
-  // Le puzzle du jour n'a pas de numéro : il porte son titre. « Niveau 0 » se
-  // lisait comme un bug, et c'en était presque un.
-  const duJour = !level.number;
-  el('hud-level-mot').hidden = duJour;
-  el('hud-level').textContent = duJour ? (level.realm || t('daily.title')) : level.number;
-  dernierRestant = null;
+  // The daily puzzle has no number: it carries its title instead. "Level 0"
+  // read like a bug, and it very nearly was one.
+  const daily = !level.number;
+  el('hud-level-word').hidden = daily;
+  el('hud-level').textContent = daily ? (level.realm || t('daily.title')) : level.number;
+  lastRemaining = null;
 }
 
-let dernierRestant = null;
+let lastRemaining = null;
 
 export function update(board) {
   const level = board.level;
   el('hud-moves').textContent = t('hud.moves', { n: board.movesRemaining });
 
-  // Le compteur tressaute quand il descend : la sortie d'un bloc doit se voir
-  // aussi dans le HUD, pas seulement sur le plateau.
-  const restants = board.remaining();
-  const compteur = el('hud-blocks');
-  if (dernierRestant !== null && restants < dernierRestant) {
-    compteur.classList.add('pop');
-    setTimeout(() => compteur.classList.remove('pop'), 200);
+  // The counter twitches as it goes down: a block leaving must be visible in
+  // the HUD too, not only on the board.
+  const remaining = board.remaining();
+  const counter = el('hud-blocks');
+  if (lastRemaining !== null && remaining < lastRemaining) {
+    counter.classList.add('pop');
+    setTimeout(() => counter.classList.remove('pop'), 200);
   }
-  dernierRestant = restants;
-  compteur.textContent = restants;
+  lastRemaining = remaining;
+  counter.textContent = remaining;
   el('hud-time').textContent = mmss(board.timeRemaining);
 
-  const part = board.timeRemaining / level.timeLimit;
-  el('hud-time-fill').style.width = `${Math.max(0, Math.min(1, part)) * 100}%`;
+  const share = board.timeRemaining / level.timeLimit;
+  el('hud-time-fill').style.width = `${Math.max(0, Math.min(1, share)) * 100}%`;
   el('hud-time-fill').classList.toggle('urgent', board.timeRemaining <= 15);
   el('hud-time').classList.toggle('urgent', board.timeRemaining <= 15);
 
-  // Aperçu : les étoiles encore atteignables avec les glissés déjà consommés.
-  const [pour3, pour2] = level.starDrags;
-  const utilises = board.dragsUsed();
-  renderStars(el('hud-stars'), utilises <= pour3 ? 3 : utilises <= pour2 ? 2 : 1);
+  // Preview: the stars still reachable with the drags already spent.
+  const [for3, for2] = level.starDrags;
+  const used = board.dragsUsed();
+  renderStars(el('hud-stars'), used <= for3 ? 3 : used <= for2 ? 2 : 1);
 }

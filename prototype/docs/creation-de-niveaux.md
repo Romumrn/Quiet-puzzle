@@ -2,7 +2,7 @@
 
 This document explains how to add, tune, and validate levels in Quiet Puzzle without rereading the generator in full.
 
-The short version: levels are JSON files under `levels/`, and the app reads them directly. A generator builds them offline, and a whole world—20 levels, one palette, one mechanic, one difficulty ramp—fits in a single row of `REALMS`.
+The short version: a generator builds the levels offline, and a whole world — 20 levels, one palette, one mechanic, one difficulty ramp — fits in a single row of `REALMS`. The app reads the published database from Supabase, falling back to the JSON under `levels/`; see `generator/README.md` for the full add-a-world procedure.
 
 ---
 
@@ -30,10 +30,11 @@ This leads to three practical advantages:
 
 ```bash
 cd prototype && node tools/build-levels.mjs
+node tools/build-levels.mjs --realm 30   # one world only
 node tools/build-levels.mjs --garder
 ```
 
-`src/core/levels.js` creates level `n` from its number alone. The draw is seeded on `n`, so rerunning the tool without changing the generator rewrites identical files. This is why `--garder` exists: it prevents accidental manual edits from being erased.
+`generator/` creates level `n` from its number alone. The draw is seeded on `n`, so rerunning the tool without changing the generator rewrites identical files. This is why `--garder` exists: it prevents accidental manual edits from being erased.
 
 The grid is built in reverse. Each block is first placed into a door of its own color, then moved backward through the board. The player experiences this construction in reverse: the last block placed leaves first, and its route is already validated by the earlier construction.
 
@@ -42,7 +43,7 @@ Two consequences drive the rest of the design:
 - no level can be unsolvable; solvability is guaranteed by construction;
 - the reference solution is free; it is stored in `level.solution` and used by tests, balancing, the QA panel, and in-game hints.
 
-The generator does not decide design; it executes rules. Those rules live in `REALMS`, which `curve(n)` consumes.
+The generator does not decide design; it executes rules. Those rules live in `REALMS` (`generator/realms.js`) and in the difficulty step each world names (`generator/tiers.js`), both consumed by `curve(n)`.
 
 ---
 
@@ -85,4 +86,4 @@ Before shipping a level or a world, check:
 - the move/time limits remain fair for the level's density;
 - the resulting board meets the expected difficulty for the world stage.
 
-The balancing script (`node tools/balance.mjs`) is the quickest sanity check for density, distances, and solver-state counts.
+The balancing script (`node tools/balance.mjs`) is the quickest sanity check for density, distances, and solver-state counts. For the shape of the whole progression — and the only readable view of `minDrags` across every level — render the difficulty map: `node generator/difficulty-map.mjs`.

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Overrides @capacitor/android's default Material indigo/pink (only ever
+     seen briefly by the system, e.g. a permission dialog's accent) with the
+     app's own palette — matches mobile/assets/icon.svg and splash.svg. -->
+<resources>
+    <color name="colorPrimary">#3a2a72</color>
+    <color name="colorPrimaryDark">#1b1440</color>
+    <color name="colorAccent">#e8546c</color>
+</resources>

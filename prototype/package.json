@@ -2,5 +2,8 @@
   "type": "module",
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

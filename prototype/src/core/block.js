@@ -111,7 +111,7 @@ export const SHAPES = Object.freeze([
   { key: 'l3d', cells: [[0, 0], [1, 0], [1, 1]] },
   { key: 't4', cells: [[0, 0], [1, 0], [2, 0], [1, 1]] },
   // Large shapes: reserved for advanced realms (see LARGE_SHAPES and
-  // `largeShapes` in REALMS, src/core/levels.js) — on a small grid a 4-cell bar
+  // `largeShapes` in REALMS, generator/realms.js) — on a small grid a 4-cell bar
   // or a 6-cell slab takes up a whole row on its own.
   { key: 'i4h', cells: [[0, 0], [1, 0], [2, 0], [3, 0]] },
   { key: 'i4v', cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },

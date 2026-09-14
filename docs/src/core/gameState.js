@@ -1,9 +1,9 @@
 /**
- * GameState — équivalent de Scripts/Gameplay/GameState.cs (doc §4)
+ * GameState — equivalent of Scripts/Gameplay/GameState.cs (tech doc §4)
  *
- * Machine à états minimale du niveau en cours. La logique de plateau
- * (core/board.js) ne connaît que ces trois valeurs, exactement comme
- * l'enum C# `GameState { PLAYING, WON, FAILED }` du document.
+ * Minimal state machine for the level in progress. The board logic
+ * (core/board.js) only ever knows these three values, exactly like the C# enum
+ * `GameState { PLAYING, WON, FAILED }` from the document.
  */
 
 export const GameState = Object.freeze({
@@ -12,7 +12,7 @@ export const GameState = Object.freeze({
   FAILED: 'FAILED',
 });
 
-/** Transitions autorisées : un niveau terminé ne repart jamais en PLAYING. */
+/** Allowed transitions: a finished level never goes back to PLAYING. */
 const ALLOWED = {
   PLAYING: ['WON', 'FAILED'],
   WON: [],

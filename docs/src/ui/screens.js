@@ -1,6 +1,6 @@
 /**
- * ScreenManager — équivalent de Scripts/UI/ScreenManager.cs (doc §4)
- * Navigation entre écrans : un seul `.screen.active` à la fois.
+ * ScreenManager — equivalent of Scripts/UI/ScreenManager.cs (tech doc §4)
+ * Navigation between screens: one `.screen.active` at a time.
  */
 
 const screens = () => document.querySelectorAll('.screen');
@@ -21,7 +21,7 @@ export function toast(message, ms = 1400) {
   el._t = setTimeout(() => { el.hidden = true; }, ms);
 }
 
-/** Rend un bloc d'étoiles (0 à 3 allumées). */
+/** Renders a block of stars (0 to 3 lit). */
 export function renderStars(el, count) {
   el.replaceChildren(...[0, 1, 2].map((k) => {
     const i = document.createElement('i');

@@ -21,12 +21,12 @@ media/              screenshots for the README
 
 | Requirement | File | Reference |
 |-------------|------|-----------|
-| Add/adjust a world | `src/core/levels.js` | `REALMS` table — **one line per world** |
-| Change quantities (walls, rails, density, etc.) | `src/core/levels.js` | the world's line in `REALMS` |
+| Add/adjust a world | `generator/realms.js` | `REALMS` table — **one line per world** |
+| Change quantities (walls, rails, density, etc.) | `generator/realms.js` | the world's line in `REALMS` |
 | Adjust the star score thresholds | `src/core/etoiles.js` | `MARGE_3E` / `MARGE_2E` — **the only place** |
-| Modify limit formulas (moves, time) | `src/core/levels.js` | `getLevel()`, end of the file |
+| Modify limit formulas (moves, time) | `generator/curve.js` | `limitsFor()` |
 | Recalibrate score thresholds based on actual scores | `src/data/levelStore.js` | `recalibrate()` — table `levelId → drags` indexed |
-| Understand level generation | `src/core/levels.js` | `build()` — inverse placement |
+| Understand level generation | `generator/build.js` | `build()` — inverse placement |
 | Regenerate levels | `tools/build-levels.mjs` | **mandatory after any changes to `REALMS`** |
 | Add a new block type | 4 files — see §"New block" |
 
@@ -52,7 +52,7 @@ media/              screenshots for the README
 | Victory/Defeat screen | `src/ui/resultScreen.js` |
 | Level map | `src/ui/mapScreen.js` |
 | Map decorations (scrolling branches) | `styles/main.css` — `.realm::before` and 30 `nth-child` rules; images located in `images/branches/`, generated using `tools/gen_30.py`. **See [docs/decor-of-the-map.md](prototype/docs/decor-of-the-map.md)** |
-| World names | `src/core/levels.js` — `nom` field in `REALMS`. **Run `build-levels.mjs` again.** These names are propagated to each level. |
+| World names | `generator/realms.js` — `name` field in `REALMS`. **Run `build-levels.mjs` again.** These names are propagated to each level. |
 | HUD during gameplay (time, blocks, stars) | `src/ui/gameplayUI.js` |
 | Colors, themes, and palettes | `src/ui/theme.js` + `src/meta/themes.js` |
 | Level editor | `src/ui/editor.js` |

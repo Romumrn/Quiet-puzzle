@@ -1,0 +1,25 @@
+{
+  "appId": "com.romumrn.quietpuzzle",
+  "appName": "Quiet Puzzle",
+  "webDir": "www",
+  "backgroundColor": "#141033",
+  "android": {
+    "backgroundColor": "#141033",
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0,
+      "backgroundColor": "#141033"
+    },
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "LIGHT",
+      "backgroundColor": "#141033"
+    },
+    "GoogleAuth": {
+      "scopes": ["profile", "email"],
+      "serverClientId": "122996124797-ecskrjqkbhp927aqbuiac0t245d1kqjg.apps.googleusercontent.com"
+    }
+  }
+}

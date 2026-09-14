@@ -1,0 +1,26 @@
+{
+  "name": "quiet-puzzle-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Capacitor wrapper — packages prototype/ as an Android app for the Play Store. See AGENTS.md at the repo root for the project map.",
+  "scripts": {
+    "sync": "cd .. && node tools/build-mobile-www.mjs && cd mobile && npx cap sync android",
+    "open": "npx cap open android",
+    "build:debug": "cd android && ./gradlew assembleDebug",
+    "build:release": "cd android && ./gradlew bundleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
+    "@capacitor-community/admob": "^8.1.0",
+    "@southdevs/capacitor-google-auth": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.1"
+  }
+}

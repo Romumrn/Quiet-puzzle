@@ -1,30 +1,30 @@
 /**
- * InputHandler — équivalent de Scripts/Gameplay/InputHandler.cs (doc §4)
+ * InputHandler — equivalent of Scripts/Gameplay/InputHandler.cs (tech doc §4)
  *
- * Un seul geste : on attrape un bloc et on le fait glisser. Le bloc suit le
- * doigt case par case et s'arrête sur le premier obstacle ; s'il arrive contre
- * une porte de sa couleur, il sort.
+ * One single gesture: grab a block and drag it. The block follows the finger
+ * cell by cell and stops at the first obstacle; if it reaches a gate of its
+ * colour, it exits.
  *
- * La position visée est recalculée à chaque mouvement à partir de la case
- * saisie au départ, et non du dernier pas : sinon le bloc dérive quand le doigt
- * passe sur des cases occupées.
+ * The target position is recomputed on every move from the cell grabbed at the
+ * start, not from the last step: otherwise the block drifts when the finger
+ * passes over occupied cells.
  *
- * Un relâchement rapide prolonge le geste : le bloc continue dans l'axe où il
- * venait déjà, jusqu'à son prochain obstacle — comme s'il avait été lancé.
+ * A quick release extends the gesture: the block carries on along the axis it
+ * was already travelling, up to its next obstacle — as if it had been flicked.
  */
 
-/** Fenêtre récente sur laquelle la vitesse de relâchement est mesurée. */
-const FENETRE_LANCER_MS = 120;
-/** Vitesse à partir de laquelle un relâchement compte comme un lancer, en cases/ms. */
-const SEUIL_LANCER = 1 / 90;
-/** Distance visée par un lancer — au-delà de toute grille jouable, le premier obstacle arrête le bloc. */
-const PORTEE_LANCER = 24;
+/** Recent window over which release speed is measured. */
+const FLICK_WINDOW_MS = 120;
+/** Speed above which a release counts as a flick, in cells/ms. */
+const FLICK_THRESHOLD = 1 / 90;
+/** Distance a flick aims for — beyond any playable grid, so the first obstacle stops the block. */
+const FLICK_RANGE = 24;
 
 export class InputHandler {
   /**
    * @param {BoardView} view
-   * @param {{onDrag:(id,x,y)=>void, onEnd:(id,bouge:boolean)=>void,
-   *          canGrab:(id)=>boolean, onRefus:(id)=>void}} hooks
+   * @param {{onDrag:(id,x,y)=>void, onEnd:(id,moved:boolean)=>void,
+   *          canGrab:(id)=>boolean, onRefused:(id)=>void}} hooks
    */
   constructor(view, hooks) {
     this.view = view;
@@ -54,17 +54,17 @@ export class InputHandler {
     const id = this.view.blockIdFromPoint(ev.clientX, ev.clientY);
     if (id === null) return;
 
-    if (!this.hooks.canGrab(id)) { this.hooks.onRefus(id); return; }
+    if (!this.hooks.canGrab(id)) { this.hooks.onRefused(id); return; }
 
-    const bloc = this.view.board.blocks.get(id);
-    const saisie = this.view.cellFromPointFloat(ev.clientX, ev.clientY);
+    const block = this.view.board.blocks.get(id);
+    const grab = this.view.cellFromPointFloat(ev.clientX, ev.clientY);
     ev.preventDefault();
     this.drag = {
       id,
-      saisieX: saisie.x, saisieY: saisie.y,
-      origineX: bloc.x, origineY: bloc.y,
-      bouge: false,
-      historique: [{ x: saisie.x, y: saisie.y, t: ev.timeStamp }],
+      grabX: grab.x, grabY: grab.y,
+      originX: block.x, originY: block.y,
+      moved: false,
+      history: [{ x: grab.x, y: grab.y, t: ev.timeStamp }],
     };
     this.view.setGrabbed(id, true);
   }
@@ -72,59 +72,59 @@ export class InputHandler {
   _onMove(ev) {
     if (this.locked || !this.drag) return;
 
-    // Position visée en valeur continue, puis arrondie : le bloc bascule de
-    // case à mi-parcours, comme le doigt s'y attend.
+    // Target position as a continuous value, then rounded: the block tips from
+    // cell to cell halfway, as the finger expects.
     const p = this.view.cellFromPointFloat(ev.clientX, ev.clientY);
-    const flotX = this.drag.origineX + (p.x - this.drag.saisieX);
-    const flotY = this.drag.origineY + (p.y - this.drag.saisieY);
+    const floatX = this.drag.originX + (p.x - this.drag.grabX);
+    const floatY = this.drag.originY + (p.y - this.drag.grabY);
 
-    const bloc = this.view.board.blocks.get(this.drag.id);
-    if (!bloc) return;
+    const block = this.view.board.blocks.get(this.drag.id);
+    if (!block) return;
 
-    const cibleX = Math.round(flotX);
-    const cibleY = Math.round(flotY);
-    if (bloc.x !== cibleX || bloc.y !== cibleY) {
-      if (this.hooks.onDrag(this.drag.id, cibleX, cibleY)) this.drag.bouge = true;
+    const targetX = Math.round(floatX);
+    const targetY = Math.round(floatY);
+    if (block.x !== targetX || block.y !== targetY) {
+      if (this.hooks.onDrag(this.drag.id, targetX, targetY)) this.drag.moved = true;
     }
 
-    // Puis le bloc penche vers le doigt, y compris quand il ne peut plus avancer.
-    const apres = this.view.board.blocks.get(this.drag.id);
-    if (apres) this.view.setLean(this.drag.id, flotX - apres.x, flotY - apres.y);
+    // Then the block leans towards the finger, even when it can no longer move.
+    const after = this.view.board.blocks.get(this.drag.id);
+    if (after) this.view.setLean(this.drag.id, floatX - after.x, floatY - after.y);
 
-    // Historique glissant, pour mesurer la vitesse au relâchement.
-    const hist = this.drag.historique;
+    // Sliding history, to measure speed at release.
+    const hist = this.drag.history;
     hist.push({ x: p.x, y: p.y, t: ev.timeStamp });
-    while (hist.length > 1 && ev.timeStamp - hist[0].t > FENETRE_LANCER_MS) hist.shift();
+    while (hist.length > 1 && ev.timeStamp - hist[0].t > FLICK_WINDOW_MS) hist.shift();
   }
 
   _onUp(ev) {
     if (!this.drag) return;
-    const { id, bouge } = this.drag;
-    if (bouge) this._lancer(ev);
+    const { id, moved } = this.drag;
+    if (moved) this._flick(ev);
     this.drag = null;
     this.view.setGrabbed(id, false);
-    this.hooks.onEnd(id, bouge);
+    this.hooks.onEnd(id, moved);
   }
 
   /**
-   * Un relâchement assez rapide continue le geste dans son axe dominant,
-   * jusqu'au prochain obstacle — sans ça, un glissé rapide s'arrête pile où
-   * le doigt a quitté l'écran, souvent une case trop tôt.
+   * A fast enough release continues the gesture along its dominant axis, up to
+   * the next obstacle — without it, a quick drag stops exactly where the finger
+   * left the screen, often one cell too early.
    */
-  _lancer(ev) {
-    const { id, historique } = this.drag;
-    const depart = historique[0];
-    const dt = ev.timeStamp - depart.t;
+  _flick(ev) {
+    const { id, history } = this.drag;
+    const start = history[0];
+    const dt = ev.timeStamp - start.t;
     if (dt <= 0) return;
 
     const p = this.view.cellFromPointFloat(ev.clientX, ev.clientY);
-    const vx = (p.x - depart.x) / dt, vy = (p.y - depart.y) / dt;
-    if (Math.max(Math.abs(vx), Math.abs(vy)) < SEUIL_LANCER) return;
+    const vx = (p.x - start.x) / dt, vy = (p.y - start.y) / dt;
+    if (Math.max(Math.abs(vx), Math.abs(vy)) < FLICK_THRESHOLD) return;
 
-    const bloc = this.view.board.blocks.get(id);
-    if (!bloc) return;
-    const cibleX = Math.abs(vx) >= Math.abs(vy) ? bloc.x + Math.sign(vx) * PORTEE_LANCER : bloc.x;
-    const cibleY = Math.abs(vx) >= Math.abs(vy) ? bloc.y : bloc.y + Math.sign(vy) * PORTEE_LANCER;
-    this.hooks.onDrag(id, cibleX, cibleY);
+    const block = this.view.board.blocks.get(id);
+    if (!block) return;
+    const targetX = Math.abs(vx) >= Math.abs(vy) ? block.x + Math.sign(vx) * FLICK_RANGE : block.x;
+    const targetY = Math.abs(vx) >= Math.abs(vy) ? block.y : block.y + Math.sign(vy) * FLICK_RANGE;
+    this.hooks.onDrag(id, targetX, targetY);
   }
 }

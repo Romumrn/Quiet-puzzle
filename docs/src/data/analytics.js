@@ -1,20 +1,20 @@
 /**
- * Nomenclature des évènements.
+ * Event nomenclature.
  *
- * Un seul endroit décide des NOMS et des PARAMÈTRES. Éparpillés dans le code,
- * ils dérivent : deux graphies pour le même geste, un paramètre présent ici et
- * absent là, et l'entonnoir devient illisible au moment précis où l'on en a
- * besoin. Les noms suivent la convention des plateformes d'analyse (minuscules,
- * verbe au passé, `objet_action`).
+ * A single place decides the NAMES and the PARAMETERS. Scattered through the
+ * code they drift: two spellings for the same gesture, a parameter present here
+ * and missing there, and the funnel becomes unreadable at the exact moment it
+ * is needed. The names follow the analytics platforms' convention (lowercase,
+ * past tense verb, `object_action`).
  *
- * Les paramètres de gameplay sont fixés une fois pour toutes par `contexteNiveau` :
- * c'est ce qui permet de comparer un abandon et une réussite sans se demander
- * si l'un des deux compte les coups autrement.
+ * Gameplay parameters are fixed once and for all by `levelContext`: that is
+ * what makes an abandon and a completion comparable without wondering whether
+ * one of them counts moves differently.
  */
 
 import { track } from './events.js';
 
-export const EVENEMENTS = Object.freeze({
+export const EVENTS = Object.freeze({
   // Acquisition
   APP_OPEN: 'app_open',
   FIRST_OPEN: 'first_open',
@@ -28,7 +28,7 @@ export const EVENEMENTS = Object.freeze({
   LEVEL_RESTARTED: 'level_restarted',
   LEVEL_ABANDONED: 'level_abandoned',
 
-  // Monétisation
+  // Monetisation
   REWARDED_OFFER_SHOWN: 'rewarded_offer_shown',
   REWARDED_STARTED: 'rewarded_started',
   REWARDED_COMPLETED: 'rewarded_completed',
@@ -40,7 +40,7 @@ export const EVENEMENTS = Object.freeze({
   IAP_COMPLETED: 'iap_completed',
   REMOVE_ADS_PURCHASED: 'remove_ads_purchased',
 
-  // Rétention
+  // Retention
   DAILY_OPEN: 'daily_open',
   DAILY_COMPLETED: 'daily_completed',
   STREAK_STARTED: 'streak_started',
@@ -48,27 +48,27 @@ export const EVENEMENTS = Object.freeze({
 });
 
 /**
- * Paramètres communs à tout évènement de niveau.
+ * Parameters common to every level event.
  *
- * `attempt` compte les essais de CE niveau depuis la dernière réussite : c'est
- * lui qui dit si un niveau bloque, là où le seul taux d'échec confond « raté
- * une fois » et « raté dix fois ».
+ * `attempt` counts the tries at THIS level since the last completion: it is
+ * what says whether a level is a wall, where the failure rate alone confuses
+ * "failed once" with "failed ten times".
  */
-export function contexteNiveau(level, { essai = 1, board = null, duree = null } = {}) {
+export function levelContext(level, { attempt = 1, board = null, duration = null } = {}) {
   return {
     level_id: level?.levelId ?? null,
     level: level?.number ?? 0,
     world: level?.realm ?? null,
-    attempt: essai,
-    duration: duree,
+    attempt,
+    duration,
     moves: board ? board.dragsUsed() : null,
-    // La référence EN VIGUEUR au moment de la partie. Sans elle, `moves` ne se
-    // compare à rien côté serveur : impossible de dire qu'un joueur a battu la
-    // solution connue, ni de repérer un client resté sur une ancienne
-    // calibration. C'est la mesure qui rendra le recalage du barème possible.
+    // The reference IN FORCE at the time of the game. Without it, `moves`
+    // compares to nothing server-side: no way to say a player beat the known
+    // solution, nor to spot a client stuck on an old calibration. This is the
+    // measurement that will make recalibrating the scale possible.
     min_drags: level?.minDrags ?? null,
     stars: board ? board.stars() : null,
   };
 }
 
-export const emettre = (nom, params = {}) => track(nom, params);
+export const emit = (name, params = {}) => track(name, params);

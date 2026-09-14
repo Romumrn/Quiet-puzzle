@@ -18,13 +18,13 @@ import * as base from './base.mjs';
 const TOTAL_LEVELS = base.totalLevels();
 const LEVELS_PER_REALM = base.levelsPerRealm();
 const REALMS = base.realms();
-const realmDe = base.realmDe;
+const realmDe = base.realmOf;
 const niveaux = new Map();
 for (let n = 1; n <= TOTAL_LEVELS; n++) niveaux.set(n, await base.getLevel(n));
 const getLevel = (n) => niveaux.get(n);
 import { KIND } from '../src/core/block.js';
 import { Board } from '../src/core/board.js';
-import { resoudre, BUDGET_HORS_LIGNE } from '../src/core/solver.js';
+import { solve, OFFLINE_BUDGET } from '../src/core/solver.js';
 
 const etoilesPour = (level, drags) => {
   if (drags > level.moveLimit) return 0;
@@ -65,7 +65,7 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
   // grilles, dont quelques-unes demandent plusieurs secondes, il ferait de cet
   // outil de lecture rapide une commande qu'on lance et qu'on abandonne.
   const sol = DETAILLE.has(n)
-    ? resoudre(new Board({ ...L, moveLimit: 9999, timeLimit: 9999 }), BUDGET_HORS_LIGNE)
+    ? solve(new Board({ ...L, moveLimit: 9999, timeLimit: 9999 }), OFFLINE_BUDGET)
     : null;
 
   // Distance moyenne d'un bloc à sa porte au départ : la mesure directe du
@@ -104,13 +104,13 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
     String(L.starDrags[1]).padStart(4),
     String(L.moveLimit).padStart(6),
     `${L.timeLimit}s`.padStart(6),
-    String(sol ? sol.etats : '—').padStart(6),
+    String(sol ? sol.states : '—').padStart(6),
     // L'exigence mesurée à la fabrication, quand le monde l'a fait mesurer.
-    String(L.exigence ?? '—').padStart(7),
+    String(L.demand ?? '—').padStart(7),
   );
   // Un abandon ne dit rien du niveau : le budget est épuisé, pas l'espace des
   // solutions. Seul un échec au terme d'une recherche complète est un défaut.
-  if (sol && !sol.resoluble && !sol.abandon) alertes.push(`niveau ${n} : NON RESOLU par le solveur`);
+  if (sol && !sol.solvable && !sol.gaveUp) alertes.push(`niveau ${n} : NON RESOLU par le solveur`);
 
   if (L.minDrags > L.moveLimit) alertes.push(`niveau ${n} : insoluble dans la limite de coups`);
   if (etoilesPour(L, relache) === 0) alertes.push(`niveau ${n} : 30 % de gestes en trop = défaite`);
@@ -128,8 +128,8 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
   // Un monde qui promet de la réflexion doit la tenir : une grille qui se
   // résout en autant d'états qu'elle a de blocs se joue sans jamais se
   // tromper, et c'est précisément ce qu'on cherchait à éviter.
-  if (L.exigence !== undefined && L.exigence < L.blocks.length * 3) {
-    alertes.push(`niveau ${n} : se résout sans revenir en arrière (${L.exigence} états pour ${L.blocks.length} blocs)`);
+  if (L.demand !== undefined && L.demand < L.blocks.length * 3) {
+    alertes.push(`niveau ${n} : se résout sans revenir en arrière (${L.demand} états pour ${L.blocks.length} blocs)`);
   }
 
   const monde = parMonde[realmDe(n).id];
@@ -141,13 +141,13 @@ for (let n = 1; n <= TOTAL_LEVELS; n++) {
   monde.gestes += L.minDrags;
   monde.n++;
   /**
-   * Les états explorés. On préfère `L.exigence`, mesurée à la FABRICATION sur
+   * Les états explorés. On préfère `L.demand`, mesurée à la FABRICATION sur
    * TOUS les niveaux du monde, à ce que le solveur trouve ici sur les trois
    * niveaux détaillés : un échantillon de trois est si bruité qu'il faisait
    * passer un monde deux fois plus retors pour un recul.
    */
-  if (L.exigence !== undefined) { monde.etats += L.exigence; monde.mesures++; }
-  else if (sol) { monde.etats += sol.etats; monde.mesures++; }
+  if (L.demand !== undefined) { monde.etats += L.demand; monde.mesures++; }
+  else if (sol) { monde.etats += sol.states; monde.mesures++; }
 }
 
 /**
