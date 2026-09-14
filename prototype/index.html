@@ -206,17 +206,6 @@
       </div>
 
       <div class="user-section">
-        <span class="user-legend" data-i18n="user.ads">Ads</span>
-        <label class="switch">
-          <span data-i18n="user.noads">Remove ads</span>
-          <input type="checkbox" id="opt-noads">
-          <i></i>
-        </label>
-        <p class="user-note" data-i18n="user.ads.note">Simulated purchase — no ad network is connected.</p>
-        <button class="btn btn-ghost btn-sm user-large" id="btn-ad-consent" hidden data-i18n="user.ads.consent">Manage ad consent</button>
-      </div>
-
-      <div class="user-section">
         <span class="user-legend" data-i18n="user.create">Create</span>
         <button class="btn btn-ghost btn-sm user-large" id="btn-editor"
                 data-i18n="user.editor">Level editor</button>
@@ -396,10 +385,20 @@
           <div class="ed-row ed-wrap" id="ed-kinds"></div>
         </div>
         <div class="ed-section">
-          <span class="ed-legend">Grid</span>
+          <span class="ed-legend" data-i18n="editor.grid">Grid</span>
           <div class="ed-row">
-            <label class="ed-num">Width <input type="number" id="ed-w" min="4" max="8" value="6"></label>
-            <label class="ed-num">Height <input type="number" id="ed-h" min="4" max="9" value="7"></label>
+            <div class="ed-stepper">
+              <span data-i18n="editor.width">Width</span>
+              <button class="ed-step" id="ed-w-minus" aria-label="−">−</button>
+              <b class="ed-step-value" id="ed-w-value">6</b>
+              <button class="ed-step" id="ed-w-plus" aria-label="+">+</button>
+            </div>
+            <div class="ed-stepper">
+              <span data-i18n="editor.height">Height</span>
+              <button class="ed-step" id="ed-h-minus" aria-label="−">−</button>
+              <b class="ed-step-value" id="ed-h-value">7</b>
+              <button class="ed-step" id="ed-h-plus" aria-label="+">+</button>
+            </div>
           </div>
         </div>
 
@@ -483,7 +482,7 @@
       </div>
     </div>
 
-    <button class="debug-toggle" id="debug-toggle" title="Debug panel">⚙</button>
+    <button class="debug-toggle" id="debug-toggle" title="Debug panel" hidden>⚙</button>
     <div class="debug-panel" id="debug-panel" hidden>
       <label>Go to level
         <input type="number" id="debug-level" min="1" value="1">

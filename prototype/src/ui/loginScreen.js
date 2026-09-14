@@ -165,9 +165,23 @@ export function createLoginScreen(onOfflineContinue) {
 }
 
 /**
+ * The plugin does not read its config until told to: skipping this call
+ * makes every `signIn()` reject with "Google services are not ready. Please
+ * call initialize() first" (see `GoogleAuth.java`'s `signIn` — it bails the
+ * moment `googleSignInClient` is still null, and only `initialize()` sets
+ * it). Guarded so a second tap after a cancelled sign-in does not redo it.
+ */
+let googleAuthReady = false;
+async function ensureGoogleAuthReady() {
+  if (googleAuthReady) return;
+  await GoogleAuth.initialize();
+  googleAuthReady = true;
+}
+
+/**
  * Packaged app: native Google Sign-In returns an ID token directly, no
- * redirect involved. `serverClientId` (mobile/capacitor.config.json) must be
- * the Google Cloud "Web application" client — that is the audience Supabase
+ * redirect involved. `clientId` (mobile/capacitor.config.json) must be the
+ * Google Cloud "Web application" client — that is the audience Supabase
  * expects, not the Android client (which is matched by package name + SHA-1,
  * not by client ID, and never appears in app code).
  */
@@ -176,6 +190,7 @@ async function signInGoogleNative(buttons, setStatus) {
     setStatus('loading', t('login.connecting'));
     buttons.forEach((btn) => { if (btn) btn.disabled = true; });
 
+    await ensureGoogleAuthReady();
     const googleUser = await GoogleAuth.signIn();
     const idToken = googleUser?.authentication?.idToken;
     if (!idToken) throw new Error('Google did not return an ID token');

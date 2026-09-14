@@ -156,64 +156,6 @@ export function goBack() {
   return undoLast();
 }
 
-/**
- * Drag and drop of a shape from the palette onto the grid.
- *
- * Picking a piece then aiming at a cell meant holding two ideas at once; now
- * you take the piece and drop it where you want it. A plain tap still works —
- * it selects the shape, for anyone who prefers tapping the grid.
- *
- * We go through Pointer Events rather than the HTML drag-and-drop API: the
- * latter does not work with a finger on mobile, which is where this game is
- * played.
- */
-function wireDrag(thumb, index) {
-  thumb.addEventListener('pointerdown', (start) => {
-    if (eraserOn) return;
-    choice.shape = index;
-    updatePalettes();
-
-    const ghost = thumb.cloneNode(true);
-    ghost.className = 'ed-shape ed-ghost';
-    document.body.appendChild(ghost);
-
-    let target = null;
-    const follow = (ev) => {
-      ghost.style.left = `${ev.clientX}px`;
-      ghost.style.top = `${ev.clientY}px`;
-      // The cell under the finger, not under the ghost: the finger aims, and
-      // the ghost trails it with a deliberate offset so it stays visible under
-      // the hand.
-      const under = document.elementFromPoint(ev.clientX, ev.clientY);
-      const aimed = under?.classList.contains('ed-cell') ? under : null;
-      if (aimed !== target) {
-        target?.classList.remove('aimed');
-        target = aimed;
-        target?.classList.add('aimed');
-      }
-    };
-
-    const release = (ev) => {
-      thumb.releasePointerCapture?.(start.pointerId);
-      window.removeEventListener('pointermove', follow);
-      window.removeEventListener('pointerup', release);
-      window.removeEventListener('pointercancel', release);
-      ghost.remove();
-      target?.classList.remove('aimed');
-      const under = document.elementFromPoint(ev.clientX, ev.clientY);
-      if (under?.classList.contains('ed-cell')) {
-        place(Number(under.dataset.x), Number(under.dataset.y));
-      }
-    };
-
-    thumb.setPointerCapture?.(start.pointerId);
-    window.addEventListener('pointermove', follow);
-    window.addEventListener('pointerup', release);
-    window.addEventListener('pointercancel', release);
-    follow(start);
-  });
-}
-
 function buildPalettes() {
   const tools = el('ed-tools');
   if (tools) {
@@ -241,11 +183,10 @@ function buildPalettes() {
   shapes.replaceChildren(...SHAPES.map((sh, i) => {
     const b = document.createElement('button');
     b.className = 'ed-shape';
-    wireDrag(b, i);
     b.title = sh.key;
     const g = document.createElement('span');
-    g.style.gridTemplateColumns = `repeat(${sh.w}, 7px)`;
-    g.style.gridTemplateRows = `repeat(${sh.h}, 7px)`;
+    g.style.gridTemplateColumns = `repeat(${sh.w}, 9px)`;
+    g.style.gridTemplateRows = `repeat(${sh.h}, 9px)`;
     for (let y = 0; y < sh.h; y++) {
       for (let x = 0; x < sh.w; x++) {
         const c = document.createElement('i');
@@ -254,7 +195,12 @@ function buildPalettes() {
       }
     }
     b.appendChild(g);
-    b.onclick = () => { choice.shape = i; updatePalettes(); };
+    // Picking a shape means "I want to place this" — leaving the eraser on
+    // would silently swallow the very next tap on the grid, with nothing
+    // visibly different on screen (the eraser's only other tell, a `cursor`
+    // change, does not exist on a touchscreen). Exclusive by construction
+    // beats a state a player can forget is still active.
+    b.onclick = () => { choice.shape = i; eraserOn = false; updatePalettes(); };
     return b;
   }));
 
@@ -298,7 +244,21 @@ function occupant(x, y) {
   return state.blocks.find((b) => b.cells.some(([dx, dy]) => b.x + dx === x && b.y + dy === y));
 }
 
+const W_MIN = 4, W_MAX = 8, H_MIN = 4, H_MAX = 9;   // matches the clamp in resize()
+
+/** Keeps the width/height stepper in sync with `state` — called from every
+ *  path that can change the grid's size, via `draw()`. */
+function updateGridControls() {
+  el('ed-w-value').textContent = state.W;
+  el('ed-h-value').textContent = state.H;
+  el('ed-w-minus').disabled = state.W <= W_MIN;
+  el('ed-w-plus').disabled = state.W >= W_MAX;
+  el('ed-h-minus').disabled = state.H <= H_MIN;
+  el('ed-h-plus').disabled = state.H >= H_MAX;
+}
+
 function draw() {
+  updateGridControls();
   const grid = el('ed-grid');
   grid.style.setProperty('--ew', state.W);
   grid.style.setProperty('--eh', state.H);
@@ -385,9 +345,6 @@ function importInto(n) {
     const colors = g.colors?.length ? [...g.colors] : [g.color];
     for (let k = 0; k < g.length; k++) state.gates[g.side][g.start + k] = colors;
   }
-  const w = el('ed-w'), h = el('ed-h');
-  if (w) w.value = n.width;
-  if (h) h.value = n.height;
 }
 
 /**
@@ -451,8 +408,10 @@ function setStatus(message, tone = '') {
 }
 
 function wireButtons() {
-  el('ed-w').onchange = () => resize(Number(el('ed-w').value), state.H);
-  el('ed-h').onchange = () => resize(state.W, Number(el('ed-h').value));
+  el('ed-w-minus').onclick = () => resize(state.W - 1, state.H);
+  el('ed-w-plus').onclick = () => resize(state.W + 1, state.H);
+  el('ed-h-minus').onclick = () => resize(state.W, state.H - 1);
+  el('ed-h-plus').onclick = () => resize(state.W, state.H + 1);
 
   el('ed-clear').onclick = () => { state = empty(state.W, state.H); draw(); };
 
@@ -533,8 +492,6 @@ function wireButtons() {
       for (const g of n.gates) {
         for (let k = 0; k < g.length; k++) state.gates[g.side][g.start + k] = g.color;
       }
-      el('ed-w').value = n.width;
-      el('ed-h').value = n.height;
       draw();
       setStatus(t('editor.status.imported'), 'ok');
     } catch (e) {
@@ -557,7 +514,5 @@ function resize(W, H) {
   for (const side of SIDES) {
     previous.gates[side].forEach((c, i) => { if (i < state.gates[side].length) state.gates[side][i] = c; });
   }
-  el('ed-w').value = W;
-  el('ed-h').value = H;
   draw();
 }

@@ -251,7 +251,6 @@ body { display: grid; place-items: center; }
 
 #screen-menu .btn-lg, #screen-menu .btn-daily { max-width: 268px; }
 .menu-liens { display: flex; gap: 8px; }
-#btn-sound.muet { opacity: 0.5; }
 
 /* ---------- Étoiles ---------- */
 
@@ -883,7 +882,7 @@ body { display: grid; place-items: center; }
 .ed-top { display: flex; gap: 8px; align-items: flex-start; }
 .ed-top .ed-grid-wrap { flex: 1; min-width: 0; }
 .ed-palette {
-  flex: 0 0 54px;
+  flex: 0 0 66px;
   display: flex; flex-direction: column; gap: 4px;
   /* Bornée à la hauteur de la grille, et défilante au-delà : laissée libre,
      elle empilait ses onze formes et repoussait couleurs, natures et boutons
@@ -892,17 +891,12 @@ body { display: grid; place-items: center; }
   padding: 4px; border: 1px solid var(--line); border-radius: 14px;
   background: var(--surface);
 }
-.ed-palette .ed-shape { width: 100%; padding: 5px; touch-action: none; }
-
-/* La pièce qui suit le doigt. Décalée vers le haut : sous la main, elle serait
-   cachée par elle. */
-.ed-fantome {
-  position: fixed; z-index: 40; pointer-events: none;
-  transform: translate(-50%, -140%);
-  opacity: 0.9;
-  box-shadow: 0 6px 18px rgba(80, 60, 85, 0.24);
-}
-.ed-cell.vise { outline: 2px solid var(--accent-deep); outline-offset: -2px; }
+/* `pan-y`, not `none`: the palette itself scrolls vertically (more shapes
+   than fit in its `max-height`) — `none` reliably fixed taps but also, as a
+   side effect, made every shape button a dead zone for the very scroll that
+   reaches the rest of them. `pan-y` still lets that vertical drag through
+   while a plain tap (no meaningful movement) resolves as a click either way. */
+.ed-palette .ed-shape { width: 100%; padding: 5px; touch-action: pan-y; }
 
 /* Outils : la gomme et l'annulation ont leur propre barre. Ce ne sont pas des
    pièces à poser, et les ranger parmi les formes le laissait croire. */
@@ -921,7 +915,12 @@ body { display: grid; place-items: center; }
 /* Porte à deux couleurs : moitié-moitié, comme sur le plateau. */
 .ed-wall.double { background-image: linear-gradient(118deg, var(--tile) 0 47%, var(--c-bis) 53% 100%); }
 /* Mode gomme : le curseur le dit aussi sur la grille. */
-.ed-grid.gomme .ed-cell { cursor: crosshair; }
+/* `cursor` alone is invisible on a touchscreen — there is no mouse pointer to
+   show it. The grid itself has to say when a tap erases instead of places.
+   (`.erasing` — a stale `.gomme` selector sat here unmatched by anything: the
+   class toggled from JS has always been the English name.) */
+.ed-grid.erasing { outline: 2px solid var(--alert); outline-offset: 3px; }
+.ed-grid.erasing .ed-cell { cursor: crosshair; }
 
 /* Le temps mis, sous le nombre de glissés : présent sans concurrencer les
    étoiles, qui restent la note du niveau. */
@@ -943,14 +942,16 @@ body { display: grid; place-items: center; }
 }
 
 /* "Bonjour Prénom" — only for a real account, on the opposite corner from the
-   streak badge so the two never fight for the same space. */
+   streak badge so the two never fight for the same space. `right` clears the
+   38px `.user-btn` circle plus its own gap: both used to sit at the same
+   `right: 18px` and overlapped outright. */
 .menu-greeting {
-  position: absolute; top: max(18px, env(safe-area-inset-top)); right: 18px; z-index: 18;
+  position: absolute; top: max(18px, env(safe-area-inset-top)); right: 64px; z-index: 18;
   display: flex; align-items: center; gap: 7px;
   padding: 5px 12px 5px 5px; border-radius: 999px;
   background: var(--surface); border: 1px solid var(--line);
   color: var(--ink-soft); font: 500 13px var(--font-ui);
-  cursor: pointer; max-width: 46vw;
+  cursor: pointer; max-width: 38vw;
 }
 .menu-greeting-avatar {
   width: 24px; height: 24px; border-radius: 50%; object-fit: cover;
@@ -1300,6 +1301,13 @@ body { display: grid; place-items: center; }
   border: 11px solid hsl(var(--h) 34% 90%);
   border-radius: 14px;
   background: var(--surface);
+  /* Cells and walls are positioned in W×ec / H×ec content-box math — the
+     app-wide `border-box` reset (`*`) folds the 11px border INTO that
+     declared width/height instead of adding it, shrinking the real content
+     area by 22px both ways. Cells (anchored at x=0/y=0) still read fine;
+     the bottom/right gates (measured from the far edge) land 11px inside
+     the grid, on top of the last row/column instead of past it. */
+  box-sizing: content-box;
 }
 .ed-cell {
   position: absolute;
@@ -1309,8 +1317,17 @@ body { display: grid; place-items: center; }
   background: transparent;
   color: rgba(255, 255, 255, 0.9);
   font-size: 12px; cursor: pointer; padding: 0;
+  /* `none`, not the app-wide `manipulation` (`.app`, which still allows
+     panning): sits inside `.ed-scroll` (overflow-y: auto), and `manipulation`
+     alone still lets an ordinary finger's tiny in-tap wobble be read as the
+     start of a scroll, which drops the tap instead of delivering a click — a
+     mouse click, having zero movement, never triggers that, which is why
+     this only ever broke on a real touchscreen. Same value already used by
+     the palette's shapes (`.ed-palette .ed-shape`), which is why THOSE
+     always worked. */
+  touch-action: none;
 }
-.ed-cell.plein { background: var(--tile); border-color: transparent; border-radius: 4px; }
+.ed-cell.filled { background: var(--tile); border-color: transparent; border-radius: 4px; }
 .ed-cell.k-wall { background: var(--sealed); }
 .ed-cell.k-joker { background: linear-gradient(135deg, var(--c0), var(--c3) 40%, var(--c1)); }
 .ed-cell.k-locked { filter: saturate(0.35); }
@@ -1320,8 +1337,9 @@ body { display: grid; place-items: center; }
   border: 0; padding: 0; cursor: pointer;
   background: hsl(var(--h) 30% 84%);
   color: #fff; font-size: 9px; line-height: 1;
+  touch-action: none; /* same reasoning as .ed-cell above */
 }
-.ed-wall.ouvert { background: var(--tile); }
+.ed-wall.open { background: var(--tile); }
 .ed-wall-top, .ed-wall-bottom { width: var(--ec); height: 11px; left: calc(var(--i) * var(--ec)); }
 .ed-wall-top { top: -11px; }
 .ed-wall-bottom { bottom: -11px; }
@@ -1348,15 +1366,30 @@ body { display: grid; place-items: center; }
   background: var(--surface); cursor: pointer;
   transition: border-color 0.15s ease;
 }
-.ed-shape { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; }
-.ed-shape span { display: grid; gap: 1px; }
+/* Tap-to-select, tap-a-cell-to-place (see editor.js): no more dragged ghost
+   to carry the shape's pattern, so the palette tile itself has to show it
+   clearly — bigger than a generic 40px icon button. */
+.ed-shape { display: grid; place-items: center; width: 52px; height: 52px; padding: 0; }
+.ed-shape span { display: grid; gap: 1.5px; }
 .ed-shape i { background: var(--line); border-radius: 1px; }
 .ed-shape i.on { background: var(--ink-soft); }
+.ed-shape.sel i.on { background: var(--accent-deep); }
+
 .ed-color { width: 36px; height: 36px; background: var(--tile); color: #fff; font-size: 14px; }
 .ed-kind { padding: 7px 11px; font: 400 12px var(--font-ui); color: var(--ink-soft); }
 .sel { border-color: var(--accent-deep); box-shadow: 0 0 0 2px var(--accent-wash); }
 
-.ed-num { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-soft); }
+/* Grid width/height: a stepper rather than a number field — typing a value
+   means the on-screen keyboard eating half the editor to change one digit. */
+.ed-stepper { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); }
+.ed-step {
+  width: 28px; height: 28px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink); font-size: 16px; line-height: 1; cursor: pointer;
+  display: grid; place-items: center;
+}
+.ed-step:disabled { opacity: 0.4; cursor: not-allowed; }
+.ed-step-value { min-width: 16px; text-align: center; font: 500 14px var(--font-ui); color: var(--ink); }
 .ed-num input {
   width: 54px; padding: 6px 8px;
   border: 1px solid var(--line); border-radius: 8px;
@@ -1386,7 +1419,7 @@ body { display: grid; place-items: center; }
 }
 .user-btn:hover { border-color: var(--accent); }
 .user-btn:active { transform: scale(0.94); }
-.user-btn.ouvert { border-color: var(--accent-deep); }
+.user-btn.open { border-color: var(--accent-deep); }
 /* Trois barres : le bouton doit dire « menu ». Le niveau du joueur y figurait,
    mais un chiffre se lit comme une information, pas comme une commande — et
    personne ne pensait à cliquer dessus pour régler le son. Le niveau reste
@@ -1397,9 +1430,9 @@ body { display: grid; place-items: center; }
   background: var(--ink-soft);
   transition: background 0.16s ease;
 }
-.user-btn:hover .user-burger i, .user-btn.ouvert .user-burger i { background: var(--accent-deep); }
+.user-btn:hover .user-burger i, .user-btn.open .user-burger i { background: var(--accent-deep); }
 /* Pastille discrète quand le son est coupé : l'état doit se voir sans ouvrir. */
-.user-btn.muet::after {
+.user-btn.muted::after {
   content: '🔇'; position: absolute; right: -3px; bottom: -3px;
   font-size: 11px; line-height: 1;
   background: var(--surface); border-radius: 50%; padding: 1px;

@@ -42,6 +42,7 @@ import * as adminPanel from './ui/adminPanel.js';
 import { isNative } from './native/capacitor.js';
 import { registerBackHandler, registerLifecycle } from './native/lifecycle.js';
 import { Browser } from '../vendor/capacitor-browser.esm.js';
+import { Share } from '../vendor/capacitor-share.esm.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -333,11 +334,20 @@ function updateBoosters() {
   el('btn-undo').disabled = !board || !board.canUndo();
 }
 
-/** Watches a rewarded ad for a booster. The clock is suspended meanwhile. */
+/**
+ * Watches a rewarded ad for a booster. The clock is suspended meanwhile.
+ *
+ * A real AdMob rewarded unit can fail to load for reasons that have nothing
+ * to do with this code — no fill, a brand new ad unit still ramping up,
+ * network trouble — and used to fail SILENTLY: the button just did nothing,
+ * indistinguishable from being broken. Same toast the coin shop already uses
+ * for its own rewarded ad (`shop.ad.failed`).
+ */
 async function boosterByAd(placement) {
   stopClock();
   const watched = await ads.showRewarded(placement);
   if (board?.gameState === GameState.PLAYING) startClock();
+  if (!watched) screens.toast(t('shop.ad.failed'));
   return watched;
 }
 
@@ -642,7 +652,7 @@ el('btn-hint').onclick = async () => {
     stopClock();
     const watched = await ads.showRewarded(PLACEMENT.REWARDED_HINT);
     startClock();
-    if (!watched) return;
+    if (!watched) { screens.toast(t('shop.ad.failed')); return; }
   }
 
   track('hint_used', { level: level.number, blockId: advice.id });
@@ -694,7 +704,6 @@ async function updatePanel() {
   el('opt-vibration').checked = d.vibration !== false;
   el('opt-glyphs').checked = d.glyphs === true;
   el('opt-night').checked = d.night === true;
-  el('opt-noads').checked = currency.hasRemovedAds();
   buildLanguageChoice();
   updateMuteDot();
   await updateAuthStatus();
@@ -903,7 +912,21 @@ registerBackHandler(() => {
   // wired through the popstate listener above — reuse it rather than duplicate it.
   if (screens.current() === 'editor') { history.back(); return true; }
   if (screens.current() === 'brief') { showMap(); return true; }
-  if (screens.current() === 'game') { stopClock(); showMap(); return true; }
+  if (screens.current() === 'game') {
+    stopClock();
+    // Testing a level from the editor is a detour, not a move into the
+    // normal progression — leaving it should land back where it started
+    // (the draft, still there), not on the general map the player never
+    // asked to see.
+    if (editorTrial) {
+      const trial = editorTrial;
+      editorTrial = null;   // leaving the trial without finishing it
+      openEditor(trial);
+      return true;
+    }
+    showMap();
+    return true;
+  }
   if (screens.current() === 'map') { showMenu(); return true; }
   return false; // at the menu, nothing left to unwind — let the app exit
 });
@@ -1000,6 +1023,30 @@ el('btn-feedback').onclick = () => {
 
 el('btn-feedback-close').onclick = () => { el('overlay-feedback').hidden = true; };
 
+/**
+ * `mailto:` navigation and a `<a download>` Blob both assume a real browser:
+ * neither does anything useful inside the packaged app's WebView (no mail
+ * client is wired to intercept the scheme, no Downloads UI catches the
+ * blob). The native share sheet is the one route guaranteed to work there —
+ * it hands the report to whatever app the player picks (mail, messages,
+ * notes...). Screenshots stay a web-only feature of the download route: a
+ * multi-file native share would need writing them to disk first
+ * (`@capacitor/filesystem`), not worth it for a text bug report.
+ */
+async function shareReportNative(report) {
+  await Share.share({
+    title: `Quiet Puzzle — ${t(`feedback.cat.${report.category}`)}`,
+    text: feedback.asText(report),
+    dialogTitle: t('feedback.share'),
+  });
+}
+
+if (isNative()) {
+  el('fb-download').hidden = true;
+  el('fb-mail').dataset.i18n = 'feedback.share';
+  el('fb-mail').textContent = t('feedback.share');
+}
+
 el('fb-copy').onclick = async () => {
   const report = currentReport();
   if (!report) return;
@@ -1007,16 +1054,17 @@ el('fb-copy').onclick = async () => {
     await navigator.clipboard.writeText(feedback.asText(report));
     screens.toast(t('feedback.copied'));
   } catch {
-    // Clipboard refused (insecure context, permission): the download route is
-    // still open, and it carries the screenshots as a bonus.
-    el('fb-download').click();
+    // Clipboard refused (insecure context, permission): fall back to
+    // whichever route actually works on this platform.
+    if (isNative()) shareReportNative(report);
+    else el('fb-download').click();
   }
 };
 
 /**
  * Download of the complete report, screenshots included. This is the ONLY route
  * an image can travel by: no `mailto:` knows how to attach a file, and there is
- * no server to entrust it to.
+ * no server to entrust it to. Web only — see `shareReportNative`.
  */
 el('fb-download').onclick = () => {
   const report = currentReport();
@@ -1034,6 +1082,7 @@ el('fb-download').onclick = () => {
 el('fb-mail').onclick = () => {
   const report = currentReport();
   if (!report) return;
+  if (isNative()) { shareReportNative(report); return; }
   const subject = `Quiet Puzzle — ${t(`feedback.cat.${report.category}`)}`;
   // No hard-coded recipient: the mail client opens on a draft the player
   // addresses to whoever they like. Inventing an address here would make it
@@ -1171,20 +1220,6 @@ function showLeaderboard(myScore) {
   el('overlay-rank').hidden = false;
 }
 
-el('opt-noads').onchange = (ev) => {
-  currency.setAdsRemoved(ev.target.checked);
-  if (ev.target.checked) track(EV.REMOVE_ADS_PURCHASED, { simulated: true });
-  updateBanner(screens.current());
-  screens.toast(t(ev.target.checked ? 'toast.ads.off' : 'toast.ads.on'));
-};
-
-// Only meaningful with a real ad network behind it — hidden on the web build.
-el('btn-ad-consent').hidden = !isNative();
-el('btn-ad-consent').onclick = async () => {
-  const { manageConsent } = await import('./monetization/admob.js');
-  manageConsent().catch((err) => console.error('Ad consent form failed:', err));
-};
-
 // ---------------------------------------------------------------------------
 // Account and admin mode
 // ---------------------------------------------------------------------------
@@ -1259,17 +1294,22 @@ async function updateAuthStatus() {
 }
 
 /**
- * The admin section of the user menu.
+ * The admin section of the user menu, and the QA/debug panel's gear button.
  *
- * Hidden by default and revealed only for an account holding the role. This is
- * a display decision and nothing more: everything the panel can do is gated
- * server-side by RLS, so revealing the button by hand in the console gets you a
- * panel that answers "permission denied". See src/data/admin.js.
+ * Both hidden by default and revealed only for an account holding the role.
+ * For the admin panel this is a display decision and nothing more: everything
+ * it can do is gated server-side by RLS, so revealing the button by hand in
+ * the console gets you a panel that answers "permission denied" (see
+ * src/data/admin.js). The debug panel has no such server-side backstop — it
+ * only ever edits the local save — so this check is the actual gate, not
+ * cosmetic: it is what keeps "Solve"/"Unlock all"/"+500 coins" off a stranger's
+ * copy of the app while leaving them reachable from the one account that
+ * holds the role.
  */
 async function updateAdminSection() {
-  const section = el('user-admin');
   const allowed = await admin.isAdmin();
-  section.hidden = !allowed;
+  el('user-admin').hidden = !allowed;
+  el('debug-toggle').hidden = !allowed;
 }
 
 el('btn-admin').onclick = async () => {
@@ -1488,13 +1528,23 @@ function refreshDebug() {
   if (!session) {
     document.body.appendChild(createLoginScreen(() => startGameLoop()));
   } else {
+    // A session already open at cold start (the common case after the first
+    // sign-in): pull whatever progress the account holds before the menu
+    // renders, so a reinstalled app is not stuck showing an empty profile
+    // until the player happens to reopen it.
+    await api.syncFromCloud();
     startGameLoop();
   }
 
   // One listener, wired in both cases: signing in mid-session must start the
   // game, and signing out must put the login screen back.
-  supabase.auth.onAuthStateChange((event, authSession) => {
+  supabase.auth.onAuthStateChange(async (event, authSession) => {
     admin.forget();
+    if (event === 'SIGNED_IN' && authSession) await api.syncFromCloud();
+    // Re-checked on every transition, not just at startup: signing in or out
+    // from within an already-running session (see `started` below) is the
+    // one case `startGameLoop()`'s own call would otherwise miss.
+    updateAdminSection();
     if (event === 'SIGNED_IN' && authSession) {
       document.getElementById('login-container')?.remove();
       startGameLoop();
@@ -1517,6 +1567,7 @@ function refreshDebug() {
   function startGameLoop() {
     if (started) { showMenu(); return; }
     started = true;
+    updateAdminSection();
     const firstTime = !store.load().lastPlayedAt && !store.load().lastPlayDay;
     track(EV.APP_OPEN, {});
     if (firstTime) track(EV.FIRST_OPEN, {});

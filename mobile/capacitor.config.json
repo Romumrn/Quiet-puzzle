@@ -19,7 +19,8 @@
     },
     "GoogleAuth": {
       "scopes": ["profile", "email"],
-      "serverClientId": "122996124797-ecskrjqkbhp927aqbuiac0t245d1kqjg.apps.googleusercontent.com"
+      "serverClientId": "122996124797-ecskrjqkbhp927aqbuiac0t245d1kqjg.apps.googleusercontent.com",
+      "clientId": "122996124797-ecskrjqkbhp927aqbuiac0t245d1kqjg.apps.googleusercontent.com"
     }
   }
 }
