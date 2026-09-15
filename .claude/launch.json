@@ -2,6 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "// ": "Attaches to the server the project's own command starts (see AGENTS.md: cd prototype && python3 -m http.server 8123). Use this one when it is already running in a terminal — starting a second copy just collides on the port.",
+      "name": "puzzle-attach",
+      "url": "http://localhost:8123",
+      "port": 8123
+    },
+    {
+      "// ": "Starts the server itself, for when nothing is listening on 8123.",
       "name": "puzzle-prototype",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8123", "--directory", "prototype"],

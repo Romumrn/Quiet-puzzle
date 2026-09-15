@@ -63,8 +63,27 @@ export function curve(n) {
     return available.reduce((sum, f) => sum + f.cells.length, 0) / available.length;
   };
   const correction = meanSize(1) / meanSize(minShapeSize);
-  const blockCount = Math.round(
+  const asked = Math.round(
     R.W * R.H * (lowDensity + (highDensity - lowDensity) * t) * correction);
+
+  /**
+   * A CEILING on the block count, in cells rather than in blocks.
+   *
+   * `density` is read against the board's AREA, but what a block costs is its
+   * cells, and that average moves with the realm: barring one-cell pieces and
+   * allowing the four-cell bar takes the mean from 2.3 up to 3.6. The same
+   * density therefore asks for a comfortable grid on one realm and an impossible
+   * one on another — realm 47 (11x13, density 0.32) came out asking for 110 % of
+   * its own board, and the generator failed outright on level 960 after two
+   * thousand attempts.
+   *
+   * 78 % is what the placement can actually reach: the backward walk needs room
+   * to move a block away from its gate, and past that it only ever produces
+   * blocks pinned against their own doors. Expressed here rather than left to
+   * each realm's density, so the failure cannot come back through a new one.
+   */
+  const roomFor = Math.floor((R.W * R.H * 0.78) / meanSize(minShapeSize));
+  const blockCount = Math.min(asked, roomFor);
 
 
   return {
@@ -111,6 +130,44 @@ export function curve(n) {
      * thresholds and the records already set against them.
      */
     minDragsFloor: R.minDrags ? ramp(R.minDrags) : 0,
+    /**
+     * How many blocks this level should need PARKED — moved somewhere they do
+     * not exit from, to free the way for another.
+     *
+     * The one knob that changes what KIND of problem a level is. Everything
+     * else varies how hard the exit order is to find; measured on the shipped
+     * database, the first seven realms clear on a uniformly random order a
+     * hundred times out of a hundred. Parking cannot be answered by counting
+     * capacities — you have to see that a block is in the way and see where it
+     * can go instead.
+     *
+     * Ramped like every other `[start, end]` pair, so a world that introduces it
+     * does so a level at a time rather than all at once. 0 = none, which is
+     * every realm published so far.
+     */
+    parking: R.parking ? ramp(R.parking) : 0,
+    /**
+     * ONE-WAY cells on the board. Derived from the reference solution, so they
+     * never make a level unsolvable — see `oneWayFrom`.
+     */
+    oneWay: R.oneWay ? ramp(R.oneWay) : 0,
+    /**
+     * SLIDING blocks: pushed, they run until something stops them. The other
+     * kinds restrict where a block may GO; this one takes away the choice of
+     * where it STOPS.
+     */
+    sliders: R.sliders ? ramp(R.sliders) : 0,
+    /**
+     * Gates that stay SHUT until a number of blocks have left. Read off the
+     * reference solution, so they never lock a level — see `shutterGates`.
+     */
+    shutters: R.shutters ? ramp(R.shutters) : 0,
+    /**
+     * Generate the realm's twenty levels as a POOL, measure them, and order them
+     * by what they turned out to be — see `curateRealm` in `index.js`. Opt-in,
+     * because reordering changes which grid each level number gets.
+     */
+    curated: R.curated === true,
     jokers: R.jokers,
     blockCount,
     /**

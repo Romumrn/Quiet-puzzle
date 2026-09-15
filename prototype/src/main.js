@@ -655,8 +655,15 @@ el('btn-hint').onclick = async () => {
     if (!watched) { screens.toast(t('shop.ad.failed')); return; }
   }
 
-  track('hint_used', { level: level.number, blockId: advice.id });
+  track('hint_used', { level: level.number, blockId: advice.id, park: !advice.gate });
   view.highlight(advice.id);
+  /**
+   * A hint with NO GATE points at a block that must be moved ASIDE, not cleared.
+   * Highlighting it and saying nothing is worse than no hint at all: the player
+   * drags it at a gate, it refuses, and a hint they paid coins or an ad for
+   * reads as broken. The one case where the hint has to speak.
+   */
+  if (!advice.gate) screens.toast(t('toast.hint.park'));
   updateBoosters();
 };
 

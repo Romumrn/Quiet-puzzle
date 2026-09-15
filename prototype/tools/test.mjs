@@ -20,7 +20,7 @@
  * rien y voir.
  */
 
-import { Board } from '../src/core/board.js';
+import { Board, SIDES } from '../src/core/board.js';
 import { KIND, colorsOf } from '../src/core/block.js';
 import * as base from './base.mjs';
 
@@ -64,7 +64,8 @@ function rejouer(n) {
       }
     }
 
-    if (b.blocks.has(step.id)) {
+    // Un pas SANS PORTE est un parking : on a garé le bloc, il ne sort pas.
+    if (step.gate && b.blocks.has(step.id)) {
       const [dx, dy] = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] }[step.gate];
       const r = b.step(step.id, dx, dy);
       if (!r.ok || r.event.type !== 'exit') {
@@ -93,7 +94,12 @@ console.log('\n== La base de niveaux ==');
   check('chaque niveau porte tous les champs du format d\'API',
     incomplets.length === 0, incomplets.slice(0, 5).join(', '));
 
-  const horsMonde = [...niveaux.values()].filter((L) => base.realmOf(L.number).name !== L.realm)
+  // Le catalogue porte les cinq langues — `realmText()` traduit à l'affichage —
+  // tandis que le champ `realm` d'un niveau est, par conception, l'étiquette
+  // ANGLAISE : l'identifiant humain de la donnée, que l'interface ignore. On
+  // compare donc ce qui est comparable.
+  const nomAnglais = (r) => (r && typeof r.name === 'object' ? r.name.en : r?.name);
+  const horsMonde = [...niveaux.values()].filter((L) => nomAnglais(base.realmOf(L.number)) !== L.realm)
     .map((L) => L.number);
   check('chaque niveau est rangé dans le monde que dit l\'index',
     horsMonde.length === 0, horsMonde.slice(0, 5).join(', '));
@@ -296,6 +302,74 @@ console.log('\n== Portes et couleurs ==');
   }
   check('un niveau à portes limitées ne laisse aucune porte illimitée',
     capacitesMixtes.length === 0, capacitesMixtes.slice(0, 5).join(', '));
+}
+
+console.log('\n== Le solveur sait garer un bloc sans le sortir ==');
+{
+  const { solve } = await import('../src/core/solver.js');
+
+  /**
+   * Une grille minimale qui EXIGE un parking, et qui tient en huit cases :
+   *
+   *     . . . .     ligne 0 : porte gauche (couleur 0), porte droite (couleur 1)
+   *     # . # #     ligne 1 : une seule poche libre, en (1,1)
+   *
+   * A (couleur 0) en (2,0) ne peut sortir à gauche : B lui barre le passage.
+   * B (couleur 1) en (1,0) ne peut sortir à droite : A lui barre le passage.
+   * Ni l'un ni l'autre n'atteint une porte, et aucun ordre de sortie ne s'en
+   * tire — il faut garer B dans la poche, sortir A, puis ressortir B.
+   *
+   * Ce test est le contrat du parking dans les deux sens : la recherche par
+   * défaut DOIT échouer ici (sinon `maxParks = 0` ne reproduit plus l'ancien
+   * solveur, et tous les niveaux publiés sont en jeu), et la recherche avec un
+   * parking DOIT réussir en rendant une séquence qui se rejoue vraiment sur le
+   * moteur.
+   */
+  const cellule = (id, couleur, x, y, kind = 'normal') =>
+    ({ id, color: couleur, cells: [[0, 0]], x, y, kind, axis: null, dir: null });
+
+  const grille = {
+    width: 4, height: 2,
+    gates: [
+      { side: 'left', start: 0, length: 1, color: 0 },
+      { side: 'right', start: 0, length: 1, color: 1 },
+    ],
+    blocks: [
+      cellule(1, 0, 2, 0), cellule(2, 1, 1, 0),
+      cellule(90, 0, 0, 1, 'wall'), cellule(91, 0, 2, 1, 'wall'), cellule(92, 0, 3, 1, 'wall'),
+    ],
+    solution: [], moveLimit: 9999, timeLimit: 9999, starDrags: [9, 9],
+    objective: { type: 'clear_all', target: 2 },
+  };
+  const plateau = () => new Board({ ...grille });
+
+  const sans = solve(plateau(), 50000, 0);
+  check('sans parking, la grille est déclarée insoluble',
+    !sans.solvable && !sans.gaveUp, `solvable=${sans.solvable} gaveUp=${sans.gaveUp}`);
+
+  const avec = solve(plateau(), 50000, 1);
+  check('avec un parking, le solveur la vide', avec.solvable && avec.parks === 1,
+    `solvable=${avec.solvable} parkings=${avec.parks}`);
+
+  // La séquence doit être REJOUABLE : chaque pas porte la case où amener le
+  // bloc, sinon un `exit` qui part d'ailleurs que de son point de départ est
+  // injouable — c'est précisément ce que ce rejeu a attrapé la première fois.
+  const b = plateau();
+  for (const m of avec.moves) {
+    b.dragTowards(m.id, m.x, m.y);
+    if (m.type === 'exit') {
+      const [dx, dy] = SIDES[m.gate.side];
+      b.step(m.id, dx, dy);
+    }
+    b.endGesture(true);
+  }
+  check('la séquence rendue se rejoue sur le moteur et vide la grille',
+    b.remaining() === 0, `${b.remaining()} bloc(s) restant(s)`);
+
+  // `order` alimente l'éditeur et les indices : il ne doit contenir que des
+  // sorties, jamais un parking.
+  check('`order` ne liste que les sorties', avec.order.length === 2,
+    `order = [${avec.order}]`);
 }
 
 console.log('\n== Résolubilité vérifiée indépendamment ==');
