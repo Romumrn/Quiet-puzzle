@@ -59,6 +59,7 @@ Supabase first, `prototype/levels/` as a seed.
 | Order a world's levels by difficulty | `generator/index.js` | `curateRealm()` — pool, measure, sort, one breather, hardest last |
 | One-way cells | `generator/build.js` `oneWayFrom()` + `board.js` `acceptsDirection()` | arrows read off the reference solution |
 | Gates that open late | `generator/build.js` `shutterGates()` + `board.js` `acceptsColor()` | `gate.opensAfter`, read off the solution |
+| Sliding blocks | `board.js` `slideTarget()` | one answer, three callers that must agree: engine, solver, generator |
 | What was measured and rejected | `generator/README.md` | parking on dense boards, doubling back — both with figures |
 | Draw a world's branch image | `prototype/docs/decor-de-la-carte.md` | one row in `mondes.py`, run the script, one CSS rule |
 | Add a block type | 4 files — see the New block section |

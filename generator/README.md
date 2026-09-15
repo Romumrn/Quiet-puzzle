@@ -96,6 +96,7 @@ Measured over the shipped database — regenerate the map to re-read any of this
 | `wideGateRatio`, `sharedGates` | tier / world | how contested the exits are |
 | `oneWay` | world | ONE-WAY cells — a block on one may only leave the way the arrow points |
 | `shutters` | world | gates that stay SHUT until N blocks have left |
+| `sliders` | world | blocks that RUN until something stops them |
 | `parking` | tier | a block that must be moved aside without exiting. **Does not deliver on dense boards** — see below |
 | `walls`, `locks`, `rails`, `anchors`, `bulky`, `duals` | world | which mechanics appear, ramped across the twenty levels |
 
@@ -133,7 +134,7 @@ walked back — so the walk only ever crosses free cells and **every level is
 solvable by pure exit ordering**. `solver.js` says the same from the other end:
 auxiliary moves, nudging a block aside to open a corridor, are not explored.
 
-Three mechanics break out of that. Two are built.
+Three mechanics break out of that, and all three are built.
 
 ### One-way cells (`oneWay`) — built
 
@@ -170,13 +171,39 @@ use, so it is conservative — a level can never be locked — but a gate that c
 stay shut a long while is barely shut at all. Fixing it means giving solution
 steps a gate index.
 
-### Sliding blocks — NOT built
+### Sliding blocks (`sliders`) — built
 
-A block that slides until it hits something. It touches `step()`, the solver's
-breadth-first walk (a cell CROSSED is no longer a cell you can STOP on, which
-changes the successor function itself), `dragTowards`, and the backward walk. A
-multi-file change to the engine a thousand levels depend on; it wants its own
-pass.
+Pushed, the block runs until something stops it. The other kinds restrict where a
+block may GO; this one takes away the choice of where it STOPS — you no longer
+place it, you aim it, and the board has to be read for what will catch it.
+
+`board.slideTarget()` answers where a run ends, and three callers must agree
+exactly: the engine when the finger lets go, the solver when it enumerates where
+a block can go, and the generator when it walks one backwards. Four things had to
+change, and each was a real bug first:
+
+1. **`dragTowards` rocked the block.** A slider overshoots the point being
+   dragged to, the next pass aims back and overshoots again. A slide that does
+   not bring it closer now ends the gesture.
+2. **The solver's successor function.** This is why sliding could not simply be
+   bolted onto `step()`: a cell CROSSED is not a cell you can STOP on. Walking
+   the grid one cell at a time had the solver plan through positions no player
+   can reach — levels declared solvable that are not.
+3. **`measureGestures` overcounted**, 40 to 52 gestures on levels that take just
+   under thirty: its waypoint search assumes a block can be halted anywhere and
+   fell back on its safety over and over. A slider is ONE gesture, whatever its
+   route. That figure sets the star thresholds, so overcounting hands the player
+   three stars for nothing.
+4. **The gate travels with the answer.** A slider that runs out of the board can
+   only have its gate identified at the END of the run; computing it from where
+   the run BEGAN found nothing, and the solver declared unsolvable the very
+   levels it had a solution for.
+
+The backward walk is one straight line, like an anchor's. It has to be the exact
+inverse of what the block will do, and a slider does not advance a cell — so
+every intermediate stop in its solution would need a blocker standing there at
+that moment, which the walk cannot promise: the cell it just vacated is by
+definition empty.
 
 ---
 

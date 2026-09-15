@@ -94,11 +94,34 @@ function reachability(board, id) {
       }
       if (!free) continue;
 
-      const k = `${x + dx},${y + dy}`;
+      /**
+       * A SLIDER lands where the run ends, not one cell along.
+       *
+       * This is the whole reason sliding could not simply be bolted onto
+       * `step()`: the search's successor function changes shape. A cell the
+       * block passes OVER is not a cell it can stop ON, and walking the grid one
+       * cell at a time would have the solver plan through positions no player
+       * could ever reach — levels declared solvable that are not.
+       */
+      let nx = x + dx, ny = y + dy;
+      if (block.kind === KIND.SLIDE) {
+        const to = board.slideTarget(block, dx, dy);
+        if (to.leaves) {
+          // The run carries it out. The launch position is where it stands now —
+          // that is what `step` replays — but the GATE is the one found at the
+          // far end, which only `slideTarget` can name.
+          if (to.gate && !byGate.has(to.gate)) byGate.set(to.gate, { x, y, dx, dy, gate: to.gate });
+          continue;
+        }
+        if (!to.moved) continue;
+        nx = to.x; ny = to.y;
+      }
+
+      const k = `${nx},${ny}`;
       if (!seen.has(k)) {
         seen.add(k);
-        cells.push([x + dx, y + dy]);
-        queue.push([x + dx, y + dy]);
+        cells.push([nx, ny]);
+        queue.push([nx, ny]);
       }
     }
   }

@@ -210,9 +210,34 @@ function placeAtGate(gate, shape, W, H, rng) {
  */
 export function measureGestures(base) {
   const b = new Board({ ...base, moveLimit: 9999, timeLimit: 9999, starDrags: [0, 0] });
+  const kindOf = new Map((base.blocks || []).map((x) => [x.id, x.kind]));
   let gestures = 0;
 
   for (const step of base.solution) {
+    /**
+     * A SLIDER is ONE gesture, whatever its route.
+     *
+     * It cannot be stopped in mid-run, so there is nothing to count: the finger
+     * goes down, the block goes until something catches it, the finger lifts.
+     * The waypoint search below assumes a block can be halted anywhere along its
+     * path and, faced with one that cannot, falls back on its "advance one
+     * notch" safety over and over — measured at 40 to 52 gestures on levels that
+     * really take a little under thirty. That number sets the star thresholds
+     * and the move limit, so overcounting it hands the player three stars for
+     * nothing.
+     */
+    if (kindOf.get(step.id) === KIND.SLIDE) {
+      const last = step.path[step.path.length - 1];
+      b.dragTowards(step.id, last.x, last.y);
+      if (step.gate && b.blocks.has(step.id)) {
+        const [dx, dy] = EXIT_VECTORS[step.gate];
+        b.step(step.id, dx, dy);
+      }
+      gestures++;
+      b.endGesture(true);
+      continue;
+    }
+
     const path = step.path;
     const last = path.length - 1;
     let pos = 0;
@@ -797,8 +822,8 @@ export function build(n) {
     const crossing = { used: false, victim: null, blocker: null, pocket: null };
     const byId = new Map(blocks.map((b) => [b.id, b]));
     const perGate = new Map(gates.map((g) => [g, 0]));
-    const placedPerKind = { [KIND.RAIL]: 0, [KIND.ANCHOR]: 0, [KIND.BULKY]: 0 };
-    const ceiling = { [KIND.RAIL]: p.rails, [KIND.ANCHOR]: p.anchors, [KIND.BULKY]: p.bulky };
+    const placedPerKind = { [KIND.RAIL]: 0, [KIND.ANCHOR]: 0, [KIND.BULKY]: 0, [KIND.SLIDE]: 0 };
+    const ceiling = { [KIND.RAIL]: p.rails, [KIND.ANCHOR]: p.anchors, [KIND.BULKY]: p.bulky, [KIND.SLIDE]: p.sliders };
 
     for (let i = 0; i < p.blockCount; i++) {
       // Several attempts per block: we keep the first one that pushes the block
@@ -843,6 +868,7 @@ export function build(n) {
         const gateAxis = gate.side === 'left' || gate.side === 'right' ? 'h' : 'v';
         const available = (k) => placedPerKind[k] < ceiling[k];
         const special =
+          available(KIND.SLIDE) && rng() < 0.45 ? KIND.SLIDE :
           available(KIND.ANCHOR) && rng() < 0.4 ? KIND.ANCHOR :
           available(KIND.RAIL) && rng() < 0.55 ? KIND.RAIL :
           available(KIND.BULKY) && rng() < 0.5 ? KIND.BULKY :
@@ -859,7 +885,21 @@ export function build(n) {
         const [sx, sy] = EXIT_VECTORS[gate.side];
 
         for (let r = 0; r < steps; r++) {
-          const all = special === KIND.ANCHOR ? [[-sx, -sy]]
+          /**
+           * A SLIDER walks back the way an anchor does — one straight line,
+           * directly away from its gate — and for a reason worth spelling out.
+           *
+           * The backward walk has to be the exact INVERSE of what the block will
+           * do. A slider does not advance a cell, it runs until something stops
+           * it, so every intermediate stop in its solution would need a blocker
+           * standing there at that moment. The walk cannot promise that: the
+           * cell it just vacated is by definition empty.
+           *
+           * One straight line is therefore the only shape that is always valid,
+           * and it reads well: the block sits at the far end of a corridor and
+           * goes out in a single glide.
+           */
+          const all = (special === KIND.ANCHOR || special === KIND.SLIDE) ? [[-sx, -sy]]
             : axis === 'h' ? [[1, 0], [-1, 0]]
             : axis === 'v' ? [[0, 1], [0, -1]]
             : [[1, 0], [-1, 0], [0, 1], [0, -1]];

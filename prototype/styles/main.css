@@ -1614,3 +1614,23 @@ body { display: grid; place-items: center; }
 .gate-bottom .gate-wait { top: -7px;    left: 50%; transform: translateX(-50%); }
 .gate-left .gate-wait   { right: -7px;  top: 50%;  transform: translateY(-50%); }
 .gate-right .gate-wait  { left: -7px;   top: 50%;  transform: translateY(-50%); }
+
+/* Bloc glissant : trois traînées, comme quelque chose qu'on vient de lâcher.
+   Volontairement pas une flèche — la barre d'un rail dit quel axe, la flèche
+   d'une ancre dit quel sens ; un glissant est libre dans les quatre. Ce qui le
+   distingue, c'est qu'il ne s'arrête pas où on le lâche, donc la marque doit
+   parler de mouvement et non de cap. */
+.block-slide {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46%;
+  height: 26%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background:
+    linear-gradient(to right, transparent 0 4%,  rgba(255,255,255,.62) 4% 34%,  transparent 34%) 0 12% / 100% 16% no-repeat,
+    linear-gradient(to right, transparent 0 20%, rgba(255,255,255,.72) 20% 62%, transparent 62%) 0 50% / 100% 16% no-repeat,
+    linear-gradient(to right, transparent 0 4%,  rgba(255,255,255,.62) 4% 34%,  transparent 34%) 0 88% / 100% 16% no-repeat;
+  filter: drop-shadow(0 1px 0 rgba(40, 28, 34, .18));
+}

@@ -152,6 +152,12 @@ export function curve(n) {
      */
     oneWay: R.oneWay ? ramp(R.oneWay) : 0,
     /**
+     * SLIDING blocks: pushed, they run until something stops them. The other
+     * kinds restrict where a block may GO; this one takes away the choice of
+     * where it STOPS.
+     */
+    sliders: R.sliders ? ramp(R.sliders) : 0,
+    /**
      * Gates that stay SHUT until a number of blocks have left. Read off the
      * reference solution, so they never lock a level — see `shutterGates`.
      */

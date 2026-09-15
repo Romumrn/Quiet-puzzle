@@ -64,7 +64,7 @@ for (const R of todo) {
   const levels = [];
   for (let n = first; n <= last; n++) levels.push(getLevel(n));
 
-  const r = writeJson(realmFile(R.id), { realm: R.id, name: R.name.en, levels });
+  const r = writeJson(realmFile(R.id), { realm: R.id, name: R.name, levels });
   total += r.size;
   const drags = levels.map((L) => L.minDrags);
   for (const L of levels) {
@@ -95,7 +95,7 @@ const index = {
     // All languages travel in the catalogue. The interface then knows nothing
     // about the generator and can translate itself, while a realm added without
     // a translation falls back cleanly to English.
-    name: R.name.en,
+    name: R.name,
     difficulty: R.difficulty,
     introduces: R.introduces,
     hue: R.hue,

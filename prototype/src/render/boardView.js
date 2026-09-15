@@ -296,6 +296,21 @@ export class BoardView {
       node.appendChild(rail);
     }
 
+    /**
+     * Slider: three trailing streaks, like something that has just been let go
+     * of.
+     *
+     * Deliberately NOT an arrow. A rail's bar says which axis, an anchor's arrow
+     * says which way — both are about DIRECTION, and a slider is free in all
+     * four. What sets it apart is that it does not stop where you let go, so the
+     * mark has to read as motion rather than as a heading.
+     */
+    if (b.kind === KIND.SLIDE) {
+      const trail = document.createElement('u');
+      trail.className = 'block-slide';
+      node.appendChild(trail);
+    }
+
     // Anchor: an arrow towards its gate. The rail shows an axis and reads both
     // ways; the anchor has only one, and that is precisely what sets it apart —
     // so the mark must point, not cross.

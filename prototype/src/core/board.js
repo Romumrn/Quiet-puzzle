@@ -148,6 +148,60 @@ export class Board {
    * through a gate.
    * @returns {{ok:boolean, event?:object, reason?:string}}
    */
+  /**
+   * Where a sliding block ends up when pushed this way.
+   *
+   * It runs until the next cell is not free, and cannot be stopped short. The
+   * return says whether the run carries it OUT — a slider that reaches the edge
+   * with a gate that takes it leaves, and one that reaches the edge without a
+   * gate simply stops against the wall.
+   *
+   * Written here rather than as a loop inside `step` because three callers need
+   * the same answer and must agree exactly: the engine when the finger lets go,
+   * the solver when it enumerates where a block can go, and the generator when
+   * it walks one backwards.
+   *
+   * @returns {{x:number, y:number, leaves:boolean, gate:object|null, moved:boolean}}
+   */
+  slideTarget(block, dx, dy) {
+    const home = { x: block.x, y: block.y };
+    let steps = 0;
+    // 40 is past any board this game will ever have; it only stops a runaway
+    // loop if the occupancy map is ever inconsistent.
+    for (let i = 0; i < 40; i++) {
+      const target = block.absolute().map(([x, y]) => [x + dx, y + dy]);
+      if (target.some(([x, y]) => !this.inside(x, y))) {
+        const gate = this._gateFor(block, dx, dy);
+        const leaves = !!gate && this.pathClear(block, dx, dy);
+        /**
+         * The gate travels with the answer, and it has to.
+         *
+         * It can only be known from where the run ENDS — at the edge — and the
+         * caller is standing where the run began, several cells back, where
+         * there is no gate to find. Leaving it to be recomputed there was
+         * exactly the bug: the solver saw a slider reach the boundary, asked its
+         * own position for the gate, got nothing, and never recorded the exit.
+         * Levels it had a solution for came back unsolvable.
+         */
+        const at = { x: block.x, y: block.y, leaves, gate: leaves ? gate : null, moved: steps > 0 };
+        block.x = home.x; block.y = home.y;
+        this._reindex();
+        return at;
+      }
+      if (!this.pathClear(block, dx, dy)) break;
+      block.x += dx; block.y += dy;
+      // The occupancy map has to follow, or the next `pathClear` reads the block
+      // at the cells it has just left and the run walks straight through
+      // whatever stands in front of it.
+      this._reindex();
+      steps++;
+    }
+    const at = { x: block.x, y: block.y, leaves: false, gate: null, moved: steps > 0 };
+    block.x = home.x; block.y = home.y;
+    this._reindex();
+    return at;
+  }
+
   step(id, dx, dy) {
     const block = this.blocks.get(id);
     if (!block) return { ok: false, reason: 'unknown' };
@@ -168,6 +222,25 @@ export class Board {
       const gate = this._gateFor(block, dx, dy);
       if (!gate) return { ok: false, reason: 'wall' };
       return { ok: true, event: this._exit(block, gate, dx, dy) };
+    }
+
+    /**
+     * A SLIDER does not advance one cell, it runs. The whole run is a single
+     * `move` event carrying the final position — which is also what it should
+     * look like, one uninterrupted glide rather than a stutter of cells.
+     */
+    if (block.kind === KIND.SLIDE) {
+      const to = this.slideTarget(block, dx, dy);
+      if (to.leaves) {
+        block.x = to.x; block.y = to.y;
+        this._reindex();
+        const gate = this._gateFor(block, dx, dy);
+        return { ok: true, event: this._exit(block, gate, dx, dy) };
+      }
+      if (!to.moved) return { ok: false, reason: 'occupied' };
+      block.x = to.x; block.y = to.y;
+      this._reindex();
+      return { ok: true, event: { type: 'move', id, x: block.x, y: block.y } };
     }
 
     block.x += dx;
@@ -291,8 +364,29 @@ export class Board {
       let advanced = false;
       for (const [dx, dy] of attempts) {
         if (dx === 0 && dy === 0) continue;
+        const before = Math.abs(ex) + Math.abs(ey);
         const r = this.step(id, dx, dy);
-        if (r.ok) { events.push(r.event); advanced = true; if (r.event.type === 'exit') return { events, exited: true }; break; }
+        if (!r.ok) continue;
+        events.push(r.event);
+        advanced = true;
+        if (r.event.type === 'exit') return { events, exited: true };
+
+        /**
+         * A SLIDER cannot be stopped short, so it will happily overshoot the
+         * point being dragged to — and then the next pass, aiming back the other
+         * way, overshoots again. Left alone the loop rocks the block between two
+         * walls until it runs out of steps.
+         *
+         * So a slide that did not bring it CLOSER ends the gesture. Aiming at a
+         * spot a slider cannot stop on is not an error to report, it is simply a
+         * pull that achieves nothing.
+         */
+        const now = this.blocks.get(id);
+        if (now && now.kind === KIND.SLIDE) {
+          const after = Math.abs(targetX - now.x) + Math.abs(targetY - now.y);
+          if (after >= before) return { events, exited: false };
+        }
+        break;
       }
       if (!advanced) break;
     }
