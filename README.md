@@ -18,17 +18,17 @@ A block follows your finger one square at a time and stops at the first obstacle
 
 In the way: sliding blocks that move on only one axis, anchors that only advance toward their door, sealed blocks you have to route around, locks that open after a certain number of exits, bulky blocks that cost double at the door, bicolor blocks that hesitate between two exits, a key that opens every lock at once, and doors with limited capacity—sending the wrong block there wastes space.
 
-Eighteen worlds with twenty levels each—360 boards. Each world changes colors, introduces something new, and tightens the puzzle.
+Fifty worlds with twenty levels each—1000 boards. Each world changes colors, introduces something new, and tightens the puzzle.
 
 The game supports French, English, Spanish, Italian, and Chinese, and an option restores the original color symbols for players who cannot rely on color alone.
 
 | Board | Map | Profile |
 |---|---|---|
-| <img src="media/jeu.png" width="230"> | <img src="media/carte.png" width="230"> | <img src="media/profil.png" width="230"> |
+| <img src="media/board.png" width="230"> | <img src="media/map.png" width="230"> | <img src="media/profile.png" width="230"> |
 
 | Cleared board | Menu | Level editor |
 |---|---|---|
-| <img src="media/reussite.png" width="230"> | <img src="media/menu.png" width="230"> | <img src="media/editeur.png" width="230"> |
+| <img src="media/result.png" width="230"> | <img src="media/menu.png" width="230"> | <img src="media/editor.png" width="230"> |
 
 ## Repository
 
@@ -79,7 +79,7 @@ Regenerates music and chimes. The generation is seeded, so the result is identic
 node tools/captures.mjs
 ```
 
-Updates the images in this README by driving Chrome in headless mode. Every capture starts from a fabricated save and a specific level, never from a manually played session, so the screenshots stay current after UI changes.
+Updates the images in this README by driving Chrome in headless mode over a throwaway local server. Every capture starts from a fabricated save and a specific level, never from a manually played session, so the screenshots stay current after UI changes.
 
 ## Publish
 
