@@ -34,6 +34,20 @@
  * their own — see `relentless`, which is what realm 30 onwards should use.
  */
 
+/**
+ * EVERY tier is curated.
+ *
+ * `curve(n)` ramps the quantities across a realm honestly, but it cannot promise
+ * the RESULT: generation searches random grids and what comes out scatters.
+ * Realm 3 shipped as 13 13 13 12 13 13 15 13 16 13 18 20 14 16 15 18 17 17 15 22
+ * — a staircase with its steps out of order, where level 12 is harder than 14
+ * and the player feels it.
+ *
+ * Curation generates a realm's twenty levels, MEASURES them, and orders them by
+ * what they turned out to be: ascending, the hardest kept last, and one easy
+ * level dropped back in at random inside the run so the climb has somewhere to
+ * breathe. It is what makes a thousand levels read as one curve.
+ */
 export const TIERS = {
   /**
    * No capacity on the gates at all (`margin: null`). Nothing can be done
@@ -41,6 +55,7 @@ export const TIERS = {
    * where the player is learning what a gate is.
    */
   tutorial: {
+    curated: true,
     margin: null,
     jokers: 0,
     colorSeal: false,
@@ -49,6 +64,7 @@ export const TIERS = {
 
   /** Capacity arrives, with one slot of slack: a mistake is survivable. */
   gentle: {
+    curated: true,
     margin: 1,
     jokers: 0,
     colorSeal: false,
@@ -60,12 +76,14 @@ export const TIERS = {
    * and the tier a realm gets when it names none.
    */
   steady: {
+    curated: true,
     margin: 0,
     minDrags: null,
   },
 
   /** Baseline severity, with the grid filled harder and large pieces allowed. */
   dense: {
+    curated: true,
     margin: 0,
     jokers: 1,
     colorSeal: false,
@@ -79,6 +97,7 @@ export const TIERS = {
    * what climbs from one realm to the next inside this tier.
    */
   demanding: {
+    curated: true,
     margin: 0,
     largeShapes: true,
     colorSeal: true,
@@ -91,6 +110,7 @@ export const TIERS = {
    * tight corridors. These ten realms all carried these seven values inline.
    */
   punishing: {
+    curated: true,
     margin: 0,
     density: [0.22, 0.28],
     wideGateRatio: 0.12,
@@ -141,6 +161,33 @@ export const TIERS = {
     jokers: 0,
     demandTarget: 140,
     minDrags: [26, 30],
+    /**
+     * NO PARKING on this tier, and the measurement is why.
+     *
+     * Built as a real realm (10x12, 30-39 blocks) with `parking: [1, 1]`, the
+     * generator delivered it on ZERO levels out of twenty. Dropping the density
+     * to `[0.18, 0.23]` got one out of twenty — and cost the whole difficulty
+     * gain, back to 22-29 gestures, the level of the realms already shipped.
+     *
+     * The two levers fight: a gesture floor wants blocks on the board, a park
+     * wants an empty pocket to put one in. `injectParking` works on the lighter
+     * realms — three grids in eight on realm 2 — and cannot work here, because
+     * it moves a block into a finished grid and a finished dense grid has
+     * nowhere free.
+     *
+     * Parking on a full board needs the walk itself to cross an earlier block,
+     * so the generator lays the remaining pieces AROUND the park and leaves the
+     * pocket on purpose. Until then this tier is the long, dense one, and
+     * parking belongs to a lighter realm.
+     */
+    parking: null,
+    /**
+     * Twenty levels generated as a pool, measured, then ordered — see
+     * `curateRealm`. The quantity ramps are honest but the RESULT scatters, and
+     * on a realm built around a new mechanic a level that is easier than the one
+     * before it reads as the mechanic failing rather than as luck.
+     */
+    curated: true,
   },
 };
 

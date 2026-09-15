@@ -39,6 +39,16 @@ export class Board {
     this.exited = [];          // ids that left, in order
     this.gameState = GameState.PLAYING;
 
+    /**
+     * ONE-WAY CELLS. `level.oneWay` is a list of `{x, y, dx, dy}`: a block
+     * standing on that cell may only move that way.
+     *
+     * Kept as a map rather than scanned, because `acceptsDirection` runs inside
+     * the solver's breadth-first walk — the hottest loop in the whole project.
+     */
+    this.arrows = new Map();
+    for (const a of level.oneWay || []) this.arrows.set(this._key(a.x, a.y), [a.dx, a.dy]);
+
     this._occupancy = new Map();
     this._reindex();
   }
@@ -91,6 +101,23 @@ export class Board {
     if (block.kind === KIND.ANCHOR && block.dir) {
       const [ax, ay] = SIDES[block.dir];
       return dx === ax && dy === ay;
+    }
+    /**
+     * A ONE-WAY cell commits whatever stands on it. Enter it and the only way
+     * out is the way the arrow points — so a corridor can be entered from the
+     * wrong end and become a trap, which is a spatial question rather than a
+     * counting one.
+     *
+     * Checked on EVERY cell the block covers, not just its anchor cell: a
+     * four-cell bar lying across an arrow is held by it exactly as a single cell
+     * would be, and letting the rest of the piece ignore it would read as the
+     * rule breaking at random.
+     */
+    if (this.arrows.size) {
+      for (const [cx, cy] of block.absolute()) {
+        const arrow = this.arrows.get(this._key(cx, cy));
+        if (arrow && (arrow[0] !== dx || arrow[1] !== dy)) return false;
+      }
     }
     return true;
   }
@@ -185,6 +212,18 @@ export class Board {
    * generator.
    */
   acceptsColor(gate, block) {
+    /**
+     * A SHUTTERED gate: closed until `opensAfter` blocks have left the grid.
+     *
+     * Checked before the colour, and before the joker's free pass — a joker
+     * leaves by any gate that is OPEN, and letting it through a shut one would
+     * make the whole mechanic a suggestion.
+     *
+     * The count is `exited.length`, which the solver's state key already
+     * distinguishes: two states holding the same blocks have necessarily seen
+     * the same number leave, so nothing had to be added to it.
+     */
+    if (gate.opensAfter && this.exited.length < gate.opensAfter) return false;
     if (block.kind === KIND.JOKER) return true;
     const gateColors = colorsOf(gate);
     return colorsOf(block).some((c) => gateColors.includes(c));
@@ -378,13 +417,27 @@ export class Board {
 
       const snap = this.snapshot();
       for (const pos of rawPath.slice(1)) this.dragTowards(step.id, pos.x, pos.y);
-      let leaves = !this.blocks.has(step.id);
-      if (!leaves) {
-        const [dx, dy] = SIDES[step.gate];
-        leaves = this.step(step.id, dx, dy).ok;
+
+      /**
+       * A step with NO GATE is a PARK: the block is moved aside so another can
+       * pass, and it does not leave. The hint is then "put this one there",
+       * which is exactly the move the player is missing — so it counts as
+       * usable as soon as the block actually reached the spot.
+       */
+      let usable;
+      if (!step.gate) {
+        const moved = this.blocks.get(step.id);
+        const target = rawPath[rawPath.length - 1];
+        usable = !!moved && moved.x === target.x && moved.y === target.y;
+      } else {
+        usable = !this.blocks.has(step.id);
+        if (!usable) {
+          const [dx, dy] = SIDES[step.gate];
+          usable = this.step(step.id, dx, dy).ok;
+        }
       }
       this.restore(snap);
-      if (leaves) return { id: step.id, gate: step.gate, path: rawPath };
+      if (usable) return { id: step.id, gate: step.gate ?? null, path: rawPath };
     }
     return null;
   }

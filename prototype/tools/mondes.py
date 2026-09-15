@@ -2,8 +2,13 @@
 #
 # La couleur change A CHAQUE monde, sur un cycle court de dix teintes :
 # rose, violet, bleu, bleu ciel, vert, jaune, doré, orange, rouge, blanc.
-# Trente mondes font donc exactement trois tours, et le trentième (blanc)
-# revient naturellement sur le rose du premier.
+# Cinquante mondes font donc exactement cinq tours, et chaque dixième monde
+# (blanc) revient naturellement sur le rose du suivant.
+#
+# Les mondes 31 à 50 (quatrième et cinquième tours) reprennent le sujet en
+# plantes à fleurs de plus en plus exotiques (orchidée, passiflore, monstera,
+# oiseau de paradis, bananier...), en gardant le même nom que REALMS et la
+# même teinte de papier que leur position dans le cycle.
 #
 # Colonnes : clé, nom affiché, sujet à dessiner, palette des fleurs,
 #            puis (couleur du papier en RVB, teinte HSL du monde).
@@ -61,4 +66,26 @@ MONDES = [
     ("28", "Copper Beech",    "small copper beech leaves",                   "copper and warm orange pastel colours",      ORANGE),
     ("29", "Crimson Vine",    "small crimson vine leaves",                   "crimson and dusty red pastel colours",       ROUGE),
     ("30", "Silver Mist",     "tiny silver grey seed pods",                  "silver grey and pale pearl pastel colours",  BLANC),
+    # — quatrième tour : plantes à fleurs exotiques —
+    ("31", "Ivory Magnolia",  "small pink phalaenopsis orchid blossoms",     "soft blush pink and ivory pastel colours",   ROSE),
+    ("32", "Dusk Iris",       "small violet passionflower blooms",           "soft violet and plum pastel colours",        VIOLET),
+    ("33", "Deep Cornflower", "small blue vanda orchid flowers",             "deep cornflower blue pastel colours",        BLEU),
+    ("34", "Pale Larkspur",   "small pale blue plumbago flowers",            "pale powder blue pastel colours",            CIEL),
+    ("35", "Moss Cedar",      "small monstera deliciosa leaves",             "soft moss green pastel colours",             VERT),
+    ("36", "Late Mimosa",     "small yellow heliconia flowers",              "warm mimosa yellow pastel colours",          JAUNE),
+    ("37", "Bronze Ginkgo",   "small golden banana flower bracts",           "bronze and warm gold pastel colours",        DORE),
+    ("38", "Ember Maple",     "small orange bird of paradise flowers",       "ember orange pastel colours",                ORANGE),
+    ("39", "Garnet Sorrel",   "small red anthurium flowers",                 "garnet red pastel colours",                  ROUGE),
+    ("40", "Frost Aster",     "small white frangipani flowers",              "frosted white pastel colours",               BLANC),
+    # — cinquième tour : encore plus exotique —
+    ("41", "Winter Peony",    "small pink torch ginger flowers",             "soft peony pink pastel colours",             ROSE),
+    ("42", "Violet Thistle",  "small violet bougainvillea bracts",           "soft thistle violet pastel colours",         VIOLET),
+    ("43", "Indigo Flax",     "small blue agapanthus flowers",               "indigo blue pastel colours",                 BLEU),
+    ("44", "Glacier Sage",    "small pale lavender blue jacaranda blossoms", "glacier pale blue pastel colours",           CIEL),
+    ("45", "Pine Shadow",     "small tropical areca palm fronds",            "soft pine green pastel colours",             VERT),
+    ("46", "Amber Reed",      "small yellow hibiscus flowers",               "amber yellow pastel colours",                JAUNE),
+    ("47", "Rust Alder",      "small bronze ti plant leaves",                "rust and bronze pastel colours",             DORE),
+    ("48", "Cinder Rowan",    "small orange canna lily flowers",             "cinder orange pastel colours",               ORANGE),
+    ("49", "Crimson Yew",     "small red king protea flowers",               "crimson red pastel colours",                 ROUGE),
+    ("50", "Last Light",      "small white bird of paradise flowers",        "soft ivory white pastel colours",            BLANC),
 ]

@@ -56,6 +56,10 @@ Supabase first, `prototype/levels/` as a seed.
 | Publish to Supabase | `tools/publish-levels.mjs` | needs `SUPABASE_TOKEN`; `--dry-run` prints the SQL |
 | See the whole difficulty curve | `generator/difficulty-map.mjs` | renders all levels as one page — read it before tuning a tier |
 | Add a world (full procedure) | `generator/README.md` | the five files that must agree, and the two traps |
+| Order a world's levels by difficulty | `generator/index.js` | `curateRealm()` — pool, measure, sort, one breather, hardest last |
+| One-way cells | `generator/build.js` `oneWayFrom()` + `board.js` `acceptsDirection()` | arrows read off the reference solution |
+| Gates that open late | `generator/build.js` `shutterGates()` + `board.js` `acceptsColor()` | `gate.opensAfter`, read off the solution |
+| What was measured and rejected | `generator/README.md` | parking on dense boards, doubling back — both with figures |
 | Draw a world's branch image | `prototype/docs/decor-de-la-carte.md` | one row in `mondes.py`, run the script, one CSS rule |
 | Add a block type | 4 files — see the New block section |
 

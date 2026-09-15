@@ -127,6 +127,23 @@ export class BoardView {
       }
     }
 
+    /**
+     * ONE-WAY CELLS. Drawn on the grid layer, under the blocks: the arrow is a
+     * property of the BOARD, not of whatever happens to be standing on it, and
+     * a player has to be able to read it before deciding to move onto it.
+     *
+     * An invisible one-way cell is not a difficulty, it is a bug — the block
+     * simply refuses to move and nothing on screen says why.
+     */
+    for (const a of board.level.oneWay || []) {
+      const cell = document.createElement('div');
+      cell.className = 'one-way';
+      cell.dataset.dir = a.dx === 1 ? 'right' : a.dx === -1 ? 'left' : a.dy === 1 ? 'down' : 'up';
+      cell.setAttribute('aria-hidden', 'true');
+      this.gridLayer.appendChild(cell);
+      this._place(cell, a.x, a.y);
+    }
+
     for (const b of board.blocks.values()) this._createBlock(b);
     this._drawGates();
   }
@@ -159,6 +176,25 @@ export class BoardView {
         : '') + ARROWS[g.side];
       el.appendChild(arrow);
       el.title = t('gate.exit', { color: colorsOf(g).map(colorName).join(' / ') });
+
+      /**
+       * A SHUTTERED gate says how many blocks still have to leave before it
+       * opens, and goes visibly dim while it is closed. Same rule as the
+       * capacity gauge below: a constraint the player cannot see reads as a
+       * broken gate, not as a rule — they drag a block at it, nothing happens,
+       * and there is nothing on screen to explain why.
+       */
+      if (g.opensAfter) {
+        const left = g.opensAfter - this.board.exited.length;
+        el.classList.toggle('gate-shut', left > 0);
+        if (left > 0) {
+          const wait = document.createElement('b');
+          wait.className = 'gate-wait';
+          wait.textContent = left;
+          wait.title = t('gate.shut', { n: left });
+          el.appendChild(wait);
+        }
+      }
 
       // A gate with limited capacity MUST show what it has left: an invisible
       // constraint reads like a bug, not like a rule.

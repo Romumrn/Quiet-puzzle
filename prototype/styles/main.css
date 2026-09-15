@@ -360,6 +360,26 @@ body { display: grid; place-items: center; }
 .realm:nth-child(28) { --branche: url('../images/branches/branche-28.webp'); --papier: #fae8da; }  /* Copper Beech */
 .realm:nth-child(29) { --branche: url('../images/branches/branche-29.webp'); --papier: #fae6e4; }  /* Crimson Vine */
 .realm:nth-child(30) { --branche: url('../images/branches/branche-30.webp'); --papier: #f6f2ec; }  /* Silver Mist */
+.realm:nth-child(31) { --branche: url('../images/branches/branche-31.webp'); --papier: #f8eaee; }  /* Ivory Magnolia */
+.realm:nth-child(32) { --branche: url('../images/branches/branche-32.webp'); --papier: #f0e8f6; }  /* Dusk Iris */
+.realm:nth-child(33) { --branche: url('../images/branches/branche-33.webp'); --papier: #e4e9f6; }  /* Deep Cornflower */
+.realm:nth-child(34) { --branche: url('../images/branches/branche-34.webp'); --papier: #e2eff7; }  /* Pale Larkspur */
+.realm:nth-child(35) { --branche: url('../images/branches/branche-35.webp'); --papier: #e6f2e9; }  /* Moss Cedar */
+.realm:nth-child(36) { --branche: url('../images/branches/branche-36.webp'); --papier: #f7f3db; }  /* Late Mimosa */
+.realm:nth-child(37) { --branche: url('../images/branches/branche-37.webp'); --papier: #f6ecd6; }  /* Bronze Ginkgo */
+.realm:nth-child(38) { --branche: url('../images/branches/branche-38.webp'); --papier: #fae8da; }  /* Ember Maple */
+.realm:nth-child(39) { --branche: url('../images/branches/branche-39.webp'); --papier: #fae6e4; }  /* Garnet Sorrel */
+.realm:nth-child(40) { --branche: url('../images/branches/branche-40.webp'); --papier: #f6f2ec; }  /* Frost Aster */
+.realm:nth-child(41) { --branche: url('../images/branches/branche-41.webp'); --papier: #f8eaee; }  /* Winter Peony */
+.realm:nth-child(42) { --branche: url('../images/branches/branche-42.webp'); --papier: #f0e8f6; }  /* Violet Thistle */
+.realm:nth-child(43) { --branche: url('../images/branches/branche-43.webp'); --papier: #e4e9f6; }  /* Indigo Flax */
+.realm:nth-child(44) { --branche: url('../images/branches/branche-44.webp'); --papier: #e2eff7; }  /* Glacier Sage */
+.realm:nth-child(45) { --branche: url('../images/branches/branche-45.webp'); --papier: #e6f2e9; }  /* Pine Shadow */
+.realm:nth-child(46) { --branche: url('../images/branches/branche-46.webp'); --papier: #f7f3db; }  /* Amber Reed */
+.realm:nth-child(47) { --branche: url('../images/branches/branche-47.webp'); --papier: #f6ecd6; }  /* Rust Alder */
+.realm:nth-child(48) { --branche: url('../images/branches/branche-48.webp'); --papier: #fae8da; }  /* Cinder Rowan */
+.realm:nth-child(49) { --branche: url('../images/branches/branche-49.webp'); --papier: #fae6e4; }  /* Crimson Yew */
+.realm:nth-child(50) { --branche: url('../images/branches/branche-50.webp'); --papier: #f6f2ec; }  /* Last Light */
 
 .realm-label {
   display: flex; align-items: center; gap: 12px;
@@ -1539,3 +1559,58 @@ body { display: grid; place-items: center; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---------------------------------------------------------------------------
+   Sens unique — une case qui ne se quitte que dans un sens.
+   
+   Dessinée sur la grille, sous les blocs : la flèche appartient au plateau et
+   non à ce qui s'y trouve, et le joueur doit pouvoir la lire AVANT de décider
+   d'y entrer. Le chevron est en pur CSS : deux bords d'un carré tourné, ce qui
+   suit la teinte du monde sans demander d'image à charger.
+   --------------------------------------------------------------------------- */
+.one-way {
+  position: absolute;
+  width: var(--cell);
+  height: var(--cell);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  /* Un fond très léger : la case se repère même quand un bloc la couvre à moitié. */
+  background: hsl(var(--h, 345) 45% 62% / 0.10);
+  border-radius: 3px;
+}
+.one-way::after {
+  content: '';
+  width: 34%;
+  height: 34%;
+  border-right: 2.5px solid hsl(var(--h, 345) 45% 46% / 0.62);
+  border-bottom: 2.5px solid hsl(var(--h, 345) 45% 46% / 0.62);
+  border-radius: 0 0 3px 0;
+}
+.one-way[data-dir="right"]::after { transform: rotate(-45deg) translate(-6%, -6%); }
+.one-way[data-dir="left"]::after  { transform: rotate(135deg) translate(-6%, -6%); }
+.one-way[data-dir="down"]::after  { transform: rotate(45deg)  translate(-6%, -6%); }
+.one-way[data-dir="up"]::after    { transform: rotate(-135deg) translate(-6%, -6%); }
+
+/* Porte fermée : elle s'ouvrira après N sorties. Elle reste lisible (couleur,
+   glyphe) mais nettement en retrait — une porte invisible passerait pour une
+   porte cassée. Le compteur dit combien de blocs doivent encore partir. */
+.gate.gate-shut { opacity: .38; filter: saturate(.45); }
+.gate-wait {
+  position: absolute;
+  font: 600 10px/1 system-ui, sans-serif;
+  color: #fff;
+  background: hsl(var(--h, 345) 30% 34% / .9);
+  border-radius: 999px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gate-top .gate-wait    { bottom: -7px; left: 50%; transform: translateX(-50%); }
+.gate-bottom .gate-wait { top: -7px;    left: 50%; transform: translateX(-50%); }
+.gate-left .gate-wait   { right: -7px;  top: 50%;  transform: translateY(-50%); }
+.gate-right .gate-wait  { left: -7px;   top: 50%;  transform: translateY(-50%); }
