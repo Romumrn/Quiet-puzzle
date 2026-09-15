@@ -14,6 +14,7 @@
  *   node tools/publish-levels.mjs --dry-run            # print, send nothing
  *   SUPABASE_TOKEN=sbp_xxx node tools/publish-levels.mjs
  *   SUPABASE_TOKEN=sbp_xxx node tools/publish-levels.mjs --realm 30
+ *   SUPABASE_TOKEN=sbp_xxx node tools/publish-levels.mjs --from 18   # resume
  *
  * The token is a personal access token from
  * https://supabase.com/dashboard/account/tokens. It goes through the Management
@@ -49,7 +50,21 @@ const onlyRealm = args.includes('--realm')
  * at the other. We fill up to a byte budget instead, and a single row that
  * exceeds it still goes out alone rather than being silently dropped.
  */
-const BATCH_BYTES = 20000;
+/**
+ * How much SQL goes in one statement.
+ *
+ * This used to be 20 kB, inherited from a comment in the old `split-realm-sql`
+ * about "the ~24 kB payload limit" — which was the limit of the MCP
+ * `execute_sql` TOOL, not of this endpoint. Nobody had ever checked. At that
+ * size a thousand levels needs some four hundred round trips, which is what ran
+ * the Management API's throttle into the ground.
+ *
+ * So it now starts big and ADAPTS: a batch refused for its size is split in two
+ * and each half retried, down to a single level. The real limit never has to be
+ * known — which is the point, since it is not ours to know and can change.
+ */
+const START_BYTES = Number(args.includes('--batch') ? args[args.indexOf('--batch') + 1] : 0) * 1024
+  || 400000;
 
 // --- SQL literals -----------------------------------------------------------
 
@@ -151,7 +166,22 @@ on conflict (level_code) do update set
 
 // --- Transport --------------------------------------------------------------
 
-function sqlRequest(query) {
+/**
+ * The Management API THROTTLES, and a thousand levels is some four hundred
+ * statements — the payload cap is what forces them to be small and many.
+ *
+ * Fired back to back the run dies around the three hundred and sixtieth with
+ * `429 ThrottlerException`, and every statement after it fails too: nothing
+ * backs off, so the burst never subsides. Hence both halves below — a pause
+ * between statements to stay under the limit, and a retry that waits when the
+ * limit is hit anyway.
+ */
+const PACE_MS = 350;
+const MAX_RETRIES = 6;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function once(query) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({ query });
     const req = https.request({
@@ -167,8 +197,11 @@ function sqlRequest(query) {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) resolve(JSON.parse(data));
-        else reject(new Error(`HTTP ${res.statusCode} : ${data.slice(0, 300)}`));
+        if (res.statusCode >= 200 && res.statusCode < 300) return resolve(JSON.parse(data));
+        const err = new Error(`HTTP ${res.statusCode} : ${data.slice(0, 200)}`);
+        err.status = res.statusCode;
+        err.retryAfter = Number(res.headers['retry-after']) || 0;
+        reject(err);
       });
     });
     req.on('error', reject);
@@ -177,10 +210,30 @@ function sqlRequest(query) {
   });
 }
 
+async function sqlRequest(query) {
+  let wait = 2000;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const out = await once(query);
+      await sleep(PACE_MS);
+      return out;
+    } catch (e) {
+      // Only throttling and transient server errors are worth retrying. A
+      // malformed statement will be just as malformed in ten seconds.
+      const worth = e.status === 429 || (e.status >= 500 && e.status < 600);
+      if (!worth || attempt >= MAX_RETRIES) throw e;
+      const pause = e.retryAfter ? e.retryAfter * 1000 : wait;
+      process.stdout.write(`(throttled, ${Math.round(pause / 1000)}s) `);
+      await sleep(pause);
+      wait = Math.min(wait * 2, 60000);
+    }
+  }
+}
+
 let sent = 0;
 let failed = 0;
 
-async function send(label, sql) {
+async function send(label, sql, splittable = false) {
   if (DRY_RUN) {
     const kb = (Buffer.byteLength(sql) / 1024).toFixed(1);
     console.log(`\n-- ${label} (${kb} kB)\n${sql}`);
@@ -192,6 +245,10 @@ async function send(label, sql) {
     console.log('ok');
     sent++;
   } catch (e) {
+    // A refusal on SIZE is not a failure, it is an instruction to send less —
+    // the caller splits and tries again. Anything else is a real failure.
+    const tooBig = e.status === 413 || /too large|payload|body size/i.test(e.message);
+    if (splittable && tooBig) { console.log('trop gros'); throw e; }
     console.log(`FAILED — ${e.message.slice(0, 160)}`);
     failed++;
   }
@@ -209,9 +266,19 @@ if (!TOKEN && !DRY_RUN) {
 const readJson = (name) => JSON.parse(readFileSync(join(LEVELS_DIR, name), 'utf8'));
 const index = readJson('index.json');
 
-const realms = onlyRealm === null
-  ? index.realms
-  : index.realms.filter((r) => r.id === onlyRealm);
+/**
+ * `--from <id>` skips the realms already in. The import is idempotent, so
+ * replaying them is harmless — it is simply hundreds of statements and several
+ * minutes spent rewriting rows that are already correct, and on an API that
+ * throttles those minutes are the scarce thing.
+ */
+const fromRealm = args.includes('--from') ? Number(args[args.indexOf('--from') + 1]) : null;
+
+const realms = onlyRealm !== null
+  ? index.realms.filter((r) => r.id === onlyRealm)
+  : fromRealm !== null
+    ? index.realms.filter((r) => r.id >= fromRealm)
+    : index.realms;
 
 if (!realms.length) {
   console.error(`No realm ${onlyRealm} in the catalogue.`);
@@ -229,25 +296,37 @@ for (const realm of realms) {
   const levels = data.levels || [];
   const toRow = levelRow(realm.id);
 
-  let batch = [];
-  let bytes = 0;
-
-  const flush = async () => {
-    if (!batch.length) return;
-    const label = `realm ${realm.id} · levels ${batch[0].n}–${batch[batch.length - 1].n}`;
-    await send(label, levelsStatement(batch.map((b) => b.sql)));
-    batch = [];
-    bytes = 0;
+  /**
+   * Send a run of levels, halving it if the endpoint says it is too big.
+   *
+   * Recursive rather than a guessed constant: we do not know this API's payload
+   * limit and have no business hard-coding it. A refusal on size is information,
+   * and splitting on it converges in a couple of steps.
+   */
+  const sendRun = async (run) => {
+    if (!run.length) return;
+    const label = `realm ${realm.id} · levels ${run[0].n}–${run[run.length - 1].n}`;
+    try {
+      await send(label, levelsStatement(run.map((b) => b.sql)), true);
+    } catch (e) {
+      if (run.length === 1) throw e;
+      const half = Math.ceil(run.length / 2);
+      console.log(`  ${label} … too large, splitting`);
+      await sendRun(run.slice(0, half));
+      await sendRun(run.slice(half));
+    }
   };
 
+  let run = [];
+  let bytes = 0;
   for (const lv of levels) {
     const sql = toRow(lv);
     const size = Buffer.byteLength(sql);
-    if (bytes + size > BATCH_BYTES) await flush();
-    batch.push({ n: lv.number, sql });
+    if (run.length && bytes + size > START_BYTES) { await sendRun(run); run = []; bytes = 0; }
+    run.push({ n: lv.number, sql });
     bytes += size;
   }
-  await flush();
+  await sendRun(run);
 }
 
 if (!DRY_RUN) {

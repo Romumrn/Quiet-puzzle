@@ -94,7 +94,12 @@ console.log('\n== La base de niveaux ==');
   check('chaque niveau porte tous les champs du format d\'API',
     incomplets.length === 0, incomplets.slice(0, 5).join(', '));
 
-  const horsMonde = [...niveaux.values()].filter((L) => base.realmOf(L.number).name !== L.realm)
+  // Le catalogue porte les cinq langues — `realmText()` traduit à l'affichage —
+  // tandis que le champ `realm` d'un niveau est, par conception, l'étiquette
+  // ANGLAISE : l'identifiant humain de la donnée, que l'interface ignore. On
+  // compare donc ce qui est comparable.
+  const nomAnglais = (r) => (r && typeof r.name === 'object' ? r.name.en : r?.name);
+  const horsMonde = [...niveaux.values()].filter((L) => nomAnglais(base.realmOf(L.number)) !== L.realm)
     .map((L) => L.number);
   check('chaque niveau est rangé dans le monde que dit l\'index',
     horsMonde.length === 0, horsMonde.slice(0, 5).join(', '));

@@ -33,6 +33,20 @@ const keep = args.includes('--garder');
  */
 const onlyRealm = args.includes('--realm') ? Number(args[args.indexOf('--realm') + 1]) : null;
 
+/**
+ * `--index-only` rewrites the catalogue and nothing else.
+ *
+ * The index is pure metadata — names, hues, palettes, ranges — all of it read
+ * straight from `REALMS`. Nothing in it needs generating, so a change to a realm
+ * NAME should not cost a full rebuild of a thousand grids.
+ *
+ * It exists because that gap bit: the realm names were translated, the realm
+ * FILES were rewritten, and the index was left behind holding the old English
+ * strings. `publish-levels.mjs` reads its names from the index, so Supabase was
+ * handed English-only names and the translations never left the repository.
+ */
+const indexOnly = args.includes('--index-only');
+
 mkdirSync(output, { recursive: true });
 
 const realmFile = (id) => `monde-${id}.json`;
@@ -44,14 +58,14 @@ const writeJson = (name, data) => {
   return { name, size: json.length, kept: false };
 };
 
-const todo = onlyRealm === null ? REALMS : REALMS.filter((R) => R.id === onlyRealm);
-if (!todo.length) {
+const todo = indexOnly ? [] : onlyRealm === null ? REALMS : REALMS.filter((R) => R.id === onlyRealm);
+if (!todo.length && !indexOnly) {
   console.error(`No realm ${onlyRealm} in REALMS.`);
   process.exit(1);
 }
 
-console.log(onlyRealm === null
-  ? `Generating ${TOTAL_LEVELS} levels…`
+console.log(indexOnly ? 'Rewriting the catalogue only…'
+  : onlyRealm === null ? `Generating ${TOTAL_LEVELS} levels…`
   : `Generating realm ${onlyRealm} (${todo[0].name.en})…`);
 
 const rows = [];
@@ -108,7 +122,7 @@ const index = {
 // A partial build must not rewrite the index: it still describes the realms it
 // did not regenerate, and overwriting it from REALMS alone would be fine today
 // but silently wrong the moment the two drift.
-const r = onlyRealm === null ? writeJson('index.json', index) : { size: 0, name: 'index.json', kept: true };
+const r = (onlyRealm === null || indexOnly) ? writeJson('index.json', index) : { size: 0, name: 'index.json', kept: true };
 total += r.size;
 
 const ko = (n) => `${(n / 1024).toFixed(0)} Ko`;
