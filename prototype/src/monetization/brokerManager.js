@@ -2,10 +2,11 @@
  * AdBroker — equivalent of Scripts/Monetization/AdManager.cs (tech doc §5.2)
  *
  * A façade over the ad network, callers never see which one is behind it.
- * Inside the packaged Android app (`isNative()`), `showInterstitial()` and
- * `showRewarded()` delegate to admob.js — a real AdMob SDK call. On the
- * published web site, ads are SIMULATED by a full-screen panel with a
- * countdown (`_play()`), so that placement and pacing can still be judged in
+ * Inside the packaged Android app (`isNative()`), `showInterstitial()`,
+ * `showRewarded()` and the banner delegate to admob.js — a real AdMob SDK
+ * call. On the published web site, ads are SIMULATED: interstitial/rewarded
+ * by a full-screen panel with a countdown (`_play()`), the banner by a plain
+ * placeholder `<div>` — so that placement and pacing can still be judged in
  * a browser, with no ad network involved.
  *
  * Pacing lives in brokerPolicy.js (pure logic, tested).
@@ -110,9 +111,15 @@ export class AdBroker {
   // --- Banner --------------------------------------------------------------
 
   updateBanner(screen) {
-    if (!this.banner) return;
     const visible = this.policy.canShowBanner(screen, currency.hasRemovedAds());
-    this.banner.hidden = !visible;
+    // Kept even natively: `hidden` here only drives the space reserved for
+    // the banner (main.css `.app.with-banner`) — the placeholder itself is
+    // made invisible on native (`.native-app .banner`), the real ad being a
+    // native view AdMob draws on top of the WebView, not DOM content.
+    if (this.banner) this.banner.hidden = !visible;
+    if (isNative()) {
+      if (visible) admob.showBanner(); else admob.hideBanner();
+    }
     if (visible) track('ad_impression', { adType: 'banner', placement: PLACEMENT.BANNER, screen });
   }
 

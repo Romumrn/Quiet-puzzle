@@ -1277,6 +1277,11 @@ body { display: grid; place-items: center; }
   font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
 }
 .app.with-banner .screen { padding-bottom: 62px; }
+/* Native app: this placeholder still drives `.with-banner` above (space for
+   the banner), but the banner itself is a native view AdMob draws on top of
+   the WebView — this `<div>` must stay invisible so its dev-only placeholder
+   text never shows underneath or alongside the real ad. */
+.native-app .banner { visibility: hidden; }
 .banner-result {
   position: static; transform: none; width: auto; margin-top: 18px;
   border: 1px solid var(--line); border-radius: 12px;
