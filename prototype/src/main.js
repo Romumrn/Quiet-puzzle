@@ -804,9 +804,9 @@ function buildLanguageChoice() {
   select.append(...i18n.LANGUAGES.map((L) => {
     const o = document.createElement('option');
     o.value = L.code;
-    // Each language is written IN that language: it is the only label a player
-    // lost in a language they cannot read will recognise.
-    o.textContent = L.name;
+    // Each language is written IN that language, flag first: recognisable even
+    // to a player lost in a language they cannot read.
+    o.textContent = `${L.flag} ${L.name}`;
     return o;
   }));
   select.value = i18n.language();

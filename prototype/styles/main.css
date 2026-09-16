@@ -871,8 +871,8 @@ body { display: grid; place-items: center; }
 /* Choix de la langue, dans le menu utilisateur. */
 .user-langue { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
 .user-langue > span { color: var(--ink-soft); font-size: 14px; }
-.langue-choix { display: flex; }
-.langue-select {
+.language-choice { display: flex; }
+.language-select {
   appearance: none;
   padding: 6px 30px 6px 12px;
   background: var(--ground) no-repeat right 11px center / 9px;
@@ -884,7 +884,7 @@ body { display: grid; place-items: center; }
   cursor: pointer;
   transition: border-color 0.16s ease;
 }
-.langue-select:hover, .langue-select:focus-visible { border-color: var(--accent); outline: none; }
+.language-select:hover, .language-select:focus-visible { border-color: var(--accent); outline: none; }
 
 /* La tuile « pièces » du menu est un bouton : elle ouvre la boutique. Elle garde
    l'allure des deux autres tuiles, avec juste ce qu'il faut pour qu'on devine

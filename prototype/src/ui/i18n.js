@@ -14,11 +14,11 @@
 import * as store from '../data/save.js';
 
 export const LANGUAGES = [
-  { code: 'fr', name: 'Français' },
-  { code: 'en', name: 'English' },
-  { code: 'es', name: 'Español' },
-  { code: 'it', name: 'Italiano' },
-  { code: 'zh', name: '中文' },
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'en', name: 'English', flag: '🇬🇧' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'it', name: 'Italiano', flag: '🇮🇹' },
+  { code: 'zh', name: '中文', flag: '🇨🇳' },
 ];
 
 const STRINGS = {
@@ -976,7 +976,7 @@ const STRINGS = {
   },
 };
 
-const DEFAULT_LANG = 'fr';
+const DEFAULT_LANG = 'en';
 
 /** The browser's language, if the game speaks it. */
 function browserLanguage() {
