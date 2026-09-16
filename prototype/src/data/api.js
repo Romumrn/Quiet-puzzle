@@ -172,7 +172,14 @@ export async function syncFromCloud() {
     sb.supabase.from('user_progress').select('stars, best_moves, levels(sequence_number)').eq('user_id', userId).eq('mode_id', CLASSIC_MODE_ID),
     sb.supabase.from('user_mode_progress').select('highest_unlocked_number').eq('user_id', userId).eq('mode_id', CLASSIC_MODE_ID).maybeSingle(),
   ]);
-  if (profileRes.error || progressRes.error || modeRes.error) return;
+  // Each of the three queries is merged independently: on a cold start the
+  // network is sometimes not fully up yet, and one query failing (typically
+  // a timeout) used to blank the whole sync — leaving a signed-in player
+  // stuck on stale local progress until the next app restart, with no retry
+  // in between.
+  if (profileRes.error) console.error('syncFromCloud: profiles query failed', profileRes.error);
+  if (progressRes.error) console.error('syncFromCloud: user_progress query failed', progressRes.error);
+  if (modeRes.error) console.error('syncFromCloud: user_mode_progress query failed', modeRes.error);
 
   const d = store.load();
 
