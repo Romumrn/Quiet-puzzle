@@ -22,6 +22,7 @@
  */
 
 import { supabase } from '../data/supabaseClient.js';
+import { initSession } from '../data/auth.js';
 import { t } from './i18n.js';
 import { isNative } from '../native/capacitor.js';
 import { GoogleAuth } from '../../vendor/capacitor-google-auth.esm.js';
@@ -158,6 +159,12 @@ export function createLoginScreen(onOfflineContinue) {
 
   offlineBtn?.addEventListener('click', () => {
     container.remove();
+    // Fire-and-forget: gives this player a real (anonymous) Supabase identity
+    // in the background, so the progress they make without an account is
+    // backed up server-side rather than living only in this device's
+    // localStorage — see initSession()'s own doc for why. Never awaited: the
+    // "no friction" offline route must not wait on the network.
+    initSession();
     onOfflineContinue?.();
   });
 
@@ -190,6 +197,12 @@ async function signInGoogleNative(buttons, setStatus) {
     setStatus('loading', t('login.connecting'));
     buttons.forEach((btn) => { if (btn) btn.disabled = true; });
 
+    // Captured BEFORE signInWithIdToken: that call replaces the current
+    // session, so this is the only chance to still see the anonymous user
+    // it is about to leave behind.
+    const { data: { session: prevSession } } = await supabase.auth.getSession();
+    const prevUser = prevSession?.user;
+
     await ensureGoogleAuthReady();
     const googleUser = await GoogleAuth.signIn();
     const idToken = googleUser?.authentication?.idToken;
@@ -197,6 +210,15 @@ async function signInGoogleNative(buttons, setStatus) {
 
     const { error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: idToken });
     if (error) throw error;
+
+    if (prevUser?.is_anonymous) {
+      // Best-effort: a signed-in player must never be blocked from playing
+      // by a merge failure. Progress made under the old anonymous id would
+      // simply stay there, unmerged, rather than being lost.
+      await supabase.rpc('merge_anonymous_progress', { p_anonymous_user_id: prevUser.id }).catch((mergeErr) => {
+        console.error('merge_anonymous_progress failed:', mergeErr?.message || mergeErr);
+      });
+    }
     // No navigation happens here: `onAuthStateChange` in main.js removes this
     // screen and starts the game once the SIGNED_IN event lands.
   } catch (err) {

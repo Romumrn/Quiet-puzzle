@@ -81,6 +81,7 @@ const PAUSE_AFTER_ARPEGGIO = 420;   // ms, between the arpeggio and the screen
 /** In the background we do not wait: timers there are throttled to one second. */
 const pause = (ms) => (document.hidden ? Promise.resolve() : new Promise((r) => setTimeout(r, ms)));
 let gestureRemembered = false;   // one snapshot per gesture, for undo
+let directionBlockShown = false; // one "wrong way" toast per gesture, not one per pointermove
 let hammerMode = false;
 
 const audio = new AudioManager();
@@ -366,12 +367,30 @@ function onRefused(id) {
   else if (b.kind === KIND.LOCKED) screens.toast(t('toast.locked', { what: conditionLabel(b.condition, board) }));
 }
 
+/**
+ * A rail/anchor/one-way block nudged the way it refuses. Shown once per
+ * gesture (see `directionBlockShown`): a pointer drag fires this on every
+ * move event, and repeating the sound and toast for as long as the finger
+ * stays pressed the wrong way would turn one honest "no" into a buzzer.
+ */
+function onDirectionBlocked(id, reason) {
+  if (directionBlockShown) return;
+  directionBlockShown = true;
+  view.bump(id);
+  haptics.refused();
+  audio.blocked();
+  screens.toast(t(`toast.blocked.${reason}`), 1400, 'alert');
+}
+
 /** One finger movement: returns true if the block actually advanced. */
 function onDrag(id, x, y) {
   if (busy || board.gameState !== GameState.PLAYING) return false;
   const before = gestureRemembered ? null : board.snapshot();
-  const { events } = board.dragTowards(id, x, y);
-  if (!events.length) return false;
+  const { events, blockedReason } = board.dragTowards(id, x, y);
+  if (!events.length) {
+    if (blockedReason) onDirectionBlocked(id, blockedReason);
+    return false;
+  }
   for (const e of events) if (e.type === 'exit') { audio.exit(); haptics.tick(); }
   if (!gestureRemembered) { board.remember(before); gestureRemembered = true; }
   view.apply(events);
@@ -382,6 +401,7 @@ function onDrag(id, x, y) {
 /** End of gesture: this is where a move is spent. */
 async function onEnd(id, hasMoved) {
   gestureRemembered = false;
+  directionBlockShown = false;
   updateBoosters();
   if (!hasMoved || board.gameState !== GameState.PLAYING) return;
   const events = board.endGesture(true);
@@ -1530,16 +1550,28 @@ function refreshDebug() {
 
   // Supabase session check. No session means the login screen, which offers an
   // offline route: this game must stay playable without an account.
-  const { data: { session } } = await supabase.auth.getSession();
+  //
+  // Both calls are best-effort, like every other Supabase access in the app
+  // (see supabaseClient.js): a slow or failing network must never leave the
+  // player stuck looking at the menu's static HTML placeholders ("0 étoiles",
+  // "1 niveau" — index.html's markup before any JS has touched it) with no
+  // way to recover short of backing out to a screen that happens to
+  // re-render from local storage.
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
 
-  if (!session) {
-    document.body.appendChild(createLoginScreen(() => startGameLoop()));
-  } else {
-    // A session already open at cold start (the common case after the first
-    // sign-in): pull whatever progress the account holds before the menu
-    // renders, so a reinstalled app is not stuck showing an empty profile
-    // until the player happens to reopen it.
-    await api.syncFromCloud();
+    if (!session) {
+      document.body.appendChild(createLoginScreen(() => startGameLoop()));
+    } else {
+      // A session already open at cold start (the common case after the first
+      // sign-in): pull whatever progress the account holds before the menu
+      // renders, so a reinstalled app is not stuck showing an empty profile
+      // until the player happens to reopen it.
+      await api.syncFromCloud();
+      startGameLoop();
+    }
+  } catch (e) {
+    console.error('Session/sync check failed at startup:', e);
     startGameLoop();
   }
 

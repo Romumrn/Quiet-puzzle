@@ -95,12 +95,24 @@ export class Board {
 
   /** Does this block accept a move in this direction? */
   acceptsDirection(block, dx, dy) {
-    if (block.kind === KIND.RAIL) return block.axis === 'h' ? dy === 0 : dx === 0;
+    return this._directionRejectReason(block, dx, dy) === null;
+  }
+
+  /**
+   * Why a direction is rejected for this block, or null if it is fine. Split
+   * out from `acceptsDirection` so `step()` can report WHICH mechanic blocked
+   * the move — a rail, an anchor and a one-way cell read as three different
+   * rules to a player, and the message shown for each must say so.
+   */
+  _directionRejectReason(block, dx, dy) {
+    if (block.kind === KIND.RAIL) {
+      return (block.axis === 'h' ? dy === 0 : dx === 0) ? null : 'rail';
+    }
     // An anchor has a single way to travel: towards its gate. It can therefore
     // never step aside to let anything through, which is the whole point.
     if (block.kind === KIND.ANCHOR && block.dir) {
       const [ax, ay] = SIDES[block.dir];
-      return dx === ax && dy === ay;
+      return (dx === ax && dy === ay) ? null : 'anchor';
     }
     /**
      * A ONE-WAY cell commits whatever stands on it. Enter it and the only way
@@ -116,10 +128,10 @@ export class Board {
     if (this.arrows.size) {
       for (const [cx, cy] of block.absolute()) {
         const arrow = this.arrows.get(this._key(cx, cy));
-        if (arrow && (arrow[0] !== dx || arrow[1] !== dy)) return false;
+        if (arrow && (arrow[0] !== dx || arrow[1] !== dy)) return 'oneway';
       }
     }
-    return true;
+    return null;
   }
 
   /** How many blocks still have to exit before a lock opens. */
@@ -207,7 +219,8 @@ export class Board {
     if (!block) return { ok: false, reason: 'unknown' };
     if (this.gameState !== GameState.PLAYING) return { ok: false, reason: 'finished' };
     if (!this.canMove(block)) return { ok: false, reason: 'locked' };
-    if (!this.acceptsDirection(block, dx, dy)) return { ok: false, reason: 'rail' };
+    const directionReject = this._directionRejectReason(block, dx, dy);
+    if (directionReject) return { ok: false, reason: directionReject };
 
     const target = block.absolute().map(([x, y]) => [x + dx, y + dy]);
     const leaves = target.some(([x, y]) => !this.inside(x, y));
@@ -350,6 +363,11 @@ export class Board {
    */
   dragTowards(id, targetX, targetY, maxSteps = 24) {
     const events = [];
+    // Set the first time a direction is rejected specifically because of a
+    // rail/anchor/one-way constraint, so the caller can tell "this block
+    // simply cannot go that way" apart from "something is in the way" —
+    // only the former is worth explaining to the player.
+    let blockedReason = null;
     for (let i = 0; i < maxSteps; i++) {
       const block = this.blocks.get(id);
       if (!block) break;
@@ -366,10 +384,13 @@ export class Board {
         if (dx === 0 && dy === 0) continue;
         const before = Math.abs(ex) + Math.abs(ey);
         const r = this.step(id, dx, dy);
-        if (!r.ok) continue;
+        if (!r.ok) {
+          if (r.reason === 'rail' || r.reason === 'anchor' || r.reason === 'oneway') blockedReason = r.reason;
+          continue;
+        }
         events.push(r.event);
         advanced = true;
-        if (r.event.type === 'exit') return { events, exited: true };
+        if (r.event.type === 'exit') return { events, exited: true, blockedReason };
 
         /**
          * A SLIDER cannot be stopped short, so it will happily overshoot the
@@ -384,13 +405,13 @@ export class Board {
         const now = this.blocks.get(id);
         if (now && now.kind === KIND.SLIDE) {
           const after = Math.abs(targetX - now.x) + Math.abs(targetY - now.y);
-          if (after >= before) return { events, exited: false };
+          if (after >= before) return { events, exited: false, blockedReason };
         }
         break;
       }
       if (!advanced) break;
     }
-    return { events, exited: false };
+    return { events, exited: false, blockedReason };
   }
 
   /** Ends a gesture: spends a move if it actually shifted something. */

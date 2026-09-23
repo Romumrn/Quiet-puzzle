@@ -465,6 +465,31 @@ body { display: grid; place-items: center; }
   50% { box-shadow: 0 8px 20px hsl(var(--h) 50% 70% / 0.4), 0 0 0 9px hsl(var(--h) 60% 60% / 0); }
 }
 
+/* Nouveau bloc de la partie : un pion qu'on ne présente qu'une fois par monde,
+   et que le joueur doit garder en tête pour tout le reste du jeu. Un simple
+   texte se serait fondu dans le brief — ce badge respire en continu (léger
+   avant-arrière + éclat qui monte et redescend) pour rester accroché à l'œil
+   sans jamais devenir criard : la pulsation est lente et l'amplitude reste
+   petite, dans l'esprit pastel du reste de l'habillage. Coupé net par la
+   règle prefers-reduced-motion globale, plus haut dans ce fichier. */
+.brief-novelty {
+  display: inline-block;
+  margin: 0 0 14px; padding: 8px 18px;
+  border-radius: 999px;
+  background: var(--accent-wash);
+  border: 1px solid hsl(var(--h) 50% 78%);
+  color: var(--accent-deep);
+  font-size: 13px; font-weight: 700; letter-spacing: 0.03em;
+  animation:
+    brief-novelty-pop 0.5s 0.1s cubic-bezier(0.2, 1.4, 0.4, 1) both,
+    brief-novelty-shimmer 2.2s ease-in-out 0.6s infinite;
+}
+@keyframes brief-novelty-pop { from { transform: scale(0.6); opacity: 0; } }
+@keyframes brief-novelty-shimmer {
+  0%, 100% { transform: translateX(0) scale(1); filter: brightness(1); }
+  50% { transform: translateX(2px) scale(1.035); filter: brightness(1.2); }
+}
+
 .brief-objective { font-size: 17px; margin: 18px 0 20px; color: var(--ink); }
 .brief-meta { display: flex; justify-content: space-around; margin-bottom: 24px; }
 .brief-meta dt { color: var(--ink-faint); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; }
@@ -822,6 +847,20 @@ body { display: grid; place-items: center; }
 @keyframes confetti-fall {
   0% { transform: translate(0, -10%) rotate(0deg); opacity: 0; }
   10% { opacity: 1; }
+  100% { transform: translate(var(--drift), 115vh) rotate(var(--rot)); opacity: 0.9; }
+}
+
+/* Easter egg snowfall (see render/confetti.js's `snow()`) — fixed to the
+   viewport, since it can be triggered from the map rather than from inside
+   one card like the confetti burst above. */
+.snow-layer { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 40; }
+.snow-piece {
+  position: absolute; top: -10%; left: var(--x);
+  animation: snow-fall var(--fall) linear var(--delay) forwards;
+}
+@keyframes snow-fall {
+  0% { transform: translate(0, -10vh) rotate(0deg); opacity: 0; }
+  8% { opacity: 1; }
   100% { transform: translate(var(--drift), 115vh) rotate(var(--rot)); opacity: 0.9; }
 }
 
@@ -1183,7 +1222,6 @@ body { display: grid; place-items: center; }
   color: var(--ink-faint); margin-bottom: 6px;
 }
 .realm-next-name { font: 400 19px var(--font-display); margin-bottom: 4px; }
-.realm-next-intro { color: var(--ink-soft); font-size: 13px; }
 .realm-next-intro[hidden] { display: none; }
 .result-score { margin: 20px 0 6px; }
 .result-score span { font: 400 40px var(--font-ui); font-variant-numeric: tabular-nums; }
@@ -1299,6 +1337,11 @@ body { display: grid; place-items: center; }
   pointer-events: none; white-space: nowrap;
 }
 @keyframes toast { 0%, 100% { opacity: 0; } 15%, 75% { opacity: 1; } }
+
+/* Directional refusal (rail/anchor/one-way): same pill, the muted pastel red
+   already used for urgent/danger elsewhere (--alert) rather than a new hue —
+   still soft, never a harsh warning colour. */
+.toast.alert { background: var(--alert); color: var(--ground); }
 
 /* ---------- Focus clavier ---------- */
 

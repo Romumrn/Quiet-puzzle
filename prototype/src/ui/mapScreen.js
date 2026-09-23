@@ -5,12 +5,43 @@
 
 import { totalLevels, levelsPerRealm, realms } from '../data/levelStore.js';
 import * as store from '../data/save.js';
-import { renderStars } from './screens.js';
+import { renderStars, toast } from './screens.js';
 import * as theme from './theme.js';
 import { realmText, t } from './i18n.js';
+import { snow } from '../render/confetti.js';
 
 /** Horizontal offset of the winding path, as a fraction of available width. */
 const OFFSETS = [0, 0.62, 0.9, 0.62, 0, -0.62, -0.9, -0.62];
+
+/**
+ * Beta-tester easter egg: ten taps on the SAME node within this window
+ * unlocks THAT level (and, since progress is a single cursor, everything
+ * before it too). A locked node is otherwise a dead end — this is the one way
+ * in, so a tester can jump straight to whatever they are meant to be checking
+ * without grinding the whole progression first.
+ */
+const SECRET_TAPS = 10;
+const SECRET_WINDOW_MS = 700; // a pause this long between two taps resets the count
+let secretLevel = null;
+let secretCount = 0;
+let secretTimer = null;
+
+function registerSecretTap(n, onSelect) {
+  if (secretLevel !== n) { secretLevel = n; secretCount = 0; }
+  secretCount++;
+  clearTimeout(secretTimer);
+  secretTimer = setTimeout(() => { secretLevel = null; secretCount = 0; }, SECRET_WINDOW_MS);
+  if (secretCount < SECRET_TAPS) return;
+
+  secretLevel = null;
+  secretCount = 0;
+  const d = store.load();
+  d.unlockedLevel = Math.max(d.unlockedLevel, n);
+  store.save(d);
+  toast(t('toast.unlockedUntil', { n }));
+  snow('🍆');
+  render(onSelect);
+}
 
 export function render(onSelect) {
   const scroll = document.getElementById('map-scroll');
@@ -61,7 +92,12 @@ export function render(onSelect) {
       renderStars(stars, rec.stars);
       node.append(num, stars);
 
-      if (!locked) node.addEventListener('click', () => onSelect(n));
+      // Always wired, even locked: the secret tap count must work on a node
+      // the player cannot otherwise open. `onSelect` only fires when allowed.
+      node.addEventListener('click', () => {
+        registerSecretTap(n, onSelect);
+        if (!locked) onSelect(n);
+      });
       path.appendChild(node);
     }
     section.appendChild(path);

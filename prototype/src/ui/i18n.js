@@ -183,6 +183,9 @@ const STRINGS = {
 
     'toast.sealed': 'Ce bloc est scellé',
     'toast.locked': 'Verrouillé : {what}',
+    'toast.blocked.rail': 'Ce bloc ne glisse que sur son rail',
+    'toast.blocked.anchor': "Ce bloc n'avance que vers sa sortie",
+    'toast.blocked.oneway': 'Cette case impose un seul sens',
     'toast.daily': '+{n} éclats — série de {days} jours',
     'toast.hammer.pick': 'Touchez le bloc à retirer',
     'toast.hammer.bad': 'Choisissez un bloc déplaçable',
@@ -193,6 +196,7 @@ const STRINGS = {
     'gate.shut': 'Fermée — encore {n} bloc(s) à sortir',
     'toast.coins': '{n} éclats',
     'toast.unlocked': 'Tous les niveaux débloqués',
+    'toast.unlockedUntil': 'Niveau {n} débloqué',
     'toast.ads.off': 'Pubs supprimées (achat simulé)',
     'toast.ads.on': 'Pubs réactivées',
 
@@ -373,6 +377,9 @@ const STRINGS = {
 
     'toast.sealed': 'This block is sealed',
     'toast.locked': 'Locked: {what}',
+    'toast.blocked.rail': 'This block only slides along its rail',
+    'toast.blocked.anchor': 'This block only moves toward its exit',
+    'toast.blocked.oneway': 'This cell only allows one direction',
     'toast.daily': '+{n} shards — {days} day streak',
     'toast.hammer.pick': 'Tap the block to remove',
     'toast.hammer.bad': 'Pick a block that can move',
@@ -383,6 +390,7 @@ const STRINGS = {
     'gate.shut': 'Shut — {n} more block(s) must leave',
     'toast.coins': '{n} shards',
     'toast.unlocked': 'All levels unlocked',
+    'toast.unlockedUntil': 'Level {n} unlocked',
     'toast.ads.off': 'Ads removed (simulated purchase)',
     'toast.ads.on': 'Ads back on',
 
@@ -563,6 +571,9 @@ const STRINGS = {
 
     'toast.sealed': 'Este bloque está sellado',
     'toast.locked': 'Bloqueado: {what}',
+    'toast.blocked.rail': 'Este bloque solo se desliza por su riel',
+    'toast.blocked.anchor': 'Este bloque solo avanza hacia su salida',
+    'toast.blocked.oneway': 'Esta casilla solo permite un sentido',
     'toast.daily': '+{n} fragmentos — racha de {days} días',
     'toast.hammer.pick': 'Toca el bloque que quieras quitar',
     'toast.hammer.bad': 'Elige un bloque que pueda moverse',
@@ -573,6 +584,7 @@ const STRINGS = {
     'gate.shut': 'Cerrada — faltan {n} bloque(s) por salir',
     'toast.coins': '{n} fragmentos',
     'toast.unlocked': 'Todos los niveles desbloqueados',
+    'toast.unlockedUntil': 'Nivel {n} desbloqueado',
     'toast.ads.off': 'Anuncios quitados (compra simulada)',
     'toast.ads.on': 'Anuncios reactivados',
 
@@ -753,6 +765,9 @@ const STRINGS = {
 
     'toast.sealed': 'Questo blocco è sigillato',
     'toast.locked': 'Bloccato: {what}',
+    'toast.blocked.rail': 'Questo blocco scorre solo sul suo binario',
+    'toast.blocked.anchor': 'Questo blocco avanza solo verso la sua uscita',
+    'toast.blocked.oneway': 'Questa casella consente un solo verso',
     'toast.daily': '+{n} schegge — serie di {days} giorni',
     'toast.hammer.pick': 'Tocca il blocco da togliere',
     'toast.hammer.bad': 'Scegli un blocco che possa muoversi',
@@ -763,6 +778,7 @@ const STRINGS = {
     'gate.shut': 'Chiusa — mancano {n} blocco/i da far uscire',
     'toast.coins': '{n} schegge',
     'toast.unlocked': 'Tutti i livelli sbloccati',
+    'toast.unlockedUntil': 'Livello {n} sbloccato',
     'toast.ads.off': 'Pubblicità tolta (acquisto simulato)',
     'toast.ads.on': 'Pubblicità riattivata',
 
@@ -945,6 +961,9 @@ const STRINGS = {
 
     'toast.sealed': '这个方块被封住了',
     'toast.locked': '已锁定：{what}',
+    'toast.blocked.rail': '这个方块只能沿滑轨移动',
+    'toast.blocked.anchor': '这个方块只能朝出口方向移动',
+    'toast.blocked.oneway': '这个格子只允许单向通过',
     'toast.daily': '+{n} 碎片 — 连续 {days} 天',
     'toast.hammer.pick': '点击要移除的方块',
     'toast.hammer.bad': '请选择可以移动的方块',
@@ -955,6 +974,7 @@ const STRINGS = {
     'gate.shut': '关闭中 — 还需 {n} 个方块离场',
     'toast.coins': '{n} 碎片',
     'toast.unlocked': '已解锁全部关卡',
+    'toast.unlockedUntil': '已解锁第 {n} 关',
     'toast.ads.off': '已去除广告（模拟购买）',
     'toast.ads.on': '已恢复广告',
 

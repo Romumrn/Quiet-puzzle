@@ -13,9 +13,10 @@ export function show(name) {
 
 export const current = () => currentId;
 
-export function toast(message, ms = 1400) {
+export function toast(message, ms = 1400, variant = null) {
   const el = document.getElementById('toast');
   el.textContent = message;
+  el.classList.toggle('alert', variant === 'alert');
   el.hidden = false;
   clearTimeout(el._t);
   el._t = setTimeout(() => { el.hidden = true; }, ms);

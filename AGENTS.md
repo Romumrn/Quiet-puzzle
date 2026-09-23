@@ -193,6 +193,21 @@ cd android && ./gradlew assembleDebug      # or bundleRelease, once signing is c
 
 ---
 
+## Changelog
+
+Newest first. Short enough to skim, detailed enough to know whether a bug you just hit is new or already-known.
+
+### 2026-09-23
+
+- **Native Google sign-in fixed.** Root cause: the Android OAuth client in Google Cloud Console had the wrong SHA-1 — not the one that actually signs the AAB Play App Signing distributes (confirmed by pulling the installed APK off a test device and computing its real signing-cert SHA-1 directly; it didn't match what was registered). Corrected in Google Cloud Console. No code change.
+- **Anonymous sign-in fixed.** `initSession()` (`prototype/src/data/auth.js`) — the function meant to call `signInAnonymously()` on first launch — was never actually invoked anywhere. Now called (fire-and-forget) when the player taps "Continue without an account" on the login screen (`prototype/src/ui/loginScreen.js`). Also required turning on "Allow anonymous sign-ins" in the Supabase dashboard (Authentication → Providers) — off by default, done.
+- **Anonymous → Google account merge.** New `merge_anonymous_progress(p_anonymous_user_id)` Postgres RPC (`supabase/migrations/20260923150000_merge_anonymous_progress.sql`, permission fix in `20260923150100_...sql`) merges stars/coins/xp/unlocked-level from an anonymous account into the Google account replacing it, same max-wins rules as `syncFromCloud()`. Called from `loginScreen.js` right after a successful native Google sign-in, before the old anonymous id is lost. Note: there is currently no UI to link Google from an already-anonymous session without signing out first — the merge only fires on the direct anonymous→Google path from the login screen.
+- **Cold-start robustness.** The session check at app startup (`prototype/src/main.js`) had no `try/catch`: a slow or failing network left the player staring at the menu's static HTML placeholders ("0 stars", "1 level") indefinitely, with no error and no retry — only an unrelated interaction (opening the account panel) happened to force a fresh render. Wrapped in the same best-effort pattern used everywhere else in the app. Also fixed the Google avatar never showing on the greeting pill (same root cause).
+- **Directional-block feedback (new).** Dragging a RAIL/ANCHOR/one-way-locked block the wrong way now bumps it, plays a small synthesised "no" sound (`AudioManager.blocked()`, no new audio asset), and shows a red-pastel toast naming which rule blocked it (`toast.blocked.rail` / `.anchor` / `.oneway`, all 5 languages). Previously silent — `board.js`'s `step()` rejected the move but nothing surfaced why.
+- **New-block introduction is more prominent.** The "New: <mechanic>" badge shown the first time a realm introduces a block kind (level-brief screen, and the realm-complete preview of what's next) now pops in and gently pulses/shimmers instead of sitting as plain text (`.brief-novelty` in `prototype/styles/main.css`). Respects `prefers-reduced-motion`.
+- **Beta-tester easter egg.** Ten taps on the same level node on the map (locked or not) within ~700ms of each other unlocks that level — and everything before it, since progress is a single cursor (`unlockedLevel`) — and triggers a screen-wide eggplant emoji snowfall (`snow()` in `prototype/src/render/confetti.js`). Lives entirely in `prototype/src/ui/mapScreen.js`.
+- **World names were stuck in English.** Not a code bug: Supabase's `level_groups.name` column held `{"en": "..."}` only for all 50 worlds — the translations added to `generator/realms.js` were never republished (`tools/publish-levels.mjs` needs a `SUPABASE_TOKEN` that wasn't available in this environment). Fixed by writing the correct `{fr,en,es,it,zh}` object straight to the 50 rows via SQL, generated from `generator/realms.js` rather than hand-typed. **Still worth doing properly with `tools/publish-levels.mjs` next time a token is available**, to catch any other field that might have drifted the same way.
+
 ## Project notes
 
 - The project already relies mostly on English code names; documentation and naming were aligned to that standard.
