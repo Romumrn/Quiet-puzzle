@@ -1557,6 +1557,12 @@ function refreshDebug() {
   // "1 niveau" — index.html's markup before any JS has touched it) with no
   // way to recover short of backing out to a screen that happens to
   // re-render from local storage.
+
+  // Declared BEFORE the first call below: `startGameLoop` is hoisted, this flag
+  // is not, and a session already open at startup used to call it inside the
+  // temporal dead zone — the game never started and the menu stayed on its
+  // static placeholders.
+  let started = false;
   try {
     const { data: { session } } = await supabase.auth.getSession();
 
@@ -1581,7 +1587,7 @@ function refreshDebug() {
     admin.forget();
     if (event === 'SIGNED_IN' && authSession) await api.syncFromCloud();
     // Re-checked on every transition, not just at startup: signing in or out
-    // from within an already-running session (see `started` below) is the
+    // from within an already-running session (see the `started` guard in `startGameLoop`) is the
     // one case `startGameLoop()`'s own call would otherwise miss.
     updateAdminSection();
     if (event === 'SIGNED_IN' && authSession) {
@@ -1602,7 +1608,6 @@ function refreshDebug() {
    * refresh, and opening the session twice would restart the daily streak and
    * register a second `pagehide` listener.
    */
-  let started = false;
   function startGameLoop() {
     if (started) { showMenu(); return; }
     started = true;

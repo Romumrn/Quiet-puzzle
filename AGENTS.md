@@ -197,6 +197,10 @@ cd android && ./gradlew assembleDebug      # or bundleRelease, once signing is c
 
 Newest first. Short enough to skim, detailed enough to know whether a bug you just hit is new or already-known.
 
+### 2026-09-24
+
+- **Cold start with an open session never started the game.** `startGameLoop()` (`prototype/src/main.js`) is a hoisted function declaration, but the `let started` guard it reads was declared *after* the startup `try` that calls it. With a session already open — every returning player — the first call hit the temporal dead zone (`ReferenceError: Cannot access 'started' before initialization`), the `catch` called it again and threw uncaught, and the menu stayed on `index.html`'s static placeholders ("0 stars", "1 level"). Only fresh installs (no session → login screen → callback later) escaped it. The 2026-09-23 "cold-start robustness" `try/catch` did not cover it: the catch path hits the same error. Fix: `let started = false` moved above the `try`. **Pitfall:** anything `startGameLoop` reads must be declared before that `try`.
+
 ### 2026-09-23
 
 - **Native Google sign-in fixed.** Root cause: the Android OAuth client in Google Cloud Console had the wrong SHA-1 — not the one that actually signs the AAB Play App Signing distributes (confirmed by pulling the installed APK off a test device and computing its real signing-cert SHA-1 directly; it didn't match what was registered). Corrected in Google Cloud Console. No code change.
