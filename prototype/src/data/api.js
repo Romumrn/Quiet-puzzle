@@ -204,6 +204,20 @@ export async function syncFromCloud() {
 }
 
 /**
+ * Breaks the run of levels won in a row. A loss already does it in
+ * `completeLevel`; this covers the ways out that never reach it — leaving a grid
+ * mid-play, restarting it, retrying after a defeat, closing the app. Without
+ * them the "n levels in a row" line survived every one of those and showed up
+ * almost every time.
+ */
+export function resetLevelStreak() {
+  const d = store.load();
+  if (!d.levelStreak) return;
+  d.levelStreak = 0;
+  store.save(d);
+}
+
+/**
  * POST /api/level/{levelNumber}/complete
  * @returns {{stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems}}
  */

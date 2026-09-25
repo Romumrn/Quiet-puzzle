@@ -712,7 +712,7 @@ body { display: grid; place-items: center; }
 }
 
 /* Glissière : une double flèche ↔ sur l'axe, tracée par boardView
-   (`_railMark`) en SVG dont l'unité est la case. La barre translucide qu'elle
+   (`_axisArrow`) en SVG dont l'unité est la case. La barre translucide qu'elle
    remplace passait inaperçue, et sur un L elle tombait dans la case vide :
    la flèche suit désormais le bras de la forme qui porte l'axe. Deux pointes
    là où l'ancre en a une — un axe, pas un sens. */
@@ -724,28 +724,18 @@ body { display: grid; place-items: center; }
 .block-rail line { stroke: rgba(255, 255, 255, 0.92); stroke-linecap: round; }
 .block-rail g { fill: rgba(255, 255, 255, 0.92); stroke: rgba(255, 255, 255, 0.92); stroke-linejoin: round; }
 
-/* Ancre : un seul sens de marche, celui de sa porte. La flèche pointe, là où
-   le rail traverse — c'est toute la différence entre les deux blocs. */
-.block-fleche {
-  /* `left`/`top`/`width`/`height` viennent de boardView, comme pour les
-     marques : la flèche se centre sur la même case que le cadenas ou le
-     « ×2 », et jamais dans le creux d'un angle. */
+/* Ancre : la même flèche que le rail (`.block-rail`, tracée par boardView),
+   avec une seule pointe, vers sa porte. Quand l'ancre est aussi la clé du
+   niveau, le losange occupe le centre : la flèche se réduit alors à un glyphe
+   dans un coin. */
+.block-arrow.arrow-corner {
   position: absolute;
-  display: grid; place-items: center;
-  font-size: calc(var(--cell) * 0.4); line-height: 1;
-  color: rgba(255, 255, 255, 0.8);
+  inset: auto 6% 3% auto;
+  font-size: calc(var(--cell) * 0.34); line-height: 1;
+  color: rgba(255, 255, 255, 0.92);
   pointer-events: none;
-  /* C'est un `<u>` : sans cette ligne le navigateur souligne la flèche. Le
-     trait passait inaperçu tant qu'elle était petite et dans un coin. */
+  /* C'est un `<u>` : sans cette ligne le navigateur souligne la flèche. */
   text-decoration: none;
-}
-/* Sauf quand le bloc porte déjà une marque au centre — une ancre peut être la
-   clé du niveau. La flèche recule alors dans un coin plutôt que de se
-   superposer au losange. */
-.block-fleche.fleche-coin {
-  inset: auto 5% 2% auto;
-  display: block;
-  font-size: calc(var(--cell) * 0.34);
 }
 /* L'ancre se reconnaît à sa flèche. Le liseré qu'elle portait en plus ajoutait
    un contour à chaque bloc, et c'est la somme de ces contours qui alourdissait

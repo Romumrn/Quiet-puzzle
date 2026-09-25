@@ -456,6 +456,7 @@ async function finishLevel() {
     // "Restart" relaunches the grid without going through the result screen:
     // the player has already seen they lost, telling them again is pointless.
     if (choice === 'retry') {
+      api.resetLevelStreak();
       busy = false;
       input.locked = false;
       startLevel();
@@ -598,7 +599,12 @@ el('btn-play').onclick = showMap;
 
 el('btn-daily').onclick = claimDailyGift;
 
-el('btn-restart').onclick = () => { if (!busy) startLevel(); };
+el('btn-restart').onclick = () => {
+  if (busy) return;
+  // Restarting a grid in progress gives up on it: the run of wins stops here.
+  if (board?.gameState === GameState.PLAYING) api.resetLevelStreak();
+  startLevel();
+};
 
 /** Hammer: the player POINTS AT the block to remove, we do not pick one for them. */
 el('btn-hammer').onclick = async () => {
@@ -1368,6 +1374,7 @@ document.querySelectorAll('[data-nav]').forEach((b) => {
         attempt: levelFailures + 1, board,
         duration: Math.round((Date.now() - levelStartedAt) / 1000),
       }));
+      api.resetLevelStreak();
     }
     return b.dataset.nav === 'menu' ? showMenu() : showMap();
   };
@@ -1619,6 +1626,8 @@ function refreshDebug() {
     const session = daily.openSession();
     if (session.newDay) track(EV.DAILY_OPEN, { streak: session.streak });
     payStreakRewards();
+    // A run of wins lasts one sitting: coming back to the app starts a new one.
+    api.resetLevelStreak();
 
     window.addEventListener('pagehide', () => track('session_ended', {}));
     showMenu();

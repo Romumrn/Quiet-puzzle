@@ -291,7 +291,7 @@ export class BoardView {
     // Rail: a double-headed arrow ↔ along the axis the block can travel. Two
     // heads where the anchor has one: same vocabulary, one axis instead of one
     // way. The translucent bar it replaces went unnoticed by players.
-    if (b.kind === KIND.RAIL) node.appendChild(this._railMark(b));
+    if (b.kind === KIND.RAIL) node.appendChild(this._axisArrow(b, b.axis === 'h', 'both'));
 
     /**
      * Slider: three trailing streaks, like something that has just been let go
@@ -308,27 +308,21 @@ export class BoardView {
       node.appendChild(trail);
     }
 
-    // Anchor: an arrow towards its gate. The rail shows an axis and reads both
-    // ways; the anchor has only one, and that is precisely what sets it apart —
-    // so the mark must point, not cross.
+    // Anchor: an arrow towards its gate, drawn like the rail's but with one
+    // head — the rail reads both ways along an axis, the anchor only one way.
+    // An anchor can also be the level's key: the arrow then shrinks to a glyph
+    // in a corner so as not to run through the diamond.
     if (b.kind === KIND.ANCHOR) {
-      const arrow = document.createElement('u');
-      arrow.className = 'block-arrow';
-      arrow.textContent = ARROWS[b.dir] || '';
-      // Same anchor point as the marks — using the block's box put an L's arrow
-      // in the hollow of its angle, hence outside the shape. An anchor can also
-      // be the level's key: the arrow then retreats into a corner so as not to
-      // cover the diamond.
       if (hasMark) {
-        arrow.classList.add('arrow-corner');
+        const arrow = document.createElement('u');
+        arrow.className = 'block-arrow arrow-corner';
+        arrow.textContent = ARROWS[b.dir] || '';
+        node.appendChild(arrow);
       } else {
-        const [fx, fy, fw, fh] = this._markBox(b);
-        arrow.style.left = `${fx}px`;
-        arrow.style.top = `${fy}px`;
-        arrow.style.width = `${fw}px`;
-        arrow.style.height = `${fh}px`;
+        const horiz = b.dir === 'left' || b.dir === 'right';
+        const forward = b.dir === 'right' || b.dir === 'bottom';
+        node.appendChild(this._axisArrow(b, horiz, forward ? 'end' : 'start'));
       }
-      node.appendChild(arrow);
     }
 
     if (b.kind === KIND.LOCKED) this._updateLock(node, b);
@@ -358,13 +352,15 @@ export class BoardView {
   }
 
   /**
-   * The rail's double arrow, as an SVG in CELL units (viewBox = the block's
-   * box), so it follows the block whatever the cell size.
+   * The arrow of a rail (`heads = 'both'`) or an anchor (`'start'` or `'end'`
+   * of the segment), as an SVG in CELL units (viewBox = the block's box), so it
+   * follows the block whatever the cell size.
    */
-  _railMark(b) {
-    const { x1, y1, x2, y2 } = this._railSegment(b);
+  _axisArrow(b, horiz, heads) {
+    const { x1, y1, x2, y2 } = this._axisSegment(b, horiz);
     const ux = Math.sign(x2 - x1), uy = Math.sign(y2 - y1);
     const inset = 0.2, head = 0.2, stroke = 0.075;
+    const atStart = heads !== 'end', atEnd = heads !== 'start';
     const a = [x1 + ux * inset, y1 + uy * inset], z = [x2 - ux * inset, y2 - uy * inset];
     // A filled, rounded head whose tip sits at (x, y), pointing along (dx, dy).
     const tip = (x, y, dx, dy) => {
@@ -372,26 +368,30 @@ export class BoardView {
       const bx = x - dx * head, by = y - dy * head;
       return `<path d="M${x},${y} L${bx + px},${by + py} L${bx - px},${by - py} Z"/>`;
     };
+    // The shaft stops just inside each head, and stays round where there is none.
+    const la = atStart ? head * 0.6 : 0, lz = atEnd ? head * 0.6 : 0;
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('class', 'block-rail');
     svg.setAttribute('viewBox', `0 0 ${b.width} ${b.height}`);
     svg.setAttribute('preserveAspectRatio', 'none');
-    svg.innerHTML = `<line x1="${a[0] + ux * head * 0.6}" y1="${a[1] + uy * head * 0.6}"`
-      + ` x2="${z[0] - ux * head * 0.6}" y2="${z[1] - uy * head * 0.6}" stroke-width="${stroke}"/>`
-      + `<g stroke-width="${head * 0.28}">${tip(z[0], z[1], ux, uy)}${tip(a[0], a[1], -ux, -uy)}</g>`;
+    svg.innerHTML = `<line x1="${a[0] + ux * la}" y1="${a[1] + uy * la}"`
+      + ` x2="${z[0] - ux * lz}" y2="${z[1] - uy * lz}" stroke-width="${stroke}"/>`
+      + `<g stroke-width="${head * 0.28}">`
+      + (atEnd ? tip(z[0], z[1], ux, uy) : '')
+      + (atStart ? tip(a[0], a[1], -ux, -uy) : '')
+      + '</g>';
     return svg;
   }
 
   /**
-   * Where the rail's arrow runs, in cell units: the longest run of cells along
-   * the axis. Centring it on the block's box put it in the hollow of an L, or
-   * on the seam between two rows. Ties go to the run through the most
+   * Where a rail's or an anchor's arrow runs, in cell units: the longest run of
+   * cells along the axis. Centring it on the block's box put it in the hollow of
+   * an L, or on the seam between two rows. Ties go to the run through the most
    * surrounded cells — an L's elbow, a T's junction, as in `_centerCell`. A
    * full rectangle keeps the middle line of its box.
    */
-  _railSegment(b) {
+  _axisSegment(b, horiz) {
     const has = (x, y) => b.cells.some(([p, q]) => p === x && q === y);
-    const horiz = b.axis === 'h';
     if (b.cells.length === b.width * b.height) {
       return horiz
         ? { x1: 0, y1: b.height / 2, x2: b.width, y2: b.height / 2 }
