@@ -711,25 +711,18 @@ body { display: grid; place-items: center; }
   100% { filter: none; }
 }
 
-/* Glissière : UNE barre douce sur l'axe, arrondie et translucide.
-   C'étaient deux rangées de tirets, et sur une grille qui en compte une dizaine
-   le plateau devenait un tableau de pointillés — l'inverse de ce que ce jeu
-   promet. Une seule ligne dit exactement la même chose : cet axe, et pas
-   l'autre. */
+/* Glissière : une double flèche ↔ sur l'axe, tracée par boardView
+   (`_railMark`) en SVG dont l'unité est la case. La barre translucide qu'elle
+   remplace passait inaperçue, et sur un L elle tombait dans la case vide :
+   la flèche suit désormais le bras de la forme qui porte l'axe. Deux pointes
+   là où l'ancre en a une — un axe, pas un sens. */
 .block-rail {
-  position: absolute;
-  display: block; pointer-events: none;
-  background: rgba(255, 255, 255, 0.42);
-  border-radius: 999px;
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  overflow: visible; pointer-events: none;
 }
-.block.axis-h .block-rail {
-  top: 50%; height: 3px; margin-top: -1.5px;
-  left: 14%; right: 14%;
-}
-.block.axis-v .block-rail {
-  left: 50%; width: 3px; margin-left: -1.5px;
-  top: 14%; bottom: 14%;
-}
+.block-rail line { stroke: rgba(255, 255, 255, 0.92); stroke-linecap: round; }
+.block-rail g { fill: rgba(255, 255, 255, 0.92); stroke: rgba(255, 255, 255, 0.92); stroke-linejoin: round; }
 
 /* Ancre : un seul sens de marche, celui de sa porte. La flèche pointe, là où
    le rail traverse — c'est toute la différence entre les deux blocs. */

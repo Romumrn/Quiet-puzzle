@@ -288,13 +288,10 @@ export class BoardView {
       node.appendChild(mark);
     }
 
-    // Rail: a bar running right through, saying at a glance which axis the
-    // block can travel along.
-    if (b.kind === KIND.RAIL) {
-      const rail = document.createElement('u');
-      rail.className = 'block-rail';
-      node.appendChild(rail);
-    }
+    // Rail: a double-headed arrow ↔ along the axis the block can travel. Two
+    // heads where the anchor has one: same vocabulary, one axis instead of one
+    // way. The translucent bar it replaces went unnoticed by players.
+    if (b.kind === KIND.RAIL) node.appendChild(this._railMark(b));
 
     /**
      * Slider: three trailing streaks, like something that has just been let go
@@ -358,6 +355,68 @@ export class BoardView {
     if (inside) return [0, 0, b.width * this.cell, b.height * this.cell];
     const [dx, dy] = this._centerCell(b);
     return [dx * this.cell, dy * this.cell, this.cell, this.cell];
+  }
+
+  /**
+   * The rail's double arrow, as an SVG in CELL units (viewBox = the block's
+   * box), so it follows the block whatever the cell size.
+   */
+  _railMark(b) {
+    const { x1, y1, x2, y2 } = this._railSegment(b);
+    const ux = Math.sign(x2 - x1), uy = Math.sign(y2 - y1);
+    const inset = 0.2, head = 0.2, stroke = 0.075;
+    const a = [x1 + ux * inset, y1 + uy * inset], z = [x2 - ux * inset, y2 - uy * inset];
+    // A filled, rounded head whose tip sits at (x, y), pointing along (dx, dy).
+    const tip = (x, y, dx, dy) => {
+      const px = -dy * head * 0.72, py = dx * head * 0.72;
+      const bx = x - dx * head, by = y - dy * head;
+      return `<path d="M${x},${y} L${bx + px},${by + py} L${bx - px},${by - py} Z"/>`;
+    };
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'block-rail');
+    svg.setAttribute('viewBox', `0 0 ${b.width} ${b.height}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.innerHTML = `<line x1="${a[0] + ux * head * 0.6}" y1="${a[1] + uy * head * 0.6}"`
+      + ` x2="${z[0] - ux * head * 0.6}" y2="${z[1] - uy * head * 0.6}" stroke-width="${stroke}"/>`
+      + `<g stroke-width="${head * 0.28}">${tip(z[0], z[1], ux, uy)}${tip(a[0], a[1], -ux, -uy)}</g>`;
+    return svg;
+  }
+
+  /**
+   * Where the rail's arrow runs, in cell units: the longest run of cells along
+   * the axis. Centring it on the block's box put it in the hollow of an L, or
+   * on the seam between two rows. Ties go to the run through the most
+   * surrounded cells — an L's elbow, a T's junction, as in `_centerCell`. A
+   * full rectangle keeps the middle line of its box.
+   */
+  _railSegment(b) {
+    const has = (x, y) => b.cells.some(([p, q]) => p === x && q === y);
+    const horiz = b.axis === 'h';
+    if (b.cells.length === b.width * b.height) {
+      return horiz
+        ? { x1: 0, y1: b.height / 2, x2: b.width, y2: b.height / 2 }
+        : { x1: b.width / 2, y1: 0, x2: b.width / 2, y2: b.height };
+    }
+    const at = (k, t) => (horiz ? [t, k] : [k, t]);
+    const lines = horiz ? b.height : b.width, len = horiz ? b.width : b.height;
+    let best = null;
+    for (let k = 0; k < lines; k++) {
+      let run = [], cur = [];
+      for (let t = 0; t <= len; t++) {
+        if (t < len && has(...at(k, t))) cur.push(t);
+        else { if (cur.length > run.length) run = cur; cur = []; }
+      }
+      if (!run.length) continue;
+      const hug = run.reduce((n, t) => {
+        const [x, y] = at(k, t);
+        return n + has(x - 1, y) + has(x + 1, y) + has(x, y - 1) + has(x, y + 1);
+      }, 0);
+      const score = run.length * 100 + hug;
+      if (!best || score > best.score) best = { k, from: run[0], to: run[run.length - 1] + 1, score };
+    }
+    return horiz
+      ? { x1: best.from, y1: best.k + 0.5, x2: best.to, y2: best.k + 0.5 }
+      : { x1: best.k + 0.5, y1: best.from, x2: best.k + 0.5, y2: best.to };
   }
 
   /**
