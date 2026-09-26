@@ -16,6 +16,8 @@ import { KIND } from './core/block.js';
 import { BoardView, setSpeed, conditionLabel } from './render/boardView.js';
 import { InputHandler } from './input/input.js';
 import * as api from './data/api.js';
+import * as lives from './meta/lives.js';
+import * as livesUI from './ui/livesUI.js';
 import * as store from './data/save.js';
 import * as screens from './ui/screens.js';
 import * as mapScreen from './ui/mapScreen.js';
@@ -109,6 +111,7 @@ async function showMenu() {
   updateMuteDot();
   await updateGreeting();
   theme.apply(p.currentLevel); // the menu takes the colour of where the player is
+  livesUI.refresh();
   screens.show('menu');
   audio.startMusic();
   updateBanner('menu');
@@ -222,6 +225,7 @@ function showMap() {
   result.hide();
   realmComplete.hide();
   mapScreen.render(showBrief);
+  livesUI.refresh();
   screens.show('map');
   updateBanner('map');
 }
@@ -253,6 +257,7 @@ async function showBrief(n) {
   el('brief-final').hidden = !isFinale;
   el('brief-card').classList.toggle('final', isFinale);
   theme.apply(n);
+  livesUI.refresh();
   screens.show('brief');
   updateBanner('brief');
 }
@@ -284,7 +289,22 @@ async function adBeforeLevel() {
   });
 }
 
+/**
+ * Whether the level being played spends hearts: map levels only. The daily
+ * puzzle and the editor's trials sit outside the progression, and so outside
+ * the lives.
+ */
+function usesLives() {
+  return !editorTrial && !dailyEntry && level?.number > 0;
+}
+
 async function startLevel() {
+  // No heart left: the "short break" card, and back to the map if the player
+  // would rather wait.
+  if (usesLives() && !lives.canPlay() && !await livesUI.pause()) {
+    showMap();
+    return;
+  }
   openPanel(false);
   result.hide();
   realmComplete.hide();
@@ -457,6 +477,9 @@ async function finishLevel() {
     // the player has already seen they lost, telling them again is pointless.
     if (choice === 'retry') {
       api.resetLevelStreak();
+      // Declining the continue is the defeat: it costs its heart here, since
+      // this path never reaches `completeLevel` below.
+      if (usesLives()) lives.spend(lives.COST.FAIL, 'fail');
       busy = false;
       input.locked = false;
       startLevel();
@@ -536,6 +559,7 @@ async function finishLevel() {
     return;
   }
 
+  if (!won && usesLives()) lives.spend(lives.COST.FAIL, 'fail');
   const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won, timeMs: duration * 1000 });
 
   // The interstitial no longer plays HERE but when the next level opens (see
@@ -597,12 +621,18 @@ async function finishLevel() {
 
 el('btn-play').onclick = showMap;
 
+livesUI.init({ ads });
+
 el('btn-daily').onclick = claimDailyGift;
 
 el('btn-restart').onclick = () => {
   if (busy) return;
   // Restarting a grid in progress gives up on it: the run of wins stops here.
-  if (board?.gameState === GameState.PLAYING) api.resetLevelStreak();
+  // It also costs half a heart — half, because it is a choice, not a defeat.
+  if (board?.gameState === GameState.PLAYING) {
+    api.resetLevelStreak();
+    if (usesLives()) lives.spend(lives.COST.RESTART, 'restart');
+  }
   startLevel();
 };
 

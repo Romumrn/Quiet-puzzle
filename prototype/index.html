@@ -42,6 +42,7 @@
         </span>
         <span class="daily-amount" id="daily-amount">+50</span>
       </button>
+      <button class="pill lives-pill menu-lives" data-lives></button>
       <button class="btn btn-primary btn-lg" id="btn-play" data-i18n="menu.play">Play</button>
       <button class="btn btn-ghost btn-lg" id="btn-daily-puzzle" hidden>
         <span data-i18n="daily.title">Daily puzzle</span>
@@ -54,7 +55,10 @@
       <header class="topbar">
         <button class="icon-btn" data-nav="menu" aria-label="Back to menu">‹</button>
         <span class="topbar-title" data-i18n="map.title">Map</span>
-        <span class="pill" id="map-stars">★ 0</span>
+        <span class="topbar-pills">
+          <button class="pill lives-pill" data-lives></button>
+          <span class="pill" id="map-stars">★ 0</span>
+        </span>
       </header>
       <div class="map-scroll" id="map-scroll"></div>
     </section>
@@ -64,7 +68,7 @@
       <header class="topbar">
         <button class="icon-btn" data-nav="map" aria-label="Back to map">‹</button>
         <span class="topbar-title" id="brief-realm">—</span>
-        <span></span>
+        <button class="pill lives-pill" data-lives></button>
       </header>
       <div class="brief-card" id="brief-card">
         <div class="brief-badge" id="brief-number">1</div>
@@ -440,6 +444,26 @@
 
         <button class="btn btn-ghost offer-quit" id="btn-offer-give-up"
                data-i18n="offer.restart">Restart</button>
+      </div>
+    </div>
+
+    <!-- ============ LIVES ============ -->
+    <!-- Opened by tapping a heart pill, or by starting a level with none left.
+         A pause, not a punishment: soft pink, a small timer, the ad and the
+         coins offered and never forced — closing is a full button. Contents
+         filled by src/ui/livesUI.js. -->
+    <div class="overlay" id="overlay-lives" hidden>
+      <div class="offer-card lives-card">
+        <div class="lives-row" id="lives-row" aria-hidden="true"></div>
+        <h2 id="lives-title">Your hearts</h2>
+        <p class="offer-lead" id="lives-sub"></p>
+        <span class="lives-clock" id="lives-clock">20:00</span>
+        <button class="btn lives-ad" id="btn-lives-ad" data-i18n="lives.pause.ad">▶ Watch an ad · +1 ♥</button>
+        <button class="btn btn-ghost btn-sm offer-second" id="btn-lives-coins">
+          <span data-i18n="lives.buy">+1 ♥ for</span> <b id="lives-price">50</b>
+          <span data-i18n="menu.coins">shards</span>
+        </button>
+        <button class="btn btn-ghost offer-quit" id="btn-lives-close">Close</button>
       </div>
     </div>
 

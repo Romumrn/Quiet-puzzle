@@ -113,6 +113,7 @@ Supabase first, `prototype/levels/` as a seed.
 | When an ad appears | `src/monetization/brokerPolicy.js` | `RULES` |
 | Simulated ad playback | `src/monetization/brokerManager.js` | `PLACEMENT`, `AdBroker` |
 | Defeat / continue screen | `src/monetization/failOffer.js` | `offer()`, `BONUS` |
+| Lives (hearts): max, refill time, costs | `src/meta/lives.js` | `MAX_LIVES`, `REGEN_MS`, `COST`; price `PRICES.LIFE` in `currency.js`; pill + hearts card in `src/ui/livesUI.js` (`GRANT_WITHOUT_AD` while ads don't fill); charged in `main.js` via `usesLives()` |
 | Shop | `src/main.js` | `updateShop()` |
 
 ### Retention

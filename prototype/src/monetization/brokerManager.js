@@ -35,6 +35,7 @@ export const PLACEMENT = Object.freeze({
   REWARDED_TIME: 'rewarded_extra_time',
   REWARDED_UNDO: 'rewarded_undo',
   REWARDED_COINS: 'rewarded_coin_shop',
+  REWARDED_LIFE: 'rewarded_life',
   BANNER: 'banner_menu',
   BANNER_RESULT: 'banner_level_complete',
 });
