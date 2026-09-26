@@ -151,11 +151,22 @@ native Google Sign-In) all live in `prototype/src/`, gated by
 | Android hardware back button, pause/resume | `src/native/lifecycle.js` | `registerBackHandler()` — resolves per current screen, see the call site in `main.js` |
 | Vibration | `src/audio/haptics.js` | mirrors `audioManager.js`'s call sites; toggle is `vibration` in `save.js` |
 | Fullscreen / immersive, orientation lock | `mobile/android/app/src/main/java/.../MainActivity.java`, `AndroidManifest.xml` | native-only, no JS involved |
-| Real rewarded/interstitial ads | `src/monetization/admob.js`, `src/monetization/admobConfig.js` | swapped in by `brokerManager.js` when `isNative()`; **`admobConfig.js` ships Google's public TEST ad unit IDs — replace before a release build** |
+| Real rewarded/interstitial ads | `src/monetization/admob.js`, `src/monetization/admobConfig.js` | swapped in by `brokerManager.js` when `isNative()`; `admobConfig.js` holds the REAL ad unit IDs — no ads are served until the app is live on the Play Store (see the checklist below) |
 | Ad consent (UMP/GDPR) | `src/monetization/admob.js` — `ensureInitialized()`, `manageConsent()` | reachable from Settings → Ads → "Manage ad consent" (hidden on web) |
 | Native Google Sign-In | `src/ui/loginScreen.js` — `signInGoogleNative()` | needs `serverClientId` (the Google Cloud **Web** OAuth client) set in `mobile/capacitor.config.json`, plus an **Android** OAuth client (package name + release/debug SHA-1) — the web build keeps the old `signInWithOAuth` redirect flow |
 | App icon / splash source | `mobile/assets-src/*.svg` → rasterized to `mobile/assets/*.png` (`rsvg-convert`) → `npx @capacitor/assets generate --android` | regenerate after any visual change to the source SVGs |
 | Signing / release `.aab` | `mobile/android/app/build.gradle`, a **local, gitignored** `keystore.properties` | the keystore itself is never committed — losing it means losing the ability to update the app on the Play Store |
+
+### Before the first Play Store release — ads checklist
+
+AdMob serves nothing until the app is published and linked; until then the
+lives' ad button grants the heart anyway. When the app goes live:
+
+- [ ] **AdMob**: link the app to its Play Store listing (Apps → Quiet Puzzle → App settings).
+- [ ] **Consent**: publish the GDPR message (Privacy & messaging) — without it nothing is served in Europe, and `ensureInitialized()` in `admob.js` never gets to `AdMob.initialize()` if the consent request errors.
+- [ ] **`app-ads.txt`**: host it at the root of the developer website shown on the Play Store listing.
+- [ ] **Test device**: register your own phone in AdMob — clicking your own real ads can get the account suspended.
+- [ ] **Code**: set `GRANT_WITHOUT_AD` to `false` in `prototype/src/ui/livesUI.js`, so a heart is earned by the ad again.
 
 ### Vendored dependencies
 
