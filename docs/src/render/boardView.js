@@ -127,6 +127,23 @@ export class BoardView {
       }
     }
 
+    /**
+     * ONE-WAY CELLS. Drawn on the grid layer, under the blocks: the arrow is a
+     * property of the BOARD, not of whatever happens to be standing on it, and
+     * a player has to be able to read it before deciding to move onto it.
+     *
+     * An invisible one-way cell is not a difficulty, it is a bug — the block
+     * simply refuses to move and nothing on screen says why.
+     */
+    for (const a of board.level.oneWay || []) {
+      const cell = document.createElement('div');
+      cell.className = 'one-way';
+      cell.dataset.dir = a.dx === 1 ? 'right' : a.dx === -1 ? 'left' : a.dy === 1 ? 'down' : 'up';
+      cell.setAttribute('aria-hidden', 'true');
+      this.gridLayer.appendChild(cell);
+      this._place(cell, a.x, a.y);
+    }
+
     for (const b of board.blocks.values()) this._createBlock(b);
     this._drawGates();
   }
@@ -159,6 +176,25 @@ export class BoardView {
         : '') + ARROWS[g.side];
       el.appendChild(arrow);
       el.title = t('gate.exit', { color: colorsOf(g).map(colorName).join(' / ') });
+
+      /**
+       * A SHUTTERED gate says how many blocks still have to leave before it
+       * opens, and goes visibly dim while it is closed. Same rule as the
+       * capacity gauge below: a constraint the player cannot see reads as a
+       * broken gate, not as a rule — they drag a block at it, nothing happens,
+       * and there is nothing on screen to explain why.
+       */
+      if (g.opensAfter) {
+        const left = g.opensAfter - this.board.exited.length;
+        el.classList.toggle('gate-shut', left > 0);
+        if (left > 0) {
+          const wait = document.createElement('b');
+          wait.className = 'gate-wait';
+          wait.textContent = left;
+          wait.title = t('gate.shut', { n: left });
+          el.appendChild(wait);
+        }
+      }
 
       // A gate with limited capacity MUST show what it has left: an invisible
       // constraint reads like a bug, not like a rule.
@@ -252,35 +288,41 @@ export class BoardView {
       node.appendChild(mark);
     }
 
-    // Rail: a bar running right through, saying at a glance which axis the
-    // block can travel along.
-    if (b.kind === KIND.RAIL) {
-      const rail = document.createElement('u');
-      rail.className = 'block-rail';
-      node.appendChild(rail);
+    // Rail: a double-headed arrow ↔ along the axis the block can travel. Two
+    // heads where the anchor has one: same vocabulary, one axis instead of one
+    // way. The translucent bar it replaces went unnoticed by players.
+    if (b.kind === KIND.RAIL) node.appendChild(this._axisArrow(b, b.axis === 'h', 'both'));
+
+    /**
+     * Slider: three trailing streaks, like something that has just been let go
+     * of.
+     *
+     * Deliberately NOT an arrow. A rail's bar says which axis, an anchor's arrow
+     * says which way — both are about DIRECTION, and a slider is free in all
+     * four. What sets it apart is that it does not stop where you let go, so the
+     * mark has to read as motion rather than as a heading.
+     */
+    if (b.kind === KIND.SLIDE) {
+      const trail = document.createElement('u');
+      trail.className = 'block-slide';
+      node.appendChild(trail);
     }
 
-    // Anchor: an arrow towards its gate. The rail shows an axis and reads both
-    // ways; the anchor has only one, and that is precisely what sets it apart —
-    // so the mark must point, not cross.
+    // Anchor: an arrow towards its gate, drawn like the rail's but with one
+    // head — the rail reads both ways along an axis, the anchor only one way.
+    // An anchor can also be the level's key: the arrow then shrinks to a glyph
+    // in a corner so as not to run through the diamond.
     if (b.kind === KIND.ANCHOR) {
-      const arrow = document.createElement('u');
-      arrow.className = 'block-arrow';
-      arrow.textContent = ARROWS[b.dir] || '';
-      // Same anchor point as the marks — using the block's box put an L's arrow
-      // in the hollow of its angle, hence outside the shape. An anchor can also
-      // be the level's key: the arrow then retreats into a corner so as not to
-      // cover the diamond.
       if (hasMark) {
-        arrow.classList.add('arrow-corner');
+        const arrow = document.createElement('u');
+        arrow.className = 'block-arrow arrow-corner';
+        arrow.textContent = ARROWS[b.dir] || '';
+        node.appendChild(arrow);
       } else {
-        const [fx, fy, fw, fh] = this._markBox(b);
-        arrow.style.left = `${fx}px`;
-        arrow.style.top = `${fy}px`;
-        arrow.style.width = `${fw}px`;
-        arrow.style.height = `${fh}px`;
+        const horiz = b.dir === 'left' || b.dir === 'right';
+        const forward = b.dir === 'right' || b.dir === 'bottom';
+        node.appendChild(this._axisArrow(b, horiz, forward ? 'end' : 'start'));
       }
-      node.appendChild(arrow);
     }
 
     if (b.kind === KIND.LOCKED) this._updateLock(node, b);
@@ -307,6 +349,74 @@ export class BoardView {
     if (inside) return [0, 0, b.width * this.cell, b.height * this.cell];
     const [dx, dy] = this._centerCell(b);
     return [dx * this.cell, dy * this.cell, this.cell, this.cell];
+  }
+
+  /**
+   * The arrow of a rail (`heads = 'both'`) or an anchor (`'start'` or `'end'`
+   * of the segment), as an SVG in CELL units (viewBox = the block's box), so it
+   * follows the block whatever the cell size.
+   */
+  _axisArrow(b, horiz, heads) {
+    const { x1, y1, x2, y2 } = this._axisSegment(b, horiz);
+    const ux = Math.sign(x2 - x1), uy = Math.sign(y2 - y1);
+    const inset = 0.2, head = 0.2, stroke = 0.075;
+    const atStart = heads !== 'end', atEnd = heads !== 'start';
+    const a = [x1 + ux * inset, y1 + uy * inset], z = [x2 - ux * inset, y2 - uy * inset];
+    // A filled, rounded head whose tip sits at (x, y), pointing along (dx, dy).
+    const tip = (x, y, dx, dy) => {
+      const px = -dy * head * 0.72, py = dx * head * 0.72;
+      const bx = x - dx * head, by = y - dy * head;
+      return `<path d="M${x},${y} L${bx + px},${by + py} L${bx - px},${by - py} Z"/>`;
+    };
+    // The shaft stops just inside each head, and stays round where there is none.
+    const la = atStart ? head * 0.6 : 0, lz = atEnd ? head * 0.6 : 0;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'block-rail');
+    svg.setAttribute('viewBox', `0 0 ${b.width} ${b.height}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.innerHTML = `<line x1="${a[0] + ux * la}" y1="${a[1] + uy * la}"`
+      + ` x2="${z[0] - ux * lz}" y2="${z[1] - uy * lz}" stroke-width="${stroke}"/>`
+      + `<g stroke-width="${head * 0.28}">`
+      + (atEnd ? tip(z[0], z[1], ux, uy) : '')
+      + (atStart ? tip(a[0], a[1], -ux, -uy) : '')
+      + '</g>';
+    return svg;
+  }
+
+  /**
+   * Where a rail's or an anchor's arrow runs, in cell units: the longest run of
+   * cells along the axis. Centring it on the block's box put it in the hollow of
+   * an L, or on the seam between two rows. Ties go to the run through the most
+   * surrounded cells — an L's elbow, a T's junction, as in `_centerCell`. A
+   * full rectangle keeps the middle line of its box.
+   */
+  _axisSegment(b, horiz) {
+    const has = (x, y) => b.cells.some(([p, q]) => p === x && q === y);
+    if (b.cells.length === b.width * b.height) {
+      return horiz
+        ? { x1: 0, y1: b.height / 2, x2: b.width, y2: b.height / 2 }
+        : { x1: b.width / 2, y1: 0, x2: b.width / 2, y2: b.height };
+    }
+    const at = (k, t) => (horiz ? [t, k] : [k, t]);
+    const lines = horiz ? b.height : b.width, len = horiz ? b.width : b.height;
+    let best = null;
+    for (let k = 0; k < lines; k++) {
+      let run = [], cur = [];
+      for (let t = 0; t <= len; t++) {
+        if (t < len && has(...at(k, t))) cur.push(t);
+        else { if (cur.length > run.length) run = cur; cur = []; }
+      }
+      if (!run.length) continue;
+      const hug = run.reduce((n, t) => {
+        const [x, y] = at(k, t);
+        return n + has(x - 1, y) + has(x + 1, y) + has(x, y - 1) + has(x, y + 1);
+      }, 0);
+      const score = run.length * 100 + hug;
+      if (!best || score > best.score) best = { k, from: run[0], to: run[run.length - 1] + 1, score };
+    }
+    return horiz
+      ? { x1: best.from, y1: best.k + 0.5, x2: best.to, y2: best.k + 0.5 }
+      : { x1: best.k + 0.5, y1: best.from, x2: best.k + 0.5, y2: best.to };
   }
 
   /**

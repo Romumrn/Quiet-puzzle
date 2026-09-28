@@ -42,7 +42,12 @@
         </span>
         <span class="daily-amount" id="daily-amount">+50</span>
       </button>
+      <button class="pill lives-pill menu-lives" data-lives></button>
       <button class="btn btn-primary btn-lg" id="btn-play" data-i18n="menu.play">Play</button>
+      <button class="btn btn-ghost btn-lg btn-quests" id="btn-quests">
+        <span data-i18n="quest.open">Daily quests</span> <small id="quest-count">0/3</small>
+      </button>
+      <button class="btn btn-ghost btn-lg" id="btn-leaderboard" data-i18n="board.open">Leaderboard</button>
       <button class="btn btn-ghost btn-lg" id="btn-daily-puzzle" hidden>
         <span data-i18n="daily.title">Daily puzzle</span>
         <small id="daily-puzzle-sub"></small>
@@ -54,7 +59,10 @@
       <header class="topbar">
         <button class="icon-btn" data-nav="menu" aria-label="Back to menu">‹</button>
         <span class="topbar-title" data-i18n="map.title">Map</span>
-        <span class="pill" id="map-stars">★ 0</span>
+        <span class="topbar-pills">
+          <button class="pill lives-pill" data-lives></button>
+          <span class="pill" id="map-stars">★ 0</span>
+        </span>
       </header>
       <div class="map-scroll" id="map-scroll"></div>
     </section>
@@ -64,7 +72,7 @@
       <header class="topbar">
         <button class="icon-btn" data-nav="map" aria-label="Back to map">‹</button>
         <span class="topbar-title" id="brief-realm">—</span>
-        <span></span>
+        <button class="pill lives-pill" data-lives></button>
       </header>
       <div class="brief-card" id="brief-card">
         <div class="brief-badge" id="brief-number">1</div>
@@ -72,6 +80,7 @@
         <div class="stars stars-lg" id="brief-stars"></div>
         <p class="brief-objective" id="brief-objective">—</p>
         <p class="brief-novelty" id="brief-novelty" hidden></p>
+        <p class="brief-streak" id="brief-streak" hidden></p>
         <dl class="brief-meta">
           <div><dt data-i18n="brief.moves">Moves</dt><dd id="brief-moves">—</dd></div>
           <div><dt data-i18n="brief.difficulty">Difficulty</dt><dd id="brief-difficulty">—</dd></div>
@@ -123,7 +132,7 @@
         </button>
         <button class="action" id="btn-hammer" title="Remove a chosen block">
           <span class="action-icon">🔨</span>
-          <span class="action-cost ad" data-i18n="ad.badge">Ad</span>
+          <span class="action-cost ad" id="hammer-cost" data-i18n="ad.badge">Ad</span>
         </button>
         <button class="action" id="btn-time" title="Add 30 seconds">
           <span class="action-icon">⏱</span>
@@ -131,7 +140,7 @@
         </button>
         <button class="action" id="btn-undo" title="Undo the last move">
           <span class="action-icon">↶</span>
-          <span class="action-cost ad" data-i18n="ad.badge">Ad</span>
+          <span class="action-cost ad" id="undo-cost" data-i18n="ad.badge">Ad</span>
         </button>
         <button class="action action-plain" id="btn-restart" title="Restart the level">
           <span class="action-icon">↺</span>
@@ -194,6 +203,11 @@
           <i></i>
         </label>
         <p class="user-note" data-i18n="user.glyphs.note">Add a symbol to each color so you do not have to rely on color alone.</p>
+        <label class="switch">
+          <span data-i18n="user.night">Night mode</span>
+          <input type="checkbox" id="opt-night">
+          <i></i>
+        </label>
         <div class="user-langue">
           <span data-i18n="user.language">Language</span>
           <div class="language-choice" id="opt-language"></div>
@@ -201,26 +215,10 @@
       </div>
 
       <div class="user-section">
-        <span class="user-legend" data-i18n="user.ads">Ads</span>
-        <label class="switch">
-          <span data-i18n="user.noads">Remove ads</span>
-          <input type="checkbox" id="opt-noads">
-          <i></i>
-        </label>
-        <p class="user-note" data-i18n="user.ads.note">Simulated purchase — no ad network is connected.</p>
-        <button class="btn btn-ghost btn-sm user-large" id="btn-ad-consent" hidden data-i18n="user.ads.consent">Manage ad consent</button>
-      </div>
-
-      <div class="user-section">
         <span class="user-legend" data-i18n="user.create">Create</span>
         <button class="btn btn-ghost btn-sm user-large" id="btn-editor"
                 data-i18n="user.editor">Level editor</button>
         <p class="user-note" data-i18n="user.editor.note">Sketch a board, validate it, and propose it as the daily puzzle.</p>
-      </div>
-
-      <div class="user-section">
-        <span class="user-legend" data-i18n="theme.legend">Theme</span>
-        <div class="theme-grid" id="opt-themes"></div>
       </div>
 
       <div class="user-section">
@@ -260,6 +258,7 @@
         <p class="result-time" id="result-time" hidden></p>
         <p class="result-near" id="result-near" hidden></p>
         <p class="result-reward" id="result-reward"></p>
+        <p class="result-streak" id="result-streak" hidden></p>
         <button class="btn btn-reward" id="btn-double" hidden>
           <span>▶</span> <span data-i18n="result.double">Double the coins</span>
         </button>
@@ -272,6 +271,23 @@
           <span class="banner-tag" data-i18n="ad.badge">Ad</span>
           <span class="banner-text" data-i18n="ad.banner">320×50 banner slot</span>
         </div>
+      </div>
+    </div>
+
+    <!-- ============ REALM COMPLETE ============ -->
+    <div class="overlay" id="overlay-realm" hidden>
+      <div class="confetti-layer" id="realm-confetti"></div>
+      <div class="realm-card">
+        <h2 data-i18n="realm.done">World complete!</h2>
+        <p class="realm-done-name" id="realm-done-name"></p>
+        <div class="stars stars-lg" id="realm-stars"></div>
+        <p class="realm-reward" id="realm-reward"></p>
+        <div class="realm-next" id="realm-next">
+          <span class="realm-next-label" data-i18n="realm.next.label">Coming up</span>
+          <p class="realm-next-name" id="realm-next-name"></p>
+          <p class="realm-next-intro brief-novelty" id="realm-next-intro"></p>
+        </div>
+        <button class="btn btn-primary btn-lg" id="btn-realm-continue" data-i18n="realm.continue">Continue</button>
       </div>
     </div>
 
@@ -348,6 +364,41 @@
       </div>
     </div>
 
+    <!-- ============ CE QUE FAIT UN BLOC (toucher un bloc spécial) ============ -->
+    <div class="overlay" id="overlay-info" hidden>
+      <div class="result-card info-card" id="info-card">
+        <button class="info-close" id="btn-info-ok" data-i18n-aria="ad.close" aria-label="Close">×</button>
+        <div class="info-icon" id="info-icon"></div>
+        <h2 id="info-title"></h2>
+        <p class="info-text" id="info-text"></p>
+      </div>
+    </div>
+
+    <!-- ============ QUÊTES DU JOUR ============ -->
+    <div class="overlay" id="overlay-quests" hidden>
+      <div class="result-card quests-card">
+        <h2 data-i18n="quest.title">Daily quests</h2>
+        <ul class="quest-list" id="quest-list"></ul>
+        <button class="btn quest-chest" id="quest-chest" disabled></button>
+        <div class="result-actions">
+          <button class="btn btn-ghost" id="btn-quests-close" data-i18n="ad.close">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CLASSEMENT DES JOUEURS ============ -->
+    <div class="overlay" id="overlay-board" hidden>
+      <div class="result-card board-card">
+        <h2 data-i18n="board.title">Leaderboard</h2>
+        <p class="rank-mine" id="board-mine"></p>
+        <ol class="rank-list board-list" id="board-list"></ol>
+        <p class="user-note" id="board-note" hidden></p>
+        <div class="result-actions">
+          <button class="btn btn-primary" id="btn-board-close" data-i18n="ad.close">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ============ EDITEUR ============ -->
     <section class="screen" id="screen-editor">
       <header class="topbar">
@@ -378,10 +429,20 @@
           <div class="ed-row ed-wrap" id="ed-kinds"></div>
         </div>
         <div class="ed-section">
-          <span class="ed-legend">Grid</span>
+          <span class="ed-legend" data-i18n="editor.grid">Grid</span>
           <div class="ed-row">
-            <label class="ed-num">Width <input type="number" id="ed-w" min="4" max="8" value="6"></label>
-            <label class="ed-num">Height <input type="number" id="ed-h" min="4" max="9" value="7"></label>
+            <div class="ed-stepper">
+              <span data-i18n="editor.width">Width</span>
+              <button class="ed-step" id="ed-w-minus" aria-label="−">−</button>
+              <b class="ed-step-value" id="ed-w-value">6</b>
+              <button class="ed-step" id="ed-w-plus" aria-label="+">+</button>
+            </div>
+            <div class="ed-stepper">
+              <span data-i18n="editor.height">Height</span>
+              <button class="ed-step" id="ed-h-minus" aria-label="−">−</button>
+              <b class="ed-step-value" id="ed-h-value">7</b>
+              <button class="ed-step" id="ed-h-plus" aria-label="+">+</button>
+            </div>
           </div>
         </div>
 
@@ -426,6 +487,26 @@
       </div>
     </div>
 
+    <!-- ============ LIVES ============ -->
+    <!-- Opened by tapping a heart pill, or by starting a level with none left.
+         A pause, not a punishment: soft pink, a small timer, the ad and the
+         coins offered and never forced — closing is a full button. Contents
+         filled by src/ui/livesUI.js. -->
+    <div class="overlay" id="overlay-lives" hidden>
+      <div class="offer-card lives-card">
+        <div class="lives-row" id="lives-row" aria-hidden="true"></div>
+        <h2 id="lives-title" data-i18n="lives.title">Your hearts</h2>
+        <p class="offer-lead" id="lives-sub"></p>
+        <span class="lives-clock" id="lives-clock">20:00</span>
+        <button class="btn lives-ad" id="btn-lives-ad" data-i18n="lives.pause.ad">▶ Watch an ad · +1 ♥</button>
+        <button class="btn btn-ghost btn-sm offer-second" id="btn-lives-coins">
+          <span data-i18n="lives.buy">+1 ♥ for</span> <b id="lives-price">50</b>
+          <span data-i18n="menu.coins">shards</span>
+        </button>
+        <button class="btn btn-ghost offer-quit" id="btn-lives-close" data-i18n="user.close">Close</button>
+      </div>
+    </div>
+
     <!-- ============ SIMULATED ADVERTISING ============ -->
     <div class="overlay ad-overlay" id="overlay-ad" hidden>
       <div class="ad-card">
@@ -465,7 +546,7 @@
       </div>
     </div>
 
-    <button class="debug-toggle" id="debug-toggle" title="Debug panel">⚙</button>
+    <button class="debug-toggle" id="debug-toggle" title="Debug panel" hidden>⚙</button>
     <div class="debug-panel" id="debug-panel" hidden>
       <label>Go to level
         <input type="number" id="debug-level" min="1" value="1">

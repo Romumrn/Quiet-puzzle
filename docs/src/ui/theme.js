@@ -16,7 +16,6 @@
  */
 
 import { realms, levelsPerRealm, realmOf } from '../data/levelStore.js';
-import * as themes from '../meta/themes.js';
 
 /**
  * Interpolation along the shortest arc of the colour wheel. Without it, going
@@ -43,19 +42,10 @@ export function paletteFor(level) {
   return realmOf(Math.min(Math.max(1, level), realms().length * levelsPerRealm())).palette;
 }
 
-/**
- * Applies hue and palette to an element.
- *
- * A CHOSEN theme wins over the realm's hue: it is a preference, and a
- * preference overwritten at every realm change would not be one. With no theme
- * chosen, the original chromatic progression is kept.
- */
+/** Applies hue and palette to an element. */
 export function applyTo(element, level) {
-  const chosen = themes.byId(themes.chosen());
-  const hue = chosen ? chosen.hue : hueFor(level);
-  const palette = chosen ? chosen.palette : paletteFor(level);
-  element.style.setProperty('--h', hue);
-  palette.forEach((color, i) => element.style.setProperty(`--c${i}`, color));
+  element.style.setProperty('--h', hueFor(level));
+  paletteFor(level).forEach((color, i) => element.style.setProperty(`--c${i}`, color));
 }
 
 /** Applies a level's skin to the whole application. */

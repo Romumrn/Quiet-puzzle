@@ -42,12 +42,22 @@ export const KIND = Object.freeze({
   ANCHOR: 'anchor',
   BULKY: 'bulky',
   DUAL: 'dual',
+  /**
+   * SLIDING. Pushed in a direction, it runs until something stops it — another
+   * block, a wall, the edge of the board — and it cannot be made to stop short.
+   *
+   * The other kinds restrict WHERE a block may go. This one takes away the
+   * choice of where it STOPS, which is a different question entirely: you no
+   * longer place it, you aim it, and the board has to be read for what will
+   * catch it.
+   */
+  SLIDE: 'slide',
 });
 
 /** Kinds a player can grab (walls, no). */
 export const MOVABLE = new Set([
   KIND.NORMAL, KIND.LOCKED, KIND.RAIL, KIND.JOKER, KIND.ANCHOR, KIND.BULKY,
-  KIND.DUAL,
+  KIND.DUAL, KIND.SLIDE,
 ]);
 
 /**

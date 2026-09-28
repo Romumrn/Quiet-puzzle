@@ -1,13 +1,11 @@
 /**
- * AdMob ad unit IDs, for the packaged Android app only (see admob.js).
+ * AdMob ad unit IDs, for the packaged Android app only (see admob.js). The
+ * App ID itself lives in mobile/android/app/src/main/AndroidManifest.xml.
  *
- * Google's public TEST unit IDs by default: they work out of the box, on any
- * device, with no AdMob account — but they only ever serve Google's own
- * sample ads. Replace both with the real IDs from the AdMob console (once an
- * app is registered there) before a release build; the App ID itself lives in
- * mobile/android/app/src/main/AndroidManifest.xml, next to the same warning.
+ * All three are real ad units (AdMob console → Quiet Puzzle → Ad units).
  */
 export const AD_UNITS = {
-  REWARDED: 'ca-app-pub-3940256099942544/5224354917',
-  INTERSTITIAL: 'ca-app-pub-3940256099942544/1033173712',
+  REWARDED: 'ca-app-pub-7234951269462523/4737491747',
+  INTERSTITIAL: 'ca-app-pub-7234951269462523/7845589551',
+  BANNER: 'ca-app-pub-7234951269462523/3746562443',
 };

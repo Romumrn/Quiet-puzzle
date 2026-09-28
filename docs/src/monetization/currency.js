@@ -20,6 +20,7 @@ import { track } from '../data/events.js';
 export const PRICES = Object.freeze({
   HINT: 50,
   CONTINUE: 75,
+  LIFE: 50,      // one heart — see meta/lives.js
 });
 
 export function balance() { return store.load().coins; }

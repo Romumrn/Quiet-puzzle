@@ -33,7 +33,9 @@ const CONTENU = ['index.html', 'privacy.html', 'src', 'styles', 'levels', 'audio
  * Les vingt-neuf autres restent dans le dépôt : les outils node mesurent la
  * base livrée, et `publish-levels.mjs` la pousse en base depuis ces fichiers.
  */
-const AMORCE = ['index.json', 'monde-0.json'];
+// `daily.json` too: the daily challenge is read from the site, not from Supabase
+// (see `api.getDailyPuzzle`), and without it the daily quest cannot be done.
+const AMORCE = ['index.json', 'monde-0.json', 'daily.json'];
 
 rmSync(cible, { recursive: true, force: true });
 mkdirSync(cible, { recursive: true });

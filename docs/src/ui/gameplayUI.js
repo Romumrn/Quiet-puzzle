@@ -27,7 +27,7 @@ let lastRemaining = null;
 
 export function update(board) {
   const level = board.level;
-  el('hud-moves').textContent = t('hud.moves', { n: board.movesRemaining });
+  el('hud-moves').textContent = t('hud.moves', { n: board.dragsUsed() });
 
   // The counter twitches as it goes down: a block leaving must be visible in
   // the HUD too, not only on the board.
@@ -49,5 +49,5 @@ export function update(board) {
   // Preview: the stars still reachable with the drags already spent.
   const [for3, for2] = level.starDrags;
   const used = board.dragsUsed();
-  renderStars(el('hud-stars'), used <= for3 ? 3 : used <= for2 ? 2 : 1);
+  renderStars(el('hud-stars'), used <= for3 ? 3 : used <= for2 ? 2 : used <= level.moveLimit ? 1 : 0);
 }

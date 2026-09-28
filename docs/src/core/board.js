@@ -34,10 +34,22 @@ export class Board {
     this.blocks = new Map();
     for (const data of level.blocks) this.blocks.set(data.id, new Block(data));
 
-    this.movesRemaining = level.moveLimit;
+    // Gestures spent. There is no cap: a player who needs two thousand moves
+    // still wins, with no star (see `stars`).
+    this.drags = 0;
     this.timeRemaining = level.timeLimit;
     this.exited = [];          // ids that left, in order
     this.gameState = GameState.PLAYING;
+
+    /**
+     * ONE-WAY CELLS. `level.oneWay` is a list of `{x, y, dx, dy}`: a block
+     * standing on that cell may only move that way.
+     *
+     * Kept as a map rather than scanned, because `acceptsDirection` runs inside
+     * the solver's breadth-first walk — the hottest loop in the whole project.
+     */
+    this.arrows = new Map();
+    for (const a of level.oneWay || []) this.arrows.set(this._key(a.x, a.y), [a.dx, a.dy]);
 
     this._occupancy = new Map();
     this._reindex();
@@ -85,14 +97,43 @@ export class Board {
 
   /** Does this block accept a move in this direction? */
   acceptsDirection(block, dx, dy) {
-    if (block.kind === KIND.RAIL) return block.axis === 'h' ? dy === 0 : dx === 0;
+    return this._directionRejectReason(block, dx, dy) === null;
+  }
+
+  /**
+   * Why a direction is rejected for this block, or null if it is fine. Split
+   * out from `acceptsDirection` so `step()` can report WHICH mechanic blocked
+   * the move — a rail, an anchor and a one-way cell read as three different
+   * rules to a player, and the message shown for each must say so.
+   */
+  _directionRejectReason(block, dx, dy) {
+    if (block.kind === KIND.RAIL) {
+      return (block.axis === 'h' ? dy === 0 : dx === 0) ? null : 'rail';
+    }
     // An anchor has a single way to travel: towards its gate. It can therefore
     // never step aside to let anything through, which is the whole point.
     if (block.kind === KIND.ANCHOR && block.dir) {
       const [ax, ay] = SIDES[block.dir];
-      return dx === ax && dy === ay;
+      return (dx === ax && dy === ay) ? null : 'anchor';
     }
-    return true;
+    /**
+     * A ONE-WAY cell commits whatever stands on it. Enter it and the only way
+     * out is the way the arrow points — so a corridor can be entered from the
+     * wrong end and become a trap, which is a spatial question rather than a
+     * counting one.
+     *
+     * Checked on EVERY cell the block covers, not just its anchor cell: a
+     * four-cell bar lying across an arrow is held by it exactly as a single cell
+     * would be, and letting the rest of the piece ignore it would read as the
+     * rule breaking at random.
+     */
+    if (this.arrows.size) {
+      for (const [cx, cy] of block.absolute()) {
+        const arrow = this.arrows.get(this._key(cx, cy));
+        if (arrow && (arrow[0] !== dx || arrow[1] !== dy)) return 'oneway';
+      }
+    }
+    return null;
   }
 
   /** How many blocks still have to exit before a lock opens. */
@@ -121,12 +162,67 @@ export class Board {
    * through a gate.
    * @returns {{ok:boolean, event?:object, reason?:string}}
    */
+  /**
+   * Where a sliding block ends up when pushed this way.
+   *
+   * It runs until the next cell is not free, and cannot be stopped short. The
+   * return says whether the run carries it OUT — a slider that reaches the edge
+   * with a gate that takes it leaves, and one that reaches the edge without a
+   * gate simply stops against the wall.
+   *
+   * Written here rather than as a loop inside `step` because three callers need
+   * the same answer and must agree exactly: the engine when the finger lets go,
+   * the solver when it enumerates where a block can go, and the generator when
+   * it walks one backwards.
+   *
+   * @returns {{x:number, y:number, leaves:boolean, gate:object|null, moved:boolean}}
+   */
+  slideTarget(block, dx, dy) {
+    const home = { x: block.x, y: block.y };
+    let steps = 0;
+    // 40 is past any board this game will ever have; it only stops a runaway
+    // loop if the occupancy map is ever inconsistent.
+    for (let i = 0; i < 40; i++) {
+      const target = block.absolute().map(([x, y]) => [x + dx, y + dy]);
+      if (target.some(([x, y]) => !this.inside(x, y))) {
+        const gate = this._gateFor(block, dx, dy);
+        const leaves = !!gate && this.pathClear(block, dx, dy);
+        /**
+         * The gate travels with the answer, and it has to.
+         *
+         * It can only be known from where the run ENDS — at the edge — and the
+         * caller is standing where the run began, several cells back, where
+         * there is no gate to find. Leaving it to be recomputed there was
+         * exactly the bug: the solver saw a slider reach the boundary, asked its
+         * own position for the gate, got nothing, and never recorded the exit.
+         * Levels it had a solution for came back unsolvable.
+         */
+        const at = { x: block.x, y: block.y, leaves, gate: leaves ? gate : null, moved: steps > 0 };
+        block.x = home.x; block.y = home.y;
+        this._reindex();
+        return at;
+      }
+      if (!this.pathClear(block, dx, dy)) break;
+      block.x += dx; block.y += dy;
+      // The occupancy map has to follow, or the next `pathClear` reads the block
+      // at the cells it has just left and the run walks straight through
+      // whatever stands in front of it.
+      this._reindex();
+      steps++;
+    }
+    const at = { x: block.x, y: block.y, leaves: false, gate: null, moved: steps > 0 };
+    block.x = home.x; block.y = home.y;
+    this._reindex();
+    return at;
+  }
+
   step(id, dx, dy) {
     const block = this.blocks.get(id);
     if (!block) return { ok: false, reason: 'unknown' };
     if (this.gameState !== GameState.PLAYING) return { ok: false, reason: 'finished' };
     if (!this.canMove(block)) return { ok: false, reason: 'locked' };
-    if (!this.acceptsDirection(block, dx, dy)) return { ok: false, reason: 'rail' };
+    const directionReject = this._directionRejectReason(block, dx, dy);
+    if (directionReject) return { ok: false, reason: directionReject };
 
     const target = block.absolute().map(([x, y]) => [x + dx, y + dy]);
     const leaves = target.some(([x, y]) => !this.inside(x, y));
@@ -141,6 +237,25 @@ export class Board {
       const gate = this._gateFor(block, dx, dy);
       if (!gate) return { ok: false, reason: 'wall' };
       return { ok: true, event: this._exit(block, gate, dx, dy) };
+    }
+
+    /**
+     * A SLIDER does not advance one cell, it runs. The whole run is a single
+     * `move` event carrying the final position — which is also what it should
+     * look like, one uninterrupted glide rather than a stutter of cells.
+     */
+    if (block.kind === KIND.SLIDE) {
+      const to = this.slideTarget(block, dx, dy);
+      if (to.leaves) {
+        block.x = to.x; block.y = to.y;
+        this._reindex();
+        const gate = this._gateFor(block, dx, dy);
+        return { ok: true, event: this._exit(block, gate, dx, dy) };
+      }
+      if (!to.moved) return { ok: false, reason: 'occupied' };
+      block.x = to.x; block.y = to.y;
+      this._reindex();
+      return { ok: true, event: { type: 'move', id, x: block.x, y: block.y } };
     }
 
     block.x += dx;
@@ -185,6 +300,18 @@ export class Board {
    * generator.
    */
   acceptsColor(gate, block) {
+    /**
+     * A SHUTTERED gate: closed until `opensAfter` blocks have left the grid.
+     *
+     * Checked before the colour, and before the joker's free pass — a joker
+     * leaves by any gate that is OPEN, and letting it through a shut one would
+     * make the whole mechanic a suggestion.
+     *
+     * The count is `exited.length`, which the solver's state key already
+     * distinguishes: two states holding the same blocks have necessarily seen
+     * the same number leave, so nothing had to be added to it.
+     */
+    if (gate.opensAfter && this.exited.length < gate.opensAfter) return false;
     if (block.kind === KIND.JOKER) return true;
     const gateColors = colorsOf(gate);
     return colorsOf(block).some((c) => gateColors.includes(c));
@@ -238,6 +365,11 @@ export class Board {
    */
   dragTowards(id, targetX, targetY, maxSteps = 24) {
     const events = [];
+    // Set the first time a direction is rejected specifically because of a
+    // rail/anchor/one-way constraint, so the caller can tell "this block
+    // simply cannot go that way" apart from "something is in the way" —
+    // only the former is worth explaining to the player.
+    let blockedReason = null;
     for (let i = 0; i < maxSteps; i++) {
       const block = this.blocks.get(id);
       if (!block) break;
@@ -252,19 +384,43 @@ export class Board {
       let advanced = false;
       for (const [dx, dy] of attempts) {
         if (dx === 0 && dy === 0) continue;
+        const before = Math.abs(ex) + Math.abs(ey);
         const r = this.step(id, dx, dy);
-        if (r.ok) { events.push(r.event); advanced = true; if (r.event.type === 'exit') return { events, exited: true }; break; }
+        if (!r.ok) {
+          if (r.reason === 'rail' || r.reason === 'anchor' || r.reason === 'oneway') blockedReason = r.reason;
+          continue;
+        }
+        events.push(r.event);
+        advanced = true;
+        if (r.event.type === 'exit') return { events, exited: true, blockedReason };
+
+        /**
+         * A SLIDER cannot be stopped short, so it will happily overshoot the
+         * point being dragged to — and then the next pass, aiming back the other
+         * way, overshoots again. Left alone the loop rocks the block between two
+         * walls until it runs out of steps.
+         *
+         * So a slide that did not bring it CLOSER ends the gesture. Aiming at a
+         * spot a slider cannot stop on is not an error to report, it is simply a
+         * pull that achieves nothing.
+         */
+        const now = this.blocks.get(id);
+        if (now && now.kind === KIND.SLIDE) {
+          const after = Math.abs(targetX - now.x) + Math.abs(targetY - now.y);
+          if (after >= before) return { events, exited: false, blockedReason };
+        }
+        break;
       }
       if (!advanced) break;
     }
-    return { events, exited: false };
+    return { events, exited: false, blockedReason };
   }
 
   /** Ends a gesture: spends a move if it actually shifted something. */
   endGesture(hasMoved) {
     const events = [];
     if (!hasMoved) return events;
-    this.movesRemaining--;
+    this.drags++;
     events.push(...this._collectUnlocks());
     this._settle(events);
     return events;
@@ -333,7 +489,7 @@ export class Board {
     return {
       blocks: [...this.blocks.values()].map((b) => ({ b, x: b.x, y: b.y })),
       exited: [...this.exited],
-      moves: this.movesRemaining,
+      moves: this.drags,
       state: this.gameState,
       // Gate capacity is consumed: without it in the snapshot, an undo would
       // give the block back but not its room in the gate.
@@ -345,7 +501,7 @@ export class Board {
     this.blocks.clear();
     for (const { b, x, y } of snap.blocks) { b.x = x; b.y = y; this.blocks.set(b.id, b); }
     this.exited = [...snap.exited];
-    this.movesRemaining = snap.moves;
+    this.drags = snap.moves;
     this.gameState = snap.state;
     this.gates.forEach((g, i) => { g.capacity = snap.capacities[i]; });
     this._reindex();
@@ -378,13 +534,27 @@ export class Board {
 
       const snap = this.snapshot();
       for (const pos of rawPath.slice(1)) this.dragTowards(step.id, pos.x, pos.y);
-      let leaves = !this.blocks.has(step.id);
-      if (!leaves) {
-        const [dx, dy] = SIDES[step.gate];
-        leaves = this.step(step.id, dx, dy).ok;
+
+      /**
+       * A step with NO GATE is a PARK: the block is moved aside so another can
+       * pass, and it does not leave. The hint is then "put this one there",
+       * which is exactly the move the player is missing — so it counts as
+       * usable as soon as the block actually reached the spot.
+       */
+      let usable;
+      if (!step.gate) {
+        const moved = this.blocks.get(step.id);
+        const target = rawPath[rawPath.length - 1];
+        usable = !!moved && moved.x === target.x && moved.y === target.y;
+      } else {
+        usable = !this.blocks.has(step.id);
+        if (!usable) {
+          const [dx, dy] = SIDES[step.gate];
+          usable = this.step(step.id, dx, dy).ok;
+        }
       }
       this.restore(snap);
-      if (leaves) return { id: step.id, gate: step.gate, path: rawPath };
+      if (usable) return { id: step.id, gate: step.gate ?? null, path: rawPath };
     }
     return null;
   }
@@ -402,18 +572,17 @@ export class Board {
 
   _settle(events) {
     if (this.isSolved()) { this.gameState = GameState.WON; return; }
-    if (this.movesRemaining <= 0) { this.gameState = GameState.FAILED; this.failReason = 'moves'; return; }
     if (this.timeRemaining <= 0) { this.gameState = GameState.FAILED; this.failReason = 'time'; }
   }
 
   /** Drags actually spent since the start of the level. */
-  dragsUsed() { return this.level.moveLimit - this.movesRemaining; }
+  dragsUsed() { return this.drags; }
 
   /**
-   * 0 to 3 stars. 1★ = level solved; 2★ and 3★ measure how economical the
-   * player was compared to the reference solution (`starDrags`). The clock and
-   * the move limit remain defeat conditions, not grading scales: mixing the two
-   * made the grade unreadable.
+   * 0 to 3 stars, for a solved level. 2★ and 3★ measure how economical the
+   * player was compared to the reference solution (`starDrags`); 1★ is any
+   * win within `moveLimit`; past it the level is still WON, with no star. The
+   * number of moves is never a defeat — only the clock is.
    */
   stars() {
     if (!this.isSolved()) return 0;
@@ -421,6 +590,6 @@ export class Board {
     const used = this.dragsUsed();
     if (used <= for3) return 3;
     if (used <= for2) return 2;
-    return 1;
+    return used <= this.level.moveLimit ? 1 : 0;
   }
 }

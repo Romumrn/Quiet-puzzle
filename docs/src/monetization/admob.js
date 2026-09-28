@@ -1,17 +1,19 @@
 /**
- * Real AdMob rewarded/interstitial ads, for the packaged Android app.
+ * Real AdMob rewarded/interstitial/banner ads, for the packaged Android app.
  *
  * Only imported and called from brokerManager.js when `isNative()` — the
  * published web site never touches this module's methods (see the simulated
- * `_play()` there, kept for browser development and testing).
+ * `_play()` there, and the plain placeholder `<div>` for the banner, kept for
+ * browser development and testing).
  */
 
 import {
-  AdMob, RewardAdPluginEvents, AdmobConsentStatus,
+  AdMob, RewardAdPluginEvents, AdmobConsentStatus, BannerAdSize, BannerAdPosition,
 } from '../../vendor/capacitor-admob.esm.js';
 import { AD_UNITS } from './admobConfig.js';
 
 let ready = null;
+let bannerLoaded = false; // showBanner() vs resumeBanner(): the plugin only accepts the former once
 
 /**
  * Runs Google's UMP consent flow (shown only where required — EEA, UK,
@@ -26,7 +28,15 @@ export function ensureInitialized() {
         await AdMob.showConsentForm();
       }
       await AdMob.initialize();
-    })();
+    })().catch((e) => {
+      // A rejected promise must not be cached: the first attempt failing
+      // (no network yet at cold start, a UMP form hiccup) used to disable
+      // every ad — interstitial and rewarded alike — for the rest of the
+      // session, with nothing retrying it. Clearing `ready` lets the next
+      // ad request try again instead of reusing a dead promise forever.
+      ready = null;
+      throw e;
+    });
   }
   return ready;
 }
@@ -81,4 +91,37 @@ export function showRewarded() {
       .then(() => AdMob.showRewardVideoAd())
       .catch(() => finish(false));
   });
+}
+
+/**
+ * Shows the real bottom banner. Safe to call repeatedly (e.g. once per
+ * screen change): the plugin's own `showBanner()` creates the native view,
+ * so later calls resume the same view instead of creating a second one.
+ */
+export async function showBanner() {
+  await ensureInitialized();
+  try {
+    if (bannerLoaded) {
+      await AdMob.resumeBanner();
+      return;
+    }
+    await AdMob.showBanner({
+      adId: AD_UNITS.BANNER,
+      adSize: BannerAdSize.ADAPTIVE_BANNER,
+      position: BannerAdPosition.BOTTOM_CENTER,
+    });
+    bannerLoaded = true;
+  } catch {
+    bannerLoaded = false;
+  }
+}
+
+/** Hides the banner without destroying it — cheaper to bring back than a fresh showBanner(). */
+export async function hideBanner() {
+  if (!bannerLoaded) return;
+  try {
+    await AdMob.hideBanner();
+  } catch {
+    // Already gone (e.g. never actually loaded): nothing to hide.
+  }
 }

@@ -20,7 +20,7 @@ import { EVENTS as EV } from '../data/analytics.js';
 import { t } from '../ui/i18n.js';
 
 /** What an accepted continue gives back. */
-export const BONUS = Object.freeze({ SECONDS: 30, MOVES: 3 });
+export const BONUS = Object.freeze({ SECONDS: 30 }); // moves are unlimited: only the clock can run out
 
 const el = (id) => document.getElementById(id);
 
@@ -32,7 +32,7 @@ export function offer({ board, ads }) {
   const remaining = board.remaining();
   el('offer-lead').textContent = t(remaining > 1 ? 'offer.left.plural' : 'offer.left', { n: remaining });
   el('offer-coins-cost').textContent = currency.PRICES.CONTINUE;
-  el('offer-bonus').textContent = t('offer.bonus', { s: BONUS.SECONDS, c: BONUS.MOVES });
+  el('offer-bonus').textContent = t('offer.bonus', { s: BONUS.SECONDS });
 
   // The paid option disappears when the player cannot afford it: a greyed-out
   // button only reminds them of what they lack, at the worst possible moment.
@@ -60,7 +60,7 @@ export function offer({ board, ads }) {
       if (rewarded) {
         track(EV.REWARD_GRANTED, {
           placement: PLACEMENT.REWARDED_CONTINUE, reward: 'continue',
-          seconds: BONUS.SECONDS, moves: BONUS.MOVES,
+          seconds: BONUS.SECONDS,
         });
         close('ad');
       } else {
@@ -89,7 +89,6 @@ export function offer({ board, ads }) {
 /** Applies the continue to the board. */
 export function apply(board) {
   board.timeRemaining += BONUS.SECONDS;
-  board.movesRemaining += BONUS.MOVES;
   board.gameState = 'PLAYING';
   board.failReason = null;
 }

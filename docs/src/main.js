@@ -13,9 +13,11 @@ import * as levels from './data/levelStore.js';
 import * as i18n from './ui/i18n.js';
 const { t } = i18n;
 import { KIND } from './core/block.js';
-import { BoardView, setSpeed, conditionLabel } from './render/boardView.js';
+import { BoardView, setSpeed } from './render/boardView.js';
 import { InputHandler } from './input/input.js';
 import * as api from './data/api.js';
+import * as lives from './meta/lives.js';
+import * as livesUI from './ui/livesUI.js';
 import * as store from './data/save.js';
 import * as screens from './ui/screens.js';
 import * as mapScreen from './ui/mapScreen.js';
@@ -24,12 +26,16 @@ import * as editor from './ui/editor.js';
 import { solve } from './core/solver.js';
 import * as hud from './ui/gameplayUI.js';
 import * as result from './ui/resultScreen.js';
+import * as realmComplete from './ui/realmComplete.js';
 import { AdBroker, PLACEMENT } from './monetization/brokerManager.js';
 import * as currency from './monetization/currency.js';
 import * as failOffer from './monetization/failOffer.js';
 import * as daily from './meta/daily.js';
 import * as dailyPuzzle from './meta/dailyPuzzle.js';
-import * as themes from './meta/themes.js';
+import * as streakBonus from './meta/streakBonus.js';
+import * as leaderboard from './meta/leaderboard.js';
+import * as quests from './meta/quests.js';
+import * as blockInfo from './ui/blockInfo.js';
 import { EVENTS as EV, levelContext } from './data/analytics.js';
 import * as feedback from './meta/feedback.js';
 import { track, recent, subscribe } from './data/events.js';
@@ -42,8 +48,15 @@ import * as adminPanel from './ui/adminPanel.js';
 import { isNative } from './native/capacitor.js';
 import { registerBackHandler, registerLifecycle } from './native/lifecycle.js';
 import { Browser } from '../vendor/capacitor-browser.esm.js';
+import { Share } from '../vendor/capacitor-share.esm.js';
 
 const el = (id) => document.getElementById(id);
+
+// The "device frame" look (styles/main.css `.device`) simulates a phone on
+// the published desktop web page. Inside the packaged app there is no page
+// to frame — the app IS the whole screen, of whatever aspect ratio the
+// device has, so that look must be dropped before first paint.
+if (isNative()) document.documentElement.classList.add('native-app');
 
 let view = null;
 let input = null;
@@ -58,6 +71,7 @@ let busy = false;
 let offerUsed = false;    // the continue offer is worth one use per attempt
 let levelFailures = 0;    // used so the very first defeat is never cut by an ad
 let levelStartedAt = 0;
+let freebies = streakBonus.bonusFor(0); // boosters the win streak brought into this level
 
 /**
  * Breathing room between the last block cleared and the success screen.
@@ -74,6 +88,7 @@ const PAUSE_AFTER_ARPEGGIO = 420;   // ms, between the arpeggio and the screen
 /** In the background we do not wait: timers there are throttled to one second. */
 const pause = (ms) => (document.hidden ? Promise.resolve() : new Promise((r) => setTimeout(r, ms)));
 let gestureRemembered = false;   // one snapshot per gesture, for undo
+let directionBlockShown = false; // one "wrong way" toast per gesture, not one per pointermove
 let hammerMode = false;
 
 const audio = new AudioManager();
@@ -96,11 +111,13 @@ async function showMenu() {
   // you are — it read like a score, when it measures progress.
   el('menu-progress').textContent = `${p.currentLevel}/${levels.totalLevels()}`;
   await updateDailyPuzzleButton();
+  updateQuestButton();
   updateStreakBadge();
   updateDailyGift();
   updateMuteDot();
   await updateGreeting();
   theme.apply(p.currentLevel); // the menu takes the colour of where the player is
+  livesUI.refresh();
   screens.show('menu');
   audio.startMusic();
   updateBanner('menu');
@@ -139,7 +156,6 @@ function payStreakRewards() {
   for (const tier of daily.rewardsDue()) {
     const r = tier.reward;
     if (r.type === 'coins') currency.credit(r.amount, 'streak_reward');
-    else if (r.type === 'theme') themes.unlock(r.id, 'streak');
     else if (r.type === 'hints') {
       const d = store.load();
       d.hints = (d.hints || 0) + r.amount;
@@ -213,7 +229,9 @@ function updateBanner(screen) {
 function showMap() {
   stopClock();
   result.hide();
+  realmComplete.hide();
   mapScreen.render(showBrief);
+  livesUI.refresh();
   screens.show('map');
   updateBanner('map');
 }
@@ -228,7 +246,8 @@ async function showBrief(n) {
   el('brief-number').textContent = n;
   screens.renderStars(el('brief-stars'), rec.stars);
   el('brief-objective').textContent = hud.labelFor(level);
-  el('brief-moves').textContent = level.moveLimit;
+  // No move limit any more: what the briefing shows is the 3-star target.
+  el('brief-moves').textContent = level.starDrags?.[0] ?? '—';
   el('brief-difficulty').textContent = i18n.realmText(levels.realmOf(n), 'difficulty');
   // The realm's novelty, announced at its first level only. A block kind never
   // seen must be named once; repeating it across the next nineteen levels would
@@ -238,15 +257,39 @@ async function showBrief(n) {
   novelty.hidden = !realmEntry;
   if (realmEntry) novelty.textContent = t('brief.new', { what: i18n.realmText(levels.realmOf(n), 'introduces') });
   el('brief-best').textContent = rec.bestScore ? t('brief.best', { n: rec.bestScore }) : '—';
-  // The last level of a realm is noticeably harder than the others (see
-  // levels.js): the briefing screen says so before the player commits, rather
-  // than letting them find out mid-game.
-  const isFinale = n === levels.realmOf(n).last;
-  el('brief-final').hidden = !isFinale;
-  el('brief-card').classList.toggle('final', isFinale);
+  // The sawtooth's peaks — "hard" at the end of each cycle, "super hard" for
+  // the realm's last level (see tierOf): the briefing screen says so before the player commits,
+  // rather than letting them find out mid-game.
+  const tier = levels.tierOf(n);
+  el('brief-final').hidden = !tier;
+  if (tier) el('brief-final').textContent = t(tier === 'superhard' ? 'brief.superhard' : 'brief.hard');
+  el('brief-card').classList.toggle('final', tier === 'superhard');
+  el('brief-card').classList.toggle('hard', tier === 'hard');
+  showStreakBonus();
   theme.apply(n);
+  livesUI.refresh();
   screens.show('brief');
   updateBanner('brief');
+}
+
+/**
+ * The win streak on the briefing screen: the boosters it brings into this
+ * level, or what one more win would bring. Map levels only — the streak is
+ * theirs (see `usesLives`).
+ */
+function showStreakBonus() {
+  const line = el('brief-streak');
+  const streak = store.load().levelStreak || 0;
+  const bonus = streakBonus.bonusFor(streak);
+  const next = streakBonus.nextTier(streak);
+  line.hidden = !level?.number || (streakBonus.isEmpty(bonus) && !streak);
+  if (line.hidden) return;
+  if (!streakBonus.isEmpty(bonus)) {
+    line.textContent = t('brief.streak', { n: streak, what: streakBonus.describe(bonus) });
+  } else {
+    line.textContent = t('brief.streak.next', { n: next.at - streak, what: streakBonus.describe(streakBonus.bonusFor(next.at)) });
+  }
+  line.classList.toggle('on', !streakBonus.isEmpty(bonus));
 }
 
 // ---------------------------------------------------------------------------
@@ -276,14 +319,32 @@ async function adBeforeLevel() {
   });
 }
 
+/**
+ * Whether the level being played spends hearts: map levels only. The daily
+ * puzzle and the editor's trials sit outside the progression, and so outside
+ * the lives.
+ */
+function usesLives() {
+  return !editorTrial && !dailyEntry && level?.number > 0;
+}
+
 async function startLevel() {
+  // No heart left: the "short break" card, and back to the map if the player
+  // would rather wait.
+  if (usesLives() && !lives.canPlay() && !await livesUI.pause()) {
+    showMap();
+    return;
+  }
   openPanel(false);
   result.hide();
+  realmComplete.hide();
   await adBeforeLevel();
   theme.apply(level.number);
   audio.resetRun();
   offerUsed = false;
   levelStartedAt = Date.now();
+  // Read BEFORE anything can break the streak: it is what the player won.
+  freebies = streakBonus.bonusFor(usesLives() ? store.load().levelStreak || 0 : 0);
   const retry = levelFailures > 0;
   track(retry ? EV.LEVEL_RESTARTED : EV.LEVEL_STARTED,
     levelContext(level, { attempt: levelFailures + 1 }));
@@ -319,18 +380,43 @@ async function startLevel() {
  * in exchange for a rewarded ad.
  */
 function updateBoosters() {
-  const free = !currency.canAfford(currency.PRICES.HINT);
-  const cost = el('hint-cost');
-  cost.textContent = free ? t('ad.badge') : currency.PRICES.HINT;
-  cost.classList.toggle('ad', free);
+  const broke = !currency.canAfford(currency.PRICES.HINT);
+  badge('hint-cost', freebies.hint, broke ? t('ad.badge') : currency.PRICES.HINT, broke);
+  badge('hammer-cost', freebies.hammer, t('ad.badge'), true);
+  badge('undo-cost', freebies.undo, t('ad.badge'), true);
   el('btn-undo').disabled = !board || !board.canUndo();
 }
 
-/** Watches a rewarded ad for a booster. The clock is suspended meanwhile. */
+/** A booster's price tag — or "×n" while the win streak still pays for it. */
+function badge(id, free, price, isAd) {
+  const cost = el(id);
+  cost.textContent = free ? `×${free}` : price;
+  cost.classList.toggle('free', free > 0);
+  cost.classList.toggle('ad', !free && isAd);
+}
+
+/** Spends one streak freebie of this kind, if any is left. */
+function useFreebie(kind) {
+  if (!freebies[kind]) return false;
+  freebies[kind]--;
+  track('streak_bonus_used', { type: kind, level: level?.number });
+  return true;
+}
+
+/**
+ * Watches a rewarded ad for a booster. The clock is suspended meanwhile.
+ *
+ * A real AdMob rewarded unit can fail to load for reasons that have nothing
+ * to do with this code — no fill, a brand new ad unit still ramping up,
+ * network trouble — and used to fail SILENTLY: the button just did nothing,
+ * indistinguishable from being broken. Same toast the coin shop already uses
+ * for its own rewarded ad (`shop.ad.failed`).
+ */
 async function boosterByAd(placement) {
   stopClock();
   const watched = await ads.showRewarded(placement);
   if (board?.gameState === GameState.PLAYING) startClock();
+  if (!watched) screens.toast(t('shop.ad.failed'));
   return watched;
 }
 
@@ -345,16 +431,88 @@ function onRefused(id) {
   if (!b) return;
   view.bump(id);
   haptics.refused();
-  if (b.kind === KIND.WALL) screens.toast(t('toast.sealed'));
-  else if (b.kind === KIND.LOCKED) screens.toast(t('toast.locked', { what: conditionLabel(b.condition, board) }));
+  // A sealed or locked block cannot be dragged at all: pressing it is asking
+  // what it is. Same card as a tap on any other special block.
+  showBlockInfo(id);
+}
+
+/**
+ * A copy of the block as drawn on the board — its colour, its arrows, its
+ * speed lines — shrunk to fit the card: the explanation must show THE block
+ * the player tapped, not a symbol of it.
+ */
+function blockPreview(id) {
+  const source = view?.nodes.get(id);
+  if (!source) return null;
+  const w = source.offsetWidth, h = source.offsetHeight;
+  const scale = Math.min(1, 84 / Math.max(w, h));
+  const copy = source.cloneNode(true);
+  copy.classList.remove('grabbed', 'selected', 'hint');
+  Object.assign(copy.style, { position: 'relative', transform: 'none', animation: 'none' });
+  const frame = document.createElement('div');
+  frame.className = 'info-preview';
+  frame.style.setProperty('--cell', `${view.cell}px`);
+  Object.assign(frame.style, { width: `${w * scale}px`, height: `${h * scale}px` });
+  const inner = document.createElement('div');
+  Object.assign(inner.style, { width: `${w}px`, height: `${h}px`, transform: `scale(${scale})`, transformOrigin: '0 0' });
+  inner.append(copy);
+  frame.append(inner);
+  return frame;
+}
+
+/**
+ * What a special block does (ui/blockInfo.js), on a tap. The clock stops while
+ * the card is open: reading the rules is not playing.
+ */
+function showBlockInfo(id) {
+  const b = board?.blocks.get(id);
+  const info = b && blockInfo.describe(b, board);
+  if (!info || !el('overlay-info').hidden) return;
+  el('info-icon').replaceChildren(blockPreview(id) || document.createTextNode(info.icon));
+  el('info-title').textContent = info.title;
+  el('info-text').textContent = info.text;
+  const running = board.gameState === GameState.PLAYING;
+  if (running) stopClock();
+  el('overlay-info').hidden = false;
+  track('block_info_shown', { kind: b.kind, level: level?.number });
+  const close = () => {
+    el('overlay-info').hidden = true;
+    if (running && board?.gameState === GameState.PLAYING) startClock();
+  };
+  // The little cross, or a tap anywhere outside the card — but not the tap
+  // that opened it: its `click` lands on the overlay a moment after `pointerup`.
+  const openedAt = performance.now();
+  el('btn-info-ok').onclick = close;
+  el('overlay-info').onclick = (ev) => {
+    if (performance.now() - openedAt < 300 || el('info-card').contains(ev.target)) return;
+    close();
+  };
+}
+
+/**
+ * A rail/anchor/one-way block nudged the way it refuses. Shown once per
+ * gesture (see `directionBlockShown`): a pointer drag fires this on every
+ * move event, and repeating the sound and toast for as long as the finger
+ * stays pressed the wrong way would turn one honest "no" into a buzzer.
+ */
+function onDirectionBlocked(id, reason) {
+  if (directionBlockShown) return;
+  directionBlockShown = true;
+  view.bump(id);
+  haptics.refused();
+  audio.blocked();
+  screens.toast(t(`toast.blocked.${reason}`), 1400, 'alert');
 }
 
 /** One finger movement: returns true if the block actually advanced. */
 function onDrag(id, x, y) {
   if (busy || board.gameState !== GameState.PLAYING) return false;
   const before = gestureRemembered ? null : board.snapshot();
-  const { events } = board.dragTowards(id, x, y);
-  if (!events.length) return false;
+  const { events, blockedReason } = board.dragTowards(id, x, y);
+  if (!events.length) {
+    if (blockedReason) onDirectionBlocked(id, blockedReason);
+    return false;
+  }
   for (const e of events) if (e.type === 'exit') { audio.exit(); haptics.tick(); }
   if (!gestureRemembered) { board.remember(before); gestureRemembered = true; }
   view.apply(events);
@@ -363,9 +521,11 @@ function onDrag(id, x, y) {
 }
 
 /** End of gesture: this is where a move is spent. */
-async function onEnd(id, hasMoved) {
+async function onEnd(id, hasMoved, tap) {
   gestureRemembered = false;
+  directionBlockShown = false;
   updateBoosters();
+  if (tap && board.gameState === GameState.PLAYING) showBlockInfo(id);
   if (!hasMoved || board.gameState !== GameState.PLAYING) return;
   const events = board.endGesture(true);
   await view.apply(events);
@@ -419,6 +579,10 @@ async function finishLevel() {
     // "Restart" relaunches the grid without going through the result screen:
     // the player has already seen they lost, telling them again is pointless.
     if (choice === 'retry') {
+      api.resetLevelStreak();
+      // Declining the continue is the defeat: it costs its heart here, since
+      // this path never reaches `completeLevel` below.
+      if (usesLives()) lives.spend(lives.COST.FAIL, 'fail');
       busy = false;
       input.locked = false;
       startLevel();
@@ -485,6 +649,7 @@ async function finishLevel() {
         seconds: duration,
       });
       track('daily_puzzle_completed', { id: entry.id, score, duration });
+      announceQuests(quests.onDailyWon(exitCounts()));
       track(EV.DAILY_COMPLETED, { id: entry.id, score, duration });
       await updateDailyPuzzleButton();
       updateStreakBadge();
@@ -498,12 +663,37 @@ async function finishLevel() {
     return;
   }
 
+  if (!won && usesLives()) lives.spend(lives.COST.FAIL, 'fail');
   const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won, timeMs: duration * 1000 });
+  if (won) announceQuests(quests.onLevelWon({
+    stars, ...exitCounts(), tier: levels.tierOf(level.number), streak: res.levelStreak || 0,
+  }));
 
   // The interstitial no longer plays HERE but when the next level opens (see
   // `startLevel`). We just advance the policy's counter: a level ending is
   // indeed what makes an ad eligible.
   ads.policy.noteLevelEnding();
+
+  // A win on the last level of a realm gets the celebration screen instead of
+  // the plain result screen — it carries the same stars/reward, plus the next
+  // realm's preview, so nothing is lost by replacing rather than stacking.
+  if (won && level.number === levels.realmOf(level.number).last) {
+    track(EV.REALM_COMPLETED, levelContext(level, { attempt: levelFailures + 1, board, duration }));
+    const finishedRealm = levels.realmOf(level.number);
+    const isGameOver = level.number >= levels.totalLevels();
+    realmComplete.show({
+      realm: finishedRealm,
+      next: isGameOver ? null : levels.realmOf(level.number + 1),
+      stars,
+      coinsEarned: res.coinsEarned,
+      onContinue: async () => {
+        if (isGameOver) { showMap(); return; }
+        await showBrief(level.number + 1);
+        startLevel();
+      },
+    });
+    return;
+  }
 
   result.show({
     won,
@@ -512,6 +702,7 @@ async function finishLevel() {
     duration,
     level: level.number,
     coinsEarned: res.coinsEarned,
+    levelStreak: res.levelStreak,
     reason: board.failReason,
     remaining: board.remaining(),
     noAds: currency.hasRemovedAds(),
@@ -537,14 +728,25 @@ async function finishLevel() {
 
 el('btn-play').onclick = showMap;
 
+livesUI.init({ ads });
+
 el('btn-daily').onclick = claimDailyGift;
 
-el('btn-restart').onclick = () => { if (!busy) startLevel(); };
+el('btn-restart').onclick = () => {
+  if (busy) return;
+  // Restarting a grid in progress gives up on it: the run of wins stops here.
+  // It also costs half a heart — half, because it is a choice, not a defeat.
+  if (board?.gameState === GameState.PLAYING) {
+    api.resetLevelStreak();
+    if (usesLives()) lives.spend(lives.COST.RESTART, 'restart');
+  }
+  startLevel();
+};
 
 /** Hammer: the player POINTS AT the block to remove, we do not pick one for them. */
 el('btn-hammer').onclick = async () => {
   if (!board || busy || board.gameState !== GameState.PLAYING || hammerMode) return;
-  if (!await boosterByAd(PLACEMENT.REWARDED_HAMMER)) return;
+  if (!useFreebie('hammer') && !await boosterByAd(PLACEMENT.REWARDED_HAMMER)) return;
   hammerMode = true;
   input.locked = true;
   el('app').classList.add('hammer');
@@ -588,7 +790,7 @@ el('btn-time').onclick = async () => {
 
 el('btn-undo').onclick = async () => {
   if (!board || busy || board.gameState !== GameState.PLAYING || !board.canUndo()) return;
-  if (!await boosterByAd(PLACEMENT.REWARDED_UNDO)) return;
+  if (!useFreebie('undo') && !await boosterByAd(PLACEMENT.REWARDED_UNDO)) return;
   board.undo();
   track('powerup_used', { type: 'undo', level: level.number });
   view.resync();
@@ -607,17 +809,26 @@ el('btn-hint').onclick = async () => {
   const advice = board.hint();
   if (!advice) { screens.toast(t('toast.nohint')); return; }
 
-  if (currency.canAfford(currency.PRICES.HINT)) {
+  if (useFreebie('hint')) {
+    // paid by the win streak
+  } else if (currency.canAfford(currency.PRICES.HINT)) {
     if (!currency.debit(currency.PRICES.HINT, 'hint')) return;
   } else {
     stopClock();
     const watched = await ads.showRewarded(PLACEMENT.REWARDED_HINT);
     startClock();
-    if (!watched) return;
+    if (!watched) { screens.toast(t('shop.ad.failed')); return; }
   }
 
-  track('hint_used', { level: level.number, blockId: advice.id });
+  track('hint_used', { level: level.number, blockId: advice.id, park: !advice.gate });
   view.highlight(advice.id);
+  /**
+   * A hint with NO GATE points at a block that must be moved ASIDE, not cleared.
+   * Highlighting it and saying nothing is worse than no hint at all: the player
+   * drags it at a gate, it refuses, and a hint they paid coins or an ad for
+   * reads as broken. The one case where the hint has to speak.
+   */
+  if (!advice.gate) screens.toast(t('toast.hint.park'));
   updateBoosters();
 };
 
@@ -664,9 +875,8 @@ async function updatePanel() {
   el('opt-sfx').checked = d.sfx !== false;
   el('opt-vibration').checked = d.vibration !== false;
   el('opt-glyphs').checked = d.glyphs === true;
-  el('opt-noads').checked = currency.hasRemovedAds();
+  el('opt-night').checked = d.night === true;
   buildLanguageChoice();
-  updateThemes();
   updateMuteDot();
   await updateAuthStatus();
   await updateAdminSection();
@@ -725,6 +935,22 @@ el('opt-glyphs').onchange = (ev) => {
 };
 
 /**
+ * Night mode. Only the surfaces/ink tokens flip to a dark palette (see
+ * `.night` in main.css) — `--h` itself is untouched, so the app stays tinted
+ * by whatever realm the player is in, just lit differently.
+ */
+function applyNight(on) {
+  document.documentElement.classList.toggle('night', on);
+}
+
+el('opt-night').onchange = (ev) => {
+  const on = ev.target.checked;
+  const d = store.load(); d.night = on; store.save(d);
+  applyNight(on);
+  track('night_toggled', { on });
+};
+
+/**
  * Language choice, as a dropdown.
  *
  * One button per language held at two; at five, the row overflowed the panel
@@ -743,9 +969,9 @@ function buildLanguageChoice() {
   select.append(...i18n.LANGUAGES.map((L) => {
     const o = document.createElement('option');
     o.value = L.code;
-    // Each language is written IN that language: it is the only label a player
-    // lost in a language they cannot read will recognise.
-    o.textContent = L.name;
+    // Each language is written IN that language, flag first: recognisable even
+    // to a player lost in a language they cannot read.
+    o.textContent = `${L.flag} ${L.name}`;
     return o;
   }));
   select.value = i18n.language();
@@ -848,7 +1074,7 @@ el('btn-mine-close').onclick = () => { el('overlay-mine').hidden = true; };
 // ---------------------------------------------------------------------------
 
 /** Plain overlays a back press can dismiss outright — no state to unwind. */
-const DISMISSABLE_OVERLAYS = ['overlay-shop', 'overlay-mine', 'overlay-rank', 'overlay-feedback'];
+const DISMISSABLE_OVERLAYS = ['overlay-shop', 'overlay-mine', 'overlay-rank', 'overlay-board', 'overlay-quests', 'overlay-feedback'];
 
 registerBackHandler(() => {
   if (!el('user-panel').hidden) { openPanel(false); return true; }
@@ -858,7 +1084,21 @@ registerBackHandler(() => {
   // wired through the popstate listener above — reuse it rather than duplicate it.
   if (screens.current() === 'editor') { history.back(); return true; }
   if (screens.current() === 'brief') { showMap(); return true; }
-  if (screens.current() === 'game') { stopClock(); showMap(); return true; }
+  if (screens.current() === 'game') {
+    stopClock();
+    // Testing a level from the editor is a detour, not a move into the
+    // normal progression — leaving it should land back where it started
+    // (the draft, still there), not on the general map the player never
+    // asked to see.
+    if (editorTrial) {
+      const trial = editorTrial;
+      editorTrial = null;   // leaving the trial without finishing it
+      openEditor(trial);
+      return true;
+    }
+    showMap();
+    return true;
+  }
   if (screens.current() === 'map') { showMenu(); return true; }
   return false; // at the menu, nothing left to unwind — let the app exit
 });
@@ -955,6 +1195,30 @@ el('btn-feedback').onclick = () => {
 
 el('btn-feedback-close').onclick = () => { el('overlay-feedback').hidden = true; };
 
+/**
+ * `mailto:` navigation and a `<a download>` Blob both assume a real browser:
+ * neither does anything useful inside the packaged app's WebView (no mail
+ * client is wired to intercept the scheme, no Downloads UI catches the
+ * blob). The native share sheet is the one route guaranteed to work there —
+ * it hands the report to whatever app the player picks (mail, messages,
+ * notes...). Screenshots stay a web-only feature of the download route: a
+ * multi-file native share would need writing them to disk first
+ * (`@capacitor/filesystem`), not worth it for a text bug report.
+ */
+async function shareReportNative(report) {
+  await Share.share({
+    title: `Quiet Puzzle — ${t(`feedback.cat.${report.category}`)}`,
+    text: feedback.asText(report),
+    dialogTitle: t('feedback.share'),
+  });
+}
+
+if (isNative()) {
+  el('fb-download').hidden = true;
+  el('fb-mail').dataset.i18n = 'feedback.share';
+  el('fb-mail').textContent = t('feedback.share');
+}
+
 el('fb-copy').onclick = async () => {
   const report = currentReport();
   if (!report) return;
@@ -962,16 +1226,17 @@ el('fb-copy').onclick = async () => {
     await navigator.clipboard.writeText(feedback.asText(report));
     screens.toast(t('feedback.copied'));
   } catch {
-    // Clipboard refused (insecure context, permission): the download route is
-    // still open, and it carries the screenshots as a bonus.
-    el('fb-download').click();
+    // Clipboard refused (insecure context, permission): fall back to
+    // whichever route actually works on this platform.
+    if (isNative()) shareReportNative(report);
+    else el('fb-download').click();
   }
 };
 
 /**
  * Download of the complete report, screenshots included. This is the ONLY route
  * an image can travel by: no `mailto:` knows how to attach a file, and there is
- * no server to entrust it to.
+ * no server to entrust it to. Web only — see `shareReportNative`.
  */
 el('fb-download').onclick = () => {
   const report = currentReport();
@@ -989,6 +1254,7 @@ el('fb-download').onclick = () => {
 el('fb-mail').onclick = () => {
   const report = currentReport();
   if (!report) return;
+  if (isNative()) { shareReportNative(report); return; }
   const subject = `Quiet Puzzle — ${t(`feedback.cat.${report.category}`)}`;
   // No hard-coded recipient: the mail client opens on a draft the player
   // addresses to whoever they like. Inventing an address here would make it
@@ -1126,56 +1392,124 @@ function showLeaderboard(myScore) {
   el('overlay-rank').hidden = false;
 }
 
-/**
- * Theme grid. A locked theme stays VISIBLE, with its condition: what you cannot
- * have yet is what makes you want to carry on, provided you know what to do to
- * get it.
- */
-async function updateThemes() {
-  const host = el('opt-themes');
-  const profile = await api.getProfile();
-  const current = themes.chosen();
+// ---------------------------------------------------------------------------
+// Daily quests (meta/quests.js)
+// ---------------------------------------------------------------------------
 
-  const followRealms = document.createElement('button');
-  followRealms.className = 'theme-tile' + (current ? '' : ' sel');
-  followRealms.innerHTML = '<span class="theme-emoji">🎨</span>';
-  const name = document.createElement('small');
-  name.textContent = t('theme.worlds');
-  followRealms.append(name);
-  followRealms.onclick = () => { themes.choose(null); theme.apply(profile.currentLevel); updateThemes(); };
-
-  host.replaceChildren(followRealms, ...themes.THEMES.map((th) => {
-    const open = themes.isUnlocked(th, profile);
-    const tile = document.createElement('button');
-    tile.className = 'theme-tile' + (current === th.id ? ' sel' : '') + (open ? '' : ' locked');
-    tile.style.setProperty('--preview', th.palette[0]);
-    tile.innerHTML = `<span class="theme-emoji">${th.emoji}</span>`;
-    const label = document.createElement('small');
-    label.textContent = open ? th.id : themes.conditionLabel(th, t);
-    tile.append(label);
-    if (!open) {
-      tile.disabled = true;
-      tile.title = t('theme.locked', { what: themes.conditionLabel(th, t) });
-    } else {
-      tile.onclick = () => { themes.choose(th.id); theme.apply(profile.currentLevel); updateThemes(); };
-    }
-    return tile;
-  }));
+/** Blocks cleared on this board, and how many of them were jokers. */
+function exitCounts() {
+  const kinds = new Map(level.blocks.map((b) => [b.id, b.kind]));
+  return {
+    exits: board.exited.length,
+    jokers: board.exited.filter((id) => kinds.get(id) === KIND.JOKER).length,
+  };
 }
 
-el('opt-noads').onchange = (ev) => {
-  currency.setAdsRemoved(ev.target.checked);
-  if (ev.target.checked) track(EV.REMOVE_ADS_PURCHASED, { simulated: true });
-  updateBanner(screens.current());
-  screens.toast(t(ev.target.checked ? 'toast.ads.off' : 'toast.ads.on'));
-};
+const QUEST_ICONS = { daily: '📅', levels: '🧩', exits: '🚪', stars: '★', perfect: '🌟', hard: '🔥', streak: '⚡', jokers: '🃏' };
 
-// Only meaningful with a real ad network behind it — hidden on the web build.
-el('btn-ad-consent').hidden = !isNative();
-el('btn-ad-consent').onclick = async () => {
-  const { manageConsent } = await import('./monetization/admob.js');
-  manageConsent().catch((err) => console.error('Ad consent form failed:', err));
+/** A toast per quest just completed — the list itself waits on the home screen. */
+function announceQuests(done) {
+  for (const q of done) screens.toast(t('quest.done', { what: t(`quest.${q.kind}`, { n: q.target }) }));
+  updateQuestButton();
+}
+
+function updateQuestButton() {
+  const q = quests.list();
+  const claimed = q.list.filter((x) => x.claimed).length;
+  el('quest-count').textContent = `${claimed}/${q.list.length}`;
+  el('btn-quests').classList.toggle('ready', quests.readyToClaim() > 0);
+}
+
+function renderQuests() {
+  const q = quests.list();
+  el('quest-list').replaceChildren(...q.list.map((x, i) => {
+    const li = document.createElement('li');
+    li.className = 'quest' + (x.claimed ? ' claimed' : x.progress >= x.target ? ' done' : '');
+    const icon = document.createElement('span');
+    icon.className = 'quest-icon';
+    icon.textContent = QUEST_ICONS[x.kind] || '•';
+    const body = document.createElement('div');
+    body.className = 'quest-body';
+    const label = document.createElement('b');
+    label.textContent = t(`quest.${x.kind}`, { n: x.target });
+    const bar = document.createElement('div');
+    bar.className = 'quest-bar';
+    const fill = document.createElement('i');
+    fill.style.width = `${Math.min(1, x.progress / x.target) * 100}%`;
+    bar.append(fill);
+    const count = document.createElement('small');
+    count.textContent = `${Math.min(x.progress, x.target)} / ${x.target}`;
+    body.append(label, bar, count);
+    const action = document.createElement('button');
+    action.className = 'btn btn-sm quest-claim';
+    if (x.claimed) { action.textContent = '✓'; action.disabled = true; }
+    else if (x.progress >= x.target) {
+      action.textContent = t('quest.claim', { n: x.coins });
+      action.classList.add('btn-primary');
+      action.onclick = () => {
+        const coins = quests.claim(i);
+        if (coins) { audio.exit(); screens.toast(t('shop.earned', { n: coins })); updateMenuCounters(); }
+        renderQuests();
+      };
+    } else { action.textContent = `+${x.coins}`; action.disabled = true; }
+    li.append(icon, body, action);
+    return li;
+  }));
+  const chest = el('quest-chest');
+  chest.disabled = !quests.chestReady();
+  chest.textContent = q.chest ? t('quest.chest.done') : t('quest.chest', { n: quests.CHEST });
+  chest.classList.toggle('btn-primary', quests.chestReady());
+  updateQuestButton();
+}
+
+el('btn-quests').onclick = () => {
+  track('quests_opened', {});
+  renderQuests();
+  el('overlay-quests').hidden = false;
 };
+el('quest-chest').onclick = () => {
+  const coins = quests.claimChest();
+  if (coins) { audio.exit(); screens.toast(t('shop.earned', { n: coins })); updateMenuCounters(); }
+  renderQuests();
+};
+el('btn-quests-close').onclick = () => { el('overlay-quests').hidden = true; };
+
+/**
+ * The players' leaderboard (meta/leaderboard.js): the top fifty signed-in
+ * players by stars, and the player's own place. Opens at once on a "loading"
+ * line — the list arrives from the server.
+ */
+el('btn-leaderboard').onclick = async () => {
+  track('leaderboard_opened', {});
+  el('board-mine').textContent = t('board.loading');
+  el('board-list').replaceChildren();
+  el('board-note').hidden = true;
+  el('overlay-board').hidden = false;
+
+  const board = await leaderboard.fetchBoard(50);
+  if (!board) { el('board-mine').textContent = t('board.offline'); return; }
+  const me = board.rows.find((r) => r.me);
+  el('board-mine').textContent = me ? t('board.mine', { rank: me.rank }) : '';
+  el('board-list').replaceChildren(...board.rows.map((r) => {
+    const li = document.createElement('li');
+    if (r.me) li.className = 'me';
+    const rank = document.createElement('i');
+    rank.textContent = r.rank;
+    const who = document.createElement('span');
+    who.textContent = r.me ? t('daily.rank.me') : r.username;
+    const stars = document.createElement('b');
+    stars.textContent = `★ ${r.stars}`;
+    const lvl = document.createElement('small');
+    lvl.textContent = t('board.level', { n: r.level });
+    li.append(rank, who, lvl, stars);
+    return li;
+  }));
+  if (!board.rows.length) el('board-list').textContent = t('board.empty');
+  // An anonymous player sees the board but is not on it: say why, and how.
+  el('board-note').hidden = board.signedIn;
+  if (!board.signedIn) el('board-note').textContent = t('board.signin');
+};
+el('btn-board-close').onclick = () => { el('overlay-board').hidden = true; };
 
 // ---------------------------------------------------------------------------
 // Account and admin mode
@@ -1251,17 +1585,22 @@ async function updateAuthStatus() {
 }
 
 /**
- * The admin section of the user menu.
+ * The admin section of the user menu, and the QA/debug panel's gear button.
  *
- * Hidden by default and revealed only for an account holding the role. This is
- * a display decision and nothing more: everything the panel can do is gated
- * server-side by RLS, so revealing the button by hand in the console gets you a
- * panel that answers "permission denied". See src/data/admin.js.
+ * Both hidden by default and revealed only for an account holding the role.
+ * For the admin panel this is a display decision and nothing more: everything
+ * it can do is gated server-side by RLS, so revealing the button by hand in
+ * the console gets you a panel that answers "permission denied" (see
+ * src/data/admin.js). The debug panel has no such server-side backstop — it
+ * only ever edits the local save — so this check is the actual gate, not
+ * cosmetic: it is what keeps "Solve"/"Unlock all"/"+500 coins" off a stranger's
+ * copy of the app while leaving them reachable from the one account that
+ * holds the role.
  */
 async function updateAdminSection() {
-  const section = el('user-admin');
   const allowed = await admin.isAdmin();
-  section.hidden = !allowed;
+  el('user-admin').hidden = !allowed;
+  el('debug-toggle').hidden = !allowed;
 }
 
 el('btn-admin').onclick = async () => {
@@ -1293,6 +1632,7 @@ document.querySelectorAll('[data-nav]').forEach((b) => {
         attempt: levelFailures + 1, board,
         duration: Math.round((Date.now() - levelStartedAt) / 1000),
       }));
+      api.resetLevelStreak();
     }
     return b.dataset.nav === 'menu' ? showMenu() : showMap();
   };
@@ -1351,13 +1691,16 @@ el('debug-solve').onclick = async () => {
       await view.apply(events);
       await new Promise((r) => setTimeout(r, 90));
     }
-    if (board.blocks.has(step.id)) {
+    // A step with no gate is a park: the block stays where its path ends.
+    if (step.gate && board.blocks.has(step.id)) {
       const [dx, dy] = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] }[step.gate];
       const r = board.step(step.id, dx, dy);
       if (r.ok) await view.apply([r.event]);
     }
     await view.apply(board.endGesture(true));
     hud.update(board);
+    // A pause between gestures, so a solution can be followed by eye.
+    if (!fastAnimations) await new Promise((r) => setTimeout(r, 700));
   }
   busy = false;
   input.locked = false;
@@ -1452,6 +1795,7 @@ function refreshDebug() {
   // The language first: everything after this writes text on screen.
   i18n.init();
   applyGlyphs(store.load().glyphs === true);
+  applyNight(store.load().night === true);
   try {
     await levels.open();
     // The "go to level" field follows the database's total. Hard-coded in the
@@ -1474,18 +1818,46 @@ function refreshDebug() {
 
   // Supabase session check. No session means the login screen, which offers an
   // offline route: this game must stay playable without an account.
-  const { data: { session } } = await supabase.auth.getSession();
+  //
+  // Both calls are best-effort, like every other Supabase access in the app
+  // (see supabaseClient.js): a slow or failing network must never leave the
+  // player stuck looking at the menu's static HTML placeholders ("0 étoiles",
+  // "1 niveau" — index.html's markup before any JS has touched it) with no
+  // way to recover short of backing out to a screen that happens to
+  // re-render from local storage.
 
-  if (!session) {
-    document.body.appendChild(createLoginScreen(() => startGameLoop()));
-  } else {
+  // Declared BEFORE the first call below: `startGameLoop` is hoisted, this flag
+  // is not, and a session already open at startup used to call it inside the
+  // temporal dead zone — the game never started and the menu stayed on its
+  // static placeholders.
+  let started = false;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      document.body.appendChild(createLoginScreen(() => startGameLoop()));
+    } else {
+      // A session already open at cold start (the common case after the first
+      // sign-in): pull whatever progress the account holds before the menu
+      // renders, so a reinstalled app is not stuck showing an empty profile
+      // until the player happens to reopen it.
+      await api.syncFromCloud();
+      startGameLoop();
+    }
+  } catch (e) {
+    console.error('Session/sync check failed at startup:', e);
     startGameLoop();
   }
 
   // One listener, wired in both cases: signing in mid-session must start the
   // game, and signing out must put the login screen back.
-  supabase.auth.onAuthStateChange((event, authSession) => {
+  supabase.auth.onAuthStateChange(async (event, authSession) => {
     admin.forget();
+    if (event === 'SIGNED_IN' && authSession) await api.syncFromCloud();
+    // Re-checked on every transition, not just at startup: signing in or out
+    // from within an already-running session (see the `started` guard in `startGameLoop`) is the
+    // one case `startGameLoop()`'s own call would otherwise miss.
+    updateAdminSection();
     if (event === 'SIGNED_IN' && authSession) {
       document.getElementById('login-container')?.remove();
       startGameLoop();
@@ -1503,11 +1875,17 @@ function refreshDebug() {
    * Guarded against a second call: `onAuthStateChange` fires again on a token
    * refresh, and opening the session twice would restart the daily streak and
    * register a second `pagehide` listener.
+   *
+   * The second call does NOTHING — it used to show the menu. Supabase emits
+   * `SIGNED_IN` again when it refreshes or re-validates a session, repeatedly
+   * when that fails, and each one pulled the player out of the level they were
+   * playing. A real sign-in after a sign-out goes through `stopGameLoop()`
+   * first, which resets `started`.
    */
-  let started = false;
   function startGameLoop() {
-    if (started) { showMenu(); return; }
+    if (started) return;
     started = true;
+    updateAdminSection();
     const firstTime = !store.load().lastPlayedAt && !store.load().lastPlayDay;
     track(EV.APP_OPEN, {});
     if (firstTime) track(EV.FIRST_OPEN, {});
@@ -1515,6 +1893,8 @@ function refreshDebug() {
     const session = daily.openSession();
     if (session.newDay) track(EV.DAILY_OPEN, { streak: session.streak });
     payStreakRewards();
+    // A run of wins lasts one sitting: coming back to the app starts a new one.
+    api.resetLevelStreak();
 
     window.addEventListener('pagehide', () => track('session_ended', {}));
     showMenu();

@@ -235,6 +235,29 @@ export class AudioManager {
     [2, 3, 5].forEach((d, i) => this._play(`exit${d}`, 0.9 - 0.1 * i, i * 0.13));
   }
 
+  /**
+   * A block nudged the way its rail/anchor/one-way cell refuses. Synthesised
+   * rather than a loaded sample — a tiny two-note descending "no", quiet and
+   * short: unmistakably negative feedback without breaking the game's own
+   * quiet, pastel tone the way a sharp buzzer would.
+   */
+  blocked() {
+    if (!this.ready || !this.sfxOn) return;
+    const t = this.ctx.currentTime;
+    [[196, 0], [164, 0.085]].forEach(([freq, delay]) => {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, t + delay);
+      g.gain.linearRampToValueAtTime(0.16, t + delay + 0.012);
+      g.gain.linearRampToValueAtTime(0, t + delay + 0.09);
+      osc.connect(g).connect(this.sfxGain);
+      osc.start(t + delay);
+      osc.stop(t + delay + 0.1);
+    });
+  }
+
   // --- Settings ------------------------------------------------------------
 
   setMusic(on) {

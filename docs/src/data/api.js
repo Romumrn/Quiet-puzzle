@@ -87,7 +87,28 @@ export async function submitDailyPuzzle(level, title) {
 
 /** GET /api/daily-puzzle — today's grid, or null if the queue is empty. */
 export async function getDailyPuzzle() {
-  return dailyPuzzle.ofTheDay();
+  return (await officialDaily()) || dailyPuzzle.ofTheDay();
+}
+
+/**
+ * The official daily challenge: one generated grid per date, the same for
+ * everyone (`tools/build-daily.mjs` → levels/daily.json). Grids drawn in the
+ * editor only ever reached their author's own device, so for nearly every
+ * player there was no daily puzzle — and the daily quest needs one.
+ */
+let dailyFile = null;
+async function officialDaily() {
+  try {
+    dailyFile ||= fetch('levels/daily.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const file = await dailyFile;
+    const date = new Date().toISOString().slice(0, 10);
+    const level = file?.days?.[date];
+    if (!level) return null;
+    const ids = level.blocks.map((b) => b.id);
+    return { id: `official-${date}`, title: '', official: true, level: { ...level, blocks: level.blocks.filter((b) => ids.includes(b.id)) } };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -142,6 +163,82 @@ async function _syncCompleteLevel(n, { score, failed, timeMs }) {
 }
 
 /**
+ * Restores progress FROM Supabase into the local save — the direction
+ * `_syncCompleteLevel` does not cover. Without this, a reinstall (or a new
+ * device) starts from zero even for a signed-in account: the push above only
+ * ever sends local progress up, nothing ever comes back down. Called on
+ * sign-in and whenever a session is already open at startup.
+ *
+ * A MERGE, not an overwrite, in both directions (coins/xp/unlockedLevel: the
+ * larger of the two; per-level stars: the larger, best score: the smaller) —
+ * so a device that played offline between syncs never loses progress to an
+ * older cloud snapshot, and a fresh install never loses progress to an empty
+ * local save either.
+ */
+export async function syncFromCloud() {
+  let sb;
+  try {
+    sb = await import('./supabaseClient.js');
+  } catch {
+    return;
+  }
+
+  const { data: { session } } = await sb.supabase.auth.getSession();
+  if (!session) return;
+  const userId = session.user.id;
+
+  const CLASSIC_MODE_ID = 1;
+  const [profileRes, progressRes, modeRes] = await Promise.all([
+    sb.supabase.from('profiles').select('coins_balance, xp').eq('id', userId).maybeSingle(),
+    sb.supabase.from('user_progress').select('stars, best_moves, levels(sequence_number)').eq('user_id', userId).eq('mode_id', CLASSIC_MODE_ID),
+    sb.supabase.from('user_mode_progress').select('highest_unlocked_number').eq('user_id', userId).eq('mode_id', CLASSIC_MODE_ID).maybeSingle(),
+  ]);
+  // Each of the three queries is merged independently: on a cold start the
+  // network is sometimes not fully up yet, and one query failing (typically
+  // a timeout) used to blank the whole sync — leaving a signed-in player
+  // stuck on stale local progress until the next app restart, with no retry
+  // in between.
+  if (profileRes.error) console.error('syncFromCloud: profiles query failed', profileRes.error);
+  if (progressRes.error) console.error('syncFromCloud: user_progress query failed', progressRes.error);
+  if (modeRes.error) console.error('syncFromCloud: user_mode_progress query failed', modeRes.error);
+
+  const d = store.load();
+
+  if (profileRes.data) {
+    d.coins = Math.max(d.coins, profileRes.data.coins_balance ?? 0);
+    d.xp = Math.max(d.xp, profileRes.data.xp ?? 0);
+  }
+  if (modeRes.data?.highest_unlocked_number > d.unlockedLevel) {
+    d.unlockedLevel = Math.min(modeRes.data.highest_unlocked_number, levels.totalLevels());
+  }
+  for (const row of progressRes.data || []) {
+    const n = row.levels?.sequence_number;
+    if (!n) continue;
+    const prev = d.levels[n] || { stars: 0, bestScore: 0 };
+    d.levels[n] = {
+      stars: Math.max(prev.stars, row.stars || 0),
+      bestScore: row.best_moves ? (prev.bestScore ? Math.min(prev.bestScore, row.best_moves) : row.best_moves) : prev.bestScore,
+    };
+  }
+
+  store.save(d);
+}
+
+/**
+ * Breaks the run of levels won in a row. A loss already does it in
+ * `completeLevel`; this covers the ways out that never reach it — leaving a grid
+ * mid-play, restarting it, retrying after a defeat, closing the app. Without
+ * them the "n levels in a row" line survived every one of those and showed up
+ * almost every time.
+ */
+export function resetLevelStreak() {
+  const d = store.load();
+  if (!d.levelStreak) return;
+  d.levelStreak = 0;
+  store.save(d);
+}
+
+/**
  * POST /api/level/{levelNumber}/complete
  * @returns {{stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems}}
  */
@@ -150,8 +247,9 @@ export async function completeLevel(n, { score, stars, failed, timeMs }) {
   d.lastPlayedAt = new Date().toISOString();
 
   if (failed) {
+    d.levelStreak = 0;
     store.save(d);
-    return { stars: 0, coinsEarned: 0, xpEarned: 0, nextLevelUnlocked: false, rewardItems: [] };
+    return { stars: 0, coinsEarned: 0, xpEarned: 0, nextLevelUnlocked: false, rewardItems: [], levelStreak: 0 };
   }
 
   const prev = d.levels[n] || { stars: 0, bestScore: 0 };
@@ -170,7 +268,9 @@ export async function completeLevel(n, { score, stars, failed, timeMs }) {
   const nextLevelUnlocked = n === d.unlockedLevel && n < levels.totalLevels();
   if (nextLevelUnlocked) d.unlockedLevel = n + 1;
 
+  d.levelStreak = (d.levelStreak || 0) + 1;
+
   store.save(d);
   _syncCompleteLevel(n, { score, failed, timeMs }).catch(() => {});
-  return { stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems: [] };
+  return { stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems: [], levelStreak: d.levelStreak };
 }
