@@ -207,6 +207,8 @@ Newest first. Short enough to skim, detailed enough to know whether a bug you ju
 
 ### 2026-09-27
 
+- **Full story of the rebuild** — what was tried, what failed, timings, how to rebuild all 1000 overnight: `generator/README.md`, sections "History of the 2026-09 rebuild" and "Rebuilding all 1000".
+- **Published 2026-09-28**: levels on Supabase, progress reset (old progress kept in schema `backup`, tables `*_20260928`, not exposed by the API — drop once the beta settles), web site pushed, Android 1.3 (versionCode 4) ready to sign.
 - **Harder levels, validated by playtest.** Worlds 1–4 on 5×5, 5×6, 6×6, 6×7, then 7×7 up to level 200 (peaks at 12 parks), 8×8 beyond (peaks 15–18). The climb budget dropped to 8 000 states: hard boards are TIGHT and solve in a few thousand states, and the old generous budget spent its time on loose boards — the climb now reaches 13–22 parks where it stalled at 8–10. Solver 5× faster (precomputed bitmask moves, `engine.js`), identical results on 800 boards.
 - **Ceiling: 30 parks.** No level may need more (`maxParks` in `buildLevel()`); the first 8×8 summit came out at 30 and playtest said: this far, no further.
 - **Level 1000 is hand-picked**: a separate 24-park search (world 50's profile, seed 65352, `parks: [23, 23]`) replaced the generated 17-park summit. A rebuild of world 50 puts the generated one back.
