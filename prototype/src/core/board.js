@@ -34,7 +34,9 @@ export class Board {
     this.blocks = new Map();
     for (const data of level.blocks) this.blocks.set(data.id, new Block(data));
 
-    this.movesRemaining = level.moveLimit;
+    // Gestures spent. There is no cap: a player who needs two thousand moves
+    // still wins, with no star (see `stars`).
+    this.drags = 0;
     this.timeRemaining = level.timeLimit;
     this.exited = [];          // ids that left, in order
     this.gameState = GameState.PLAYING;
@@ -418,7 +420,7 @@ export class Board {
   endGesture(hasMoved) {
     const events = [];
     if (!hasMoved) return events;
-    this.movesRemaining--;
+    this.drags++;
     events.push(...this._collectUnlocks());
     this._settle(events);
     return events;
@@ -487,7 +489,7 @@ export class Board {
     return {
       blocks: [...this.blocks.values()].map((b) => ({ b, x: b.x, y: b.y })),
       exited: [...this.exited],
-      moves: this.movesRemaining,
+      moves: this.drags,
       state: this.gameState,
       // Gate capacity is consumed: without it in the snapshot, an undo would
       // give the block back but not its room in the gate.
@@ -499,7 +501,7 @@ export class Board {
     this.blocks.clear();
     for (const { b, x, y } of snap.blocks) { b.x = x; b.y = y; this.blocks.set(b.id, b); }
     this.exited = [...snap.exited];
-    this.movesRemaining = snap.moves;
+    this.drags = snap.moves;
     this.gameState = snap.state;
     this.gates.forEach((g, i) => { g.capacity = snap.capacities[i]; });
     this._reindex();
@@ -570,18 +572,17 @@ export class Board {
 
   _settle(events) {
     if (this.isSolved()) { this.gameState = GameState.WON; return; }
-    if (this.movesRemaining <= 0) { this.gameState = GameState.FAILED; this.failReason = 'moves'; return; }
     if (this.timeRemaining <= 0) { this.gameState = GameState.FAILED; this.failReason = 'time'; }
   }
 
   /** Drags actually spent since the start of the level. */
-  dragsUsed() { return this.level.moveLimit - this.movesRemaining; }
+  dragsUsed() { return this.drags; }
 
   /**
-   * 0 to 3 stars. 1★ = level solved; 2★ and 3★ measure how economical the
-   * player was compared to the reference solution (`starDrags`). The clock and
-   * the move limit remain defeat conditions, not grading scales: mixing the two
-   * made the grade unreadable.
+   * 0 to 3 stars, for a solved level. 2★ and 3★ measure how economical the
+   * player was compared to the reference solution (`starDrags`); 1★ is any
+   * win within `moveLimit`; past it the level is still WON, with no star. The
+   * number of moves is never a defeat — only the clock is.
    */
   stars() {
     if (!this.isSolved()) return 0;
@@ -589,6 +590,6 @@ export class Board {
     const used = this.dragsUsed();
     if (used <= for3) return 3;
     if (used <= for2) return 2;
-    return 1;
+    return used <= this.level.moveLimit ? 1 : 0;
   }
 }

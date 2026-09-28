@@ -43,37 +43,30 @@ Supabase first, `prototype/levels/` as a seed.
 
 | Need | File | Reference |
 |---|---|---|
-| Add / adjust a world | `generator/realms.js` | `REALMS` table — one line per world |
-| Change a world's quantities (walls, rails, anchors…) | `generator/realms.js` | the ramps on that world's line |
-| Change a DIFFICULTY STEP (margin, density, gate width, demand, minimum drags) | `generator/tiers.js` | `TIERS` — one preset per step, named by a world's `tier:` |
-| Require a minimum number of drags | `generator/tiers.js` | `minDrags: [start, end]` on a tier — see the warning below |
+| Add / adjust a world | `generator/realms.js` | `PLAN` — one line per world: features, board, colours, `parks` ramp |
+| Add a mechanic to the world vocabulary | `generator/realms.js` | `FEATURES` — name in 5 languages + what it adds to the profile (`profileOf()`) |
+| Change what makes a level hard | `generator/rush/build.js` | `buildLevel()` — climbs on the fewest parks; `evaluate()` scores parks and `stuckPhases` |
+| Minimum parks of a board | `generator/rush/solve.js` | `solveParks()` — 0-1 BFS; exits taken greedily by `normalize()` except capacity choices |
+| Game rules as the generator sees them | `generator/rush/engine.js` | mirrors `board.js` rule by rule — change one, change both |
 | Adjust star thresholds | `src/core/stars.js` | `starThresholds()` / `MARGIN_3_STAR` / `MARGIN_2_STAR` — the only place |
-| Change limit formulas (moves, time) | `generator/curve.js` | `limitsFor()` |
-| Change the difficulty ramp inside a world | `generator/curve.js` | `curve()` |
+| Change limit formulas (moves, time) | `generator/curve.js` | `limitsFor()` — time is paid per park and per trap, up to 10 min; `moveLimit` is the 1★ line, never a defeat |
+| Traps (joker exits that strand a block) | `generator/rush/build.js`, `rush/solve.js` | `capacityVariants()` re-routes a joker; `countTraps()` + `capacityDead()` prove the dead end; `traps: true` in `PLAN` |
 | Recalibrate thresholds against real scores | `src/data/levelStore.js` | `starThresholds(ref)` and the saved `level.starDrags` table |
-| Understand generation | `generator/build.js` | `build()` — inverse placement |
-| Regenerate levels | `tools/build-levels.mjs` | `--realm <id>` for one world only |
+| Order a world's levels (sawtooth, hard / super hard labels) | `prototype/src/core/sawtooth.js` | `realmShape()` — shared by `generator/index.js` (targets) and `levelStore.tierOf()` (map flames, brief label); change it and the realm must be rebuilt |
+| Daily challenge grids | `tools/build-daily.mjs` | writes `levels/daily.json`, one grid per date; loaded by `api.getDailyPuzzle()` |
+| Regenerate levels | `tools/build-levels.mjs` | `--realm <id>` for one world — run worlds in parallel, then `--index-only` |
 | Publish to Supabase | `tools/publish-levels.mjs` | needs `SUPABASE_TOKEN`; `--dry-run` prints the SQL |
-| See the whole difficulty curve | `generator/difficulty-map.mjs` | renders all levels as one page — read it before tuning a tier |
-| Add a world (full procedure) | `generator/README.md` | the five files that must agree, and the two traps |
-| Order a world's levels by difficulty | `generator/index.js` | `curateRealm()` — pool, measure, sort, one breather, hardest last |
-| One-way cells | `generator/build.js` `oneWayFrom()` + `board.js` `acceptsDirection()` | arrows read off the reference solution |
-| Gates that open late | `generator/build.js` `shutterGates()` + `board.js` `acceptsColor()` | `gate.opensAfter`, read off the solution |
-| Sliding blocks | `board.js` `slideTarget()` | one answer, three callers that must agree: engine, solver, generator |
-| What was measured and rejected | `generator/README.md` | parking on dense boards, doubling back — both with figures |
+| See the whole difficulty curve | `generator/difficulty-map.mjs` | renders all levels as one page |
+| Add a world (full procedure) | `generator/README.md` | the files that must agree, and the ceiling |
+| Sliding blocks | `board.js` `slideTarget()` | the engine, `solver.js` and `rush/engine.js` must agree |
 | Draw a world's branch image | `prototype/docs/decor-de-la-carte.md` | one row in `mondes.py`, run the script, one CSS rule |
 | Add a block type | 4 files — see the New block section |
 
-> **Never switch a gesture floor on for a published world.** `minDrags` changes
-> which candidate grid is kept, hence the grid, hence the star thresholds and
-> the records already set against them. Floors are for new worlds.
+> **Regenerating a published world changes its grids**, hence its star
+> thresholds, hence every record set against them. The 2026-09 rebuild was done
+> in beta, with player progress reset.
 
-> **Adding a world shifts the limits of every earlier level.** `limitsFor()`
-> derives its `tighten` factor from `TOTAL_LEVELS`, so a thirty-first world
-> loosens the move and time limits of levels 1–600. Grids and star thresholds do
-> not move; the safety nets do.
-
-> Changing `REALMS` or `TIERS` has no effect until `node tools/build-levels.mjs` runs, and no effect on players until `node tools/publish-levels.mjs` has pushed the result to Supabase. The game reads the database, not the generator. Routine UI, docs, naming, or gameplay-rule edits do not require regenerating the level set.
+> Changing `realms.js` has no effect until `node tools/build-levels.mjs` runs, and no effect on players until `node tools/publish-levels.mjs` has pushed the result to Supabase. The game reads the database, not the generator. Routine UI, docs, naming, or gameplay-rule edits do not require regenerating the level set.
 
 ### Game rules
 
@@ -93,7 +86,7 @@ Supabase first, `prototype/levels/` as a seed.
 | Block material (rounded edges, reflection, shadow, relief) | `styles/main.css` — all styling is on `.block`: `--bevel`, `--reflection`, and shadow `filter`; silhouette relief is on `.block-cell::after` |
 | Touch dragging | `src/input/input.js` |
 | Result screen (win / loss) | `src/ui/resultScreen.js` |
-| Level map | `src/ui/mapScreen.js` |
+| Level map (10-level horizon, dusk, flames, glowing summit) | `src/ui/mapScreen.js` — `LOOKAHEAD`; styles `.map-dusk`, `.map-node.hard::before`, `@keyframes boss-halo` |
 | Map decoration (scrolling branches) | `styles/main.css` — `.realm::before` and 50 `nth-child` rules; images live in `images/branches/` and are generated by `tools/gen_30.py` |
 | World name | `generator/realms.js` — `name` field in `REALMS`; rerun `build-levels.mjs --index-only` (fast, catalogue only) then `publish-levels.mjs` |
 | HUD during play (time, blocks, stars) | `src/ui/gameplayUI.js` |
@@ -122,7 +115,10 @@ Supabase first, `prototype/levels/` as a seed.
 |---|---|
 | Daily streaks, tiers, badges | `src/meta/daily.js` — `STREAK_TIERS` |
 | Level-streak reward (consecutive wins) | `src/data/api.js` — `completeLevel()`; shown on `src/ui/resultScreen.js` |
-| Daily puzzle, score, leaderboard | `src/meta/dailyPuzzle.js` |
+| Daily puzzle, score, leaderboard | `src/meta/dailyPuzzle.js`; the official grid of the day comes first (`api.getDailyPuzzle()`, `levels/daily.json`) |
+| Daily quests (3 a day + chest) | `src/meta/quests.js` — `POOL`, `DAILY`, `CHEST`; UI in `main.js` (`renderQuests`) |
+| Win-streak bonus boosters | `src/meta/streakBonus.js` — `TIERS`; spent via `useFreebie()` in `main.js`. The streak still resets when the app reopens (user decision) |
+| Players' leaderboard (signed-in accounts) | `src/meta/leaderboard.js` → RPC `public.leaderboard` (migration `20260927120000_leaderboard.sql`) |
 | Editor drafts | `src/meta/myLevels.js` |
 | Bug reporting | `src/meta/feedback.js` |
 | Event names and parameters | `src/data/analytics.js` — `EVENTS` |
@@ -208,6 +204,26 @@ cd android && ./gradlew assembleDebug      # or bundleRelease, once signing is c
 ## Changelog
 
 Newest first. Short enough to skim, detailed enough to know whether a bug you just hit is new or already-known.
+
+### 2026-09-27
+
+- **Harder levels, validated by playtest.** Worlds 1–4 on 5×5, 5×6, 6×6, 6×7, then 7×7 up to level 200 (peaks at 12 parks), 8×8 beyond (peaks 15–18). The climb budget dropped to 8 000 states: hard boards are TIGHT and solve in a few thousand states, and the old generous budget spent its time on loose boards — the climb now reaches 13–22 parks where it stalled at 8–10. Solver 5× faster (precomputed bitmask moves, `engine.js`), identical results on 800 boards.
+- **Ceiling: 30 parks.** No level may need more (`maxParks` in `buildLevel()`); the first 8×8 summit came out at 30 and playtest said: this far, no further.
+- **Level 1000 is hand-picked**: a separate 24-park search (world 50's profile, seed 65352, `parks: [23, 23]`) replaced the generated 17-park summit. A rebuild of world 50 puts the generated one back.
+- **Traps.** Worlds with capacity (from the 8th) add jokers, and capacities are chosen so the gate a joker reaches first is the WRONG one: taking it leaves a coloured block with no room. `countTraps()` counts only proven dead ends (`capacityDead()` proves most of them by counting).
+- **Sawtooth worlds.** Random cycles of 3–6 levels per world, each ending on a labelled HARD level (pastel flame on the map), the last level SUPER HARD (a halo that flickers). Shared function `core/sawtooth.js`, so labels match what was built.
+- **No move limit.** Moves never cause a defeat any more: past `moveLimit` a win is worth 0★. The briefing shows the 3★ target; the continue offer only adds time.
+- **Map horizon.** The map shows 10 levels past the next one; everything past the next level — scenery included — sinks into dusk.
+- **Retention.** Win-streak boosters (2 wins: hint, 4: +3 undos, 6: +hammer), daily quests with a chest, an official daily challenge per date, a leaderboard of signed-in players. The ten-tap unlock is gone ("Impossible de tricher 😉").
+
+### 2026-09-26
+
+- **New level generator — difficulty measured in PARKS.** The old generator (build.js, tiers.js and curve() in generator/, all removed) walked each block backwards out of its gate. Measured over its 1000 levels: with gate capacity set aside, a player picking free blocks at random won 100 % of them, and no reference solution contained a single non-exit gesture — the player was tidying, not thinking. The replacement (`generator/rush/`) fills a board, asks an exact solver for the fewest **parks** (gestures that move a block without taking it out) and climbs on that number, then replays every solution on the real `Board` and discards any disagreement. Playtesting put "hard but fair" at 6–11 parks spread across the level; the measured ceiling on a 7×7 board is about the same. **Worlds redesigned**: 0–16 introduce one mechanic each, 17–49 combine two or three known ones (`PLAN` in `generator/realms.js`; names, hues, palettes and map images unchanged). Time limits now pay per park (`limitsFor()`, up to 5 min).
+- **Player progress reset for the new level set.** `PROGRESS_EPOCH` in `prototype/src/data/save.js`: a save from an older level set loses its level progress (cursor, stars, records) and keeps coins, purchases, streaks and settings. The server side (`user_progress`, `user_mode_progress`, `profiles.total_stars`) must be reset BEFORE clients sync, or `syncFromCloud()`'s max-wins merge hands the old cursor back.
+- **One-way cells were never published.** `tools/publish-levels.mjs` sent only `gates`, `blocks` and `solution` in the `grid` column; the client spreads `grid` into the level, so every one-way world went online with no arrows. `oneWay` now travels in `grid`.
+
+- **Cached level sets never refreshed.** The catalogue is served from IndexedDB without revalidation (`loadCatalog()` in `prototype/src/data/levelSource.js`), so a replaced level set would never reach a device that had the old one cached. Cache keys now carry `CACHE_GENERATION` — bump it with `PROGRESS_EPOCH`. Also new there: `?seed` in the URL reads `prototype/levels/` directly, to try a freshly built set locally before publishing.
+- **Players were thrown back to the menu mid-level.** `startGameLoop()` showed the menu on every call after the first, and Supabase emits `SIGNED_IN` again on session refresh — repeatedly when the refresh fails (expired or clock-skewed JWT). A second call now does nothing; a real sign-in after a sign-out goes through `stopGameLoop()`, which resets `started`.
 
 ### 2026-09-24
 

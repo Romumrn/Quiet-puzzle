@@ -21,12 +21,11 @@ media/              screenshots for the README
 
 | Requirement | File | Reference |
 |-------------|------|-----------|
-| Add/adjust a world | `generator/realms.js` | `REALMS` table — **one line per world** |
-| Change quantities (walls, rails, density, etc.) | `generator/realms.js` | the world's line in `REALMS` |
+| Add/adjust a world | `generator/realms.js` | `PLAN` — **one line per world**: features, board, parks ramp |
 | Adjust the star score thresholds | `src/core/etoiles.js` | `MARGE_3E` / `MARGE_2E` — **the only place** |
 | Modify limit formulas (moves, time) | `generator/curve.js` | `limitsFor()` |
 | Recalibrate score thresholds based on actual scores | `src/data/levelStore.js` | `recalibrate()` — table `levelId → drags` indexed |
-| Understand level generation | `generator/build.js` | `build()` — inverse placement |
+| Understand level generation | `generator/rush/build.js` | `buildLevel()` — climbs on the fewest parks, checked on the real engine |
 | Regenerate levels | `tools/build-levels.mjs` | **mandatory after any changes to `REALMS`** |
 | Add a new block type | 4 files — see §"New block" |
 

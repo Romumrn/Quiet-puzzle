@@ -21,6 +21,24 @@
 
 const MODE = 'classic';
 
+/**
+ * Generation of the level set the cache belongs to.
+ *
+ * The cached catalogue is served without revalidation (see `loadCatalog`), so
+ * a replaced level set never reaches a device that already has one cached —
+ * the old grids stay forever. Bumping this makes every earlier cache entry
+ * unreadable. Bump it together with `PROGRESS_EPOCH` in `save.js`.
+ */
+const CACHE_GENERATION = 2;
+const CATALOG_KEY = `catalog:g${CACHE_GENERATION}`;
+
+/**
+ * `?seed` in the page URL: read the levels on disk and ignore the database and
+ * the cache. For trying a freshly built level set locally before publishing it.
+ */
+const FORCE_SEED = typeof location !== 'undefined'
+  && new URLSearchParams(location.search).has('seed');
+
 // --- Local cache ------------------------------------------------------------
 
 /**
@@ -193,12 +211,14 @@ async function fromDisk(path) {
  * which is what `clearCache()` is for in the admin panel.
  */
 export async function loadCatalog() {
-  const cached = await cacheGet('catalog');
+  if (FORCE_SEED) return { ...(await fromDisk('index.json')), source: 'seed' };
+
+  const cached = await cacheGet(CATALOG_KEY);
   if (cached && cached.index) return cached.index;
 
   try {
     const index = await catalogFromDb();
-    await cachePut('catalog', { index });
+    await cachePut(CATALOG_KEY, { index });
     return index;
   } catch {
     // No network on a first launch. The seed carries the first realm, which is
@@ -216,7 +236,9 @@ export async function loadCatalog() {
  * database, `file` when it came from the seed, and possibly both.
  */
 export async function loadRealmLevels(realm) {
-  const key = `realm:${MODE}:${realm.id}`;
+  if (FORCE_SEED) return (await fromDisk(realm.file ?? realm.fichier)).levels || [];
+
+  const key = `realm:g${CACHE_GENERATION}:${MODE}:${realm.id}`;
 
   const cached = await cacheGet(key);
   if (fresh(cached, realm.stamp)) return cached.levels;

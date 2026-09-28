@@ -32,6 +32,7 @@
  * the JSON in the repository rather than whatever the database currently holds.
  * It wins over every other source, so a tool never reaches the network.
  */
+import { realmShape } from '../core/sawtooth.js';
 import { t } from '../ui/i18n.js';
 import { starThresholds } from '../core/stars.js';
 import { loadCatalog, loadRealmLevels } from './levelSource.js';
@@ -200,6 +201,17 @@ export function realmOf(n) {
   if (found) return found;
   const i = Math.floor((n - 1) / cat.levelsPerRealm);
   return cat.realms[Math.min(cat.realms.length - 1, Math.max(0, i))];
+}
+
+/**
+ * 'hard' | 'superhard' | null — the labelled peaks of a realm's sawtooth
+ * (core/sawtooth.js, the same function the generator built the realm with).
+ * Computed rather than read from the level data, so the map can mark a level
+ * it has not loaded.
+ */
+export function tierOf(n) {
+  const r = realmOf(n);
+  return realmShape(r.id, r.last - r.first + 1)[n - r.first]?.tier ?? null;
 }
 
 // --- Levels ----------------------------------------------------------------

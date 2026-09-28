@@ -23,7 +23,7 @@ const FLICK_RANGE = 24;
 export class InputHandler {
   /**
    * @param {BoardView} view
-   * @param {{onDrag:(id,x,y)=>void, onEnd:(id,moved:boolean)=>void,
+   * @param {{onDrag:(id,x,y)=>void, onEnd:(id,moved:boolean,tap:boolean)=>void,
    *          canGrab:(id)=>boolean, onRefused:(id)=>void}} hooks
    */
   constructor(view, hooks) {
@@ -64,6 +64,7 @@ export class InputHandler {
       grabX: grab.x, grabY: grab.y,
       originX: block.x, originY: block.y,
       moved: false,
+      startT: ev.timeStamp,
       history: [{ x: grab.x, y: grab.y, t: ev.timeStamp }],
     };
     this.view.setGrabbed(id, true);
@@ -99,11 +100,15 @@ export class InputHandler {
 
   _onUp(ev) {
     if (!this.drag) return;
-    const { id, moved } = this.drag;
+    const { id, moved, grabX, grabY, startT } = this.drag;
     if (moved) this._flick(ev);
+    // A TAP — short, and the finger barely left the block — asks what the
+    // block is (see showBlockInfo in main.js), rather than a failed drag.
+    const p = this.view.cellFromPointFloat(ev.clientX, ev.clientY);
+    const tap = !moved && ev.timeStamp - startT < 350 && Math.hypot(p.x - grabX, p.y - grabY) < 0.35;
     this.drag = null;
     this.view.setGrabbed(id, false);
-    this.hooks.onEnd(id, moved);
+    this.hooks.onEnd(id, moved, tap);
   }
 
   /**

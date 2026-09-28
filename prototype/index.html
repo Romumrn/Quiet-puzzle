@@ -44,6 +44,10 @@
       </button>
       <button class="pill lives-pill menu-lives" data-lives></button>
       <button class="btn btn-primary btn-lg" id="btn-play" data-i18n="menu.play">Play</button>
+      <button class="btn btn-ghost btn-lg btn-quests" id="btn-quests">
+        <span data-i18n="quest.open">Daily quests</span> <small id="quest-count">0/3</small>
+      </button>
+      <button class="btn btn-ghost btn-lg" id="btn-leaderboard" data-i18n="board.open">Leaderboard</button>
       <button class="btn btn-ghost btn-lg" id="btn-daily-puzzle" hidden>
         <span data-i18n="daily.title">Daily puzzle</span>
         <small id="daily-puzzle-sub"></small>
@@ -76,6 +80,7 @@
         <div class="stars stars-lg" id="brief-stars"></div>
         <p class="brief-objective" id="brief-objective">—</p>
         <p class="brief-novelty" id="brief-novelty" hidden></p>
+        <p class="brief-streak" id="brief-streak" hidden></p>
         <dl class="brief-meta">
           <div><dt data-i18n="brief.moves">Moves</dt><dd id="brief-moves">—</dd></div>
           <div><dt data-i18n="brief.difficulty">Difficulty</dt><dd id="brief-difficulty">—</dd></div>
@@ -127,7 +132,7 @@
         </button>
         <button class="action" id="btn-hammer" title="Remove a chosen block">
           <span class="action-icon">🔨</span>
-          <span class="action-cost ad" data-i18n="ad.badge">Ad</span>
+          <span class="action-cost ad" id="hammer-cost" data-i18n="ad.badge">Ad</span>
         </button>
         <button class="action" id="btn-time" title="Add 30 seconds">
           <span class="action-icon">⏱</span>
@@ -135,7 +140,7 @@
         </button>
         <button class="action" id="btn-undo" title="Undo the last move">
           <span class="action-icon">↶</span>
-          <span class="action-cost ad" data-i18n="ad.badge">Ad</span>
+          <span class="action-cost ad" id="undo-cost" data-i18n="ad.badge">Ad</span>
         </button>
         <button class="action action-plain" id="btn-restart" title="Restart the level">
           <span class="action-icon">↺</span>
@@ -355,6 +360,41 @@
         <p class="user-note" id="rank-note" data-i18n="daily.rank.note">This ranking is local to this device: the prototype has no server to receive scores.</p>
         <div class="result-actions">
           <button class="btn btn-primary" id="btn-rank-close" data-i18n="ad.close">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CE QUE FAIT UN BLOC (toucher un bloc spécial) ============ -->
+    <div class="overlay" id="overlay-info" hidden>
+      <div class="result-card info-card" id="info-card">
+        <button class="info-close" id="btn-info-ok" data-i18n-aria="ad.close" aria-label="Close">×</button>
+        <div class="info-icon" id="info-icon"></div>
+        <h2 id="info-title"></h2>
+        <p class="info-text" id="info-text"></p>
+      </div>
+    </div>
+
+    <!-- ============ QUÊTES DU JOUR ============ -->
+    <div class="overlay" id="overlay-quests" hidden>
+      <div class="result-card quests-card">
+        <h2 data-i18n="quest.title">Daily quests</h2>
+        <ul class="quest-list" id="quest-list"></ul>
+        <button class="btn quest-chest" id="quest-chest" disabled></button>
+        <div class="result-actions">
+          <button class="btn btn-ghost" id="btn-quests-close" data-i18n="ad.close">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CLASSEMENT DES JOUEURS ============ -->
+    <div class="overlay" id="overlay-board" hidden>
+      <div class="result-card board-card">
+        <h2 data-i18n="board.title">Leaderboard</h2>
+        <p class="rank-mine" id="board-mine"></p>
+        <ol class="rank-list board-list" id="board-list"></ol>
+        <p class="user-note" id="board-note" hidden></p>
+        <div class="result-actions">
+          <button class="btn btn-primary" id="btn-board-close" data-i18n="ad.close">Close</button>
         </div>
       </div>
     </div>

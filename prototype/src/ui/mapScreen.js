@@ -3,53 +3,53 @@
  * Level map: winding path, stars earned, locking.
  */
 
-import { totalLevels, levelsPerRealm, realms } from '../data/levelStore.js';
+import { totalLevels, levelsPerRealm, realms, tierOf } from '../data/levelStore.js';
 import * as store from '../data/save.js';
 import { renderStars, toast } from './screens.js';
 import * as theme from './theme.js';
 import { realmText, t } from './i18n.js';
-import { snow } from '../render/confetti.js';
 
 /** Horizontal offset of the winding path, as a fraction of available width. */
 const OFFSETS = [0, 0.62, 0.9, 0.62, 0, -0.62, -0.9, -0.62];
 
 /**
- * Beta-tester easter egg: ten taps on the SAME node within this window
- * unlocks THAT level (and, since progress is a single cursor, everything
- * before it too). A locked node is otherwise a dead end — this is the one way
- * in, so a tester can jump straight to whatever they are meant to be checking
- * without grinding the whole progression first.
+ * Ten quick taps on a LOCKED node used to unlock it — a beta-tester shortcut.
+ * It is gone (testers have the debug panel); the taps now get a wink instead,
+ * for whoever finds the old trick.
  */
-const SECRET_TAPS = 10;
-const SECRET_WINDOW_MS = 700; // a pause this long between two taps resets the count
-let secretLevel = null;
-let secretCount = 0;
-let secretTimer = null;
+const WINK_TAPS = 10;
+const WINK_WINDOW_MS = 700; // a pause this long between two taps resets the count
+let tapLevel = null;
+let tapCount = 0;
+let tapTimer = null;
 
-function registerSecretTap(n, onSelect) {
-  if (secretLevel !== n) { secretLevel = n; secretCount = 0; }
-  secretCount++;
-  clearTimeout(secretTimer);
-  secretTimer = setTimeout(() => { secretLevel = null; secretCount = 0; }, SECRET_WINDOW_MS);
-  if (secretCount < SECRET_TAPS) return;
-
-  secretLevel = null;
-  secretCount = 0;
-  const d = store.load();
-  d.unlockedLevel = Math.max(d.unlockedLevel, n);
-  store.save(d);
-  toast(t('toast.unlockedUntil', { n }));
-  snow('🍆');
-  render(onSelect);
+function registerLockedTap(n) {
+  if (tapLevel !== n) { tapLevel = n; tapCount = 0; }
+  tapCount++;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(() => { tapLevel = null; tapCount = 0; }, WINK_WINDOW_MS);
+  if (tapCount < WINK_TAPS) return;
+  tapLevel = null;
+  tapCount = 0;
+  toast(t('toast.noCheat'));
 }
+
+/**
+ * How far past the next level the map reaches. Beyond it, nothing: the game is
+ * discovered a little at a time, and the ten locked levels that do show fade
+ * into the dark the further they are — what comes next is felt, not listed.
+ */
+const LOOKAHEAD = 10;
 
 export function render(onSelect) {
   const scroll = document.getElementById('map-scroll');
   const unlocked = store.load().unlockedLevel;
+  const horizon = unlocked + LOOKAHEAD;
   scroll.replaceChildren();
 
   for (const realm of realms()) {
     const from = realm.first;
+    if (from > horizon) break;
 
     // Each realm takes the hue of its first level: scrolling the map shows the
     // chromatic gradation of the whole progression.
@@ -65,7 +65,7 @@ export function render(onSelect) {
     const path = document.createElement('div');
     path.className = 'map-path';
 
-    for (let n = from; n <= realm.last && n <= totalLevels(); n++) {
+    for (let n = from; n <= realm.last && n <= totalLevels() && n <= horizon; n++) {
       const rec = store.levelRecord(n);
       const locked = n > unlocked;
 
@@ -75,7 +75,14 @@ export function render(onSelect) {
       // The last level of a realm is markedly harder than the others: the
       // realm's full hue signals it before it is even opened.
       if (n === realm.last) node.classList.add('boss');
-      if (locked) node.classList.add('locked');
+      // The sawtooth's other peaks: flagged too, so a hard level is an event
+      // the player sees coming rather than a wall they hit (core/sawtooth.js).
+      else if (tierOf(n) === 'hard') node.classList.add('hard');
+      if (locked) {
+        node.classList.add('locked');
+        // 0 just past the next level, 1 at the horizon.
+        node.style.setProperty('--fog', ((n - unlocked) / LOOKAHEAD).toFixed(2));
+      }
       else if (n === unlocked) {
         node.classList.add('current');
         // The "Next" label used to be written in the CSS (`content: 'Suivant'`),
@@ -92,11 +99,9 @@ export function render(onSelect) {
       renderStars(stars, rec.stars);
       node.append(num, stars);
 
-      // Always wired, even locked: the secret tap count must work on a node
-      // the player cannot otherwise open. `onSelect` only fires when allowed.
       node.addEventListener('click', () => {
-        registerSecretTap(n, onSelect);
-        if (!locked) onSelect(n);
+        if (locked) registerLockedTap(n);
+        else onSelect(n);
       });
       path.appendChild(node);
     }
@@ -104,10 +109,24 @@ export function render(onSelect) {
     scroll.appendChild(section);
   }
 
+  // Dusk over the whole map — scenery included — from the next level down to
+  // the horizon: the part of the game still to discover is in the dark.
+  const dusk = document.createElement('div');
+  dusk.className = 'map-dusk';
+  scroll.appendChild(dusk);
+
   document.getElementById('map-stars').textContent = `★ ${store.totalStars()}`;
 
   // Brings the current level in front of the player's eyes.
   requestAnimationFrame(() => {
-    scroll.querySelector('.map-node.current')?.scrollIntoView({ block: 'center' });
+    const current = scroll.querySelector('.map-node.current');
+    if (current) {
+      const top = current.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop;
+      dusk.style.top = `${Math.max(0, top - 40)}px`;
+      dusk.style.height = `${scroll.scrollHeight - Math.max(0, top - 40)}px`;
+    } else {
+      dusk.hidden = true;
+    }
+    current?.scrollIntoView({ block: 'center' });
   });
 }

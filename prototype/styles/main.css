@@ -291,7 +291,7 @@ body { display: grid; place-items: center; }
 
 /* ---------- Carte des niveaux ---------- */
 
-.map-scroll { flex: 1; overflow-y: auto; padding: 4px 0 24px; scrollbar-width: none; }
+.map-scroll { flex: 1; overflow-y: auto; padding: 4px 0 24px; scrollbar-width: none; position: relative; }
 .map-scroll::-webkit-scrollbar { display: none; }
 
 /* Chaque monde porte sa propre teinte : en faisant défiler, on voit la
@@ -423,7 +423,21 @@ body { display: grid; place-items: center; }
   font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
   background: var(--ink); color: var(--ground); padding: 2px 8px; border-radius: 999px;
 }
-.map-node.locked { opacity: 0.4; cursor: not-allowed; }
+/* Niveaux verrouillés : de plus en plus sombres jusqu'à l'horizon de la carte
+   (mapScreen.js, LOOKAHEAD) — la suite se devine, elle ne se lit pas. */
+.map-node.locked {
+  cursor: not-allowed;
+  opacity: calc(0.7 - var(--fog, 0) * 0.3);
+  filter: brightness(calc(0.92 - var(--fog, 0) * 0.55)) saturate(calc(0.8 - var(--fog, 0) * 0.6));
+}
+/* Le crépuscule de la carte (mapScreen.js) : du prochain niveau jusqu'à
+   l'horizon, tout s'assombrit — cases, branches, fleurs. */
+.map-dusk {
+  position: absolute; left: 0; right: 0; pointer-events: none; z-index: 2;
+  background: linear-gradient(to bottom,
+    transparent 0%, hsl(var(--h, 330) 25% 20% / 0.18) 25%,
+    hsl(var(--h, 330) 25% 16% / 0.5) 70%, hsl(var(--h, 330) 25% 12% / 0.78) 100%);
+}
 .map-node.locked b::after { content: '·'; }
 .map-node.done { border-color: hsl(var(--h) 40% 82%); }
 
@@ -438,6 +452,32 @@ body { display: grid; place-items: center; }
 }
 .map-node.boss:not(.current) .stars i { color: rgba(255, 255, 255, 0.4); }
 .map-node.boss:not(.current) .stars i.on { color: #fff; }
+/* …et il luit : seul son HALO bouge — il respire et vacille par à-coups
+   irréguliers, comme une chandelle. La case elle-même reste immobile. */
+.map-node.boss { animation: boss-halo 4.6s ease-in-out infinite; }
+@keyframes boss-halo {
+  0%, 100% { box-shadow: 0 6px 16px hsl(var(--h) 50% 45% / 0.28), 0 0 10px 2px hsl(var(--h) 70% 72% / 0.35); }
+  18% { box-shadow: 0 6px 18px hsl(var(--h) 50% 45% / 0.32), 0 0 20px 7px hsl(var(--h) 70% 74% / 0.5); }
+  24% { box-shadow: 0 6px 17px hsl(var(--h) 50% 45% / 0.3), 0 0 14px 4px hsl(var(--h) 70% 74% / 0.38); }
+  31% { box-shadow: 0 6px 18px hsl(var(--h) 50% 45% / 0.32), 0 0 22px 8px hsl(var(--h) 70% 74% / 0.52); }
+  55% { box-shadow: 0 6px 16px hsl(var(--h) 50% 45% / 0.28), 0 0 12px 3px hsl(var(--h) 70% 72% / 0.36); }
+  72% { box-shadow: 0 6px 19px hsl(var(--h) 50% 45% / 0.34), 0 0 26px 9px hsl(var(--h) 70% 76% / 0.48); }
+  80% { box-shadow: 0 6px 17px hsl(var(--h) 50% 45% / 0.3), 0 0 16px 5px hsl(var(--h) 70% 74% / 0.4); }
+}
+@media (prefers-reduced-motion: reduce) { .map-node.boss { animation: none; } }
+/* Verrouillé et dans l'ombre, il garde sa lueur : c'est lui qu'on devine au loin. */
+.map-node.boss.locked { animation-duration: 5.8s; }
+/* Les autres pics des dents de scie (core/sawtooth.js) : une petite flamme
+   dessinée à la couleur du monde, posée sur le coin de la case — repérable
+   sans voler la vedette au niveau final, qui lui prend la pleine teinte. */
+.map-node.hard::before {
+  content: ''; position: absolute; top: -11px; right: -7px;
+  width: 16px; height: 22px;
+  background: hsl(var(--h) 56% 66%);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 32'%3E%3Cpath fill-rule='evenodd' d='M12 1C13 7 20 10.5 20 20.5C20 26.5 16.5 31 12 31C7.5 31 4 26.5 4 21C4 16.5 6.5 13.5 8.5 10.5C8.8 13.8 10.2 16 12 17C10.8 12 10.6 6 12 1ZM12 29.5C9.9 29.5 8.6 27.7 8.6 25.4C8.6 22.6 10.6 21 12 18.8C13.4 21 15.4 22.6 15.4 25.4C15.4 27.7 14.1 29.5 12 29.5Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 32'%3E%3Cpath fill-rule='evenodd' d='M12 1C13 7 20 10.5 20 20.5C20 26.5 16.5 31 12 31C7.5 31 4 26.5 4 21C4 16.5 6.5 13.5 8.5 10.5C8.8 13.8 10.2 16 12 17C10.8 12 10.6 6 12 1ZM12 29.5C9.9 29.5 8.6 27.7 8.6 25.4C8.6 22.6 10.6 21 12 18.8C13.4 21 15.4 22.6 15.4 25.4C15.4 27.7 14.1 29.5 12 29.5Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  filter: drop-shadow(0 1px 2px hsl(var(--h) 40% 50% / 0.18));
+}
 
 /* ---------- Pré-niveau ---------- */
 
@@ -462,6 +502,14 @@ body { display: grid; place-items: center; }
   background: hsl(var(--h) 55% 55%);
   animation: brief-final-glow 1.8s ease-in-out infinite;
 }
+/* Série de victoires : ce qu'elle offre au niveau qui s'ouvre (ou ce qu'une
+   victoire de plus offrirait, en plus discret). */
+.brief-streak {
+  margin: 0 0 14px; padding: 7px 14px; border-radius: 14px;
+  background: var(--line); color: var(--ink-soft); font-size: 13px;
+}
+.brief-streak.on { background: #fff1dc; color: #a2601a; font-weight: 600; }
+.brief-card.hard .brief-badge { background: hsl(var(--h) 55% 55%); }
 .brief-final {
   display: inline-block; margin: 0 0 14px; padding: 5px 14px;
   border-radius: 999px; background: hsl(var(--h) 55% 93%); color: hsl(var(--h) 55% 36%);
@@ -1166,8 +1214,48 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
   background: var(--ground); color: var(--ink-soft);
   font: 400 14px var(--font-ui);
 }
-.rank-list li.moi { background: var(--accent-wash); color: var(--accent-deep); font-weight: 500; }
+.rank-list li.me { background: var(--accent-wash); color: var(--accent-deep); font-weight: 500; }
 .rank-list b { font-variant-numeric: tabular-nums; }
+/* Carte « ce que fait ce bloc » (toucher un bloc spécial) : le niveau reste
+   visible derrière — on regarde le bloc dont on lit l'explication. Voile léger,
+   à peine flouté, et carte légèrement translucide. */
+#overlay-info { background: hsl(var(--h) 30% 96% / 0.35); backdrop-filter: blur(1.5px); align-items: end; padding-bottom: 110px; }
+#overlay-info .info-card { background: hsl(var(--h) 40% 99% / 0.9); box-shadow: 0 12px 34px hsl(var(--h) 30% 30% / 0.18); }
+.info-card { max-width: 340px; }
+.info-icon {
+  width: 56px; height: 56px; margin: 0 auto 10px; display: grid; place-items: center;
+  border-radius: 18px; background: var(--accent-wash); color: var(--accent-deep); font: 600 24px var(--font-ui);
+}
+.info-card { position: relative; }
+.info-close {
+  position: absolute; top: 10px; right: 10px; width: 32px; height: 32px;
+  display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: transparent; color: var(--ink-soft); font: 300 24px/1 var(--font-ui); cursor: pointer;
+}
+.info-close:hover { background: var(--line); color: var(--ink); }
+.info-icon:has(.info-preview) { width: fit-content; height: auto; min-width: 64px; padding: 12px; border-radius: 16px; background: var(--ground); }
+.info-preview { position: relative; pointer-events: none; }
+.info-text { margin: 6px 0 4px; color: var(--ink-soft); font: 400 15px/1.5 var(--font-ui); }
+/* Quêtes du jour : icône, intitulé + barre, bouton de récolte. */
+.btn-quests small { opacity: 0.7; font-size: 12px; margin-left: 6px; }
+.btn-quests.ready { box-shadow: 0 0 0 2px var(--accent); }
+.btn-quests.ready::after { content: ''; display: inline-block; width: 8px; height: 8px; margin-left: 8px; border-radius: 50%; background: var(--alert, #e0655a); vertical-align: middle; }
+.quest-list { list-style: none; display: grid; gap: 8px; margin: 8px 0 14px; padding: 0; text-align: left; }
+.quest { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--ground); }
+.quest.claimed { opacity: 0.55; }
+.quest-icon { font-size: 20px; text-align: center; }
+.quest-body b { display: block; font: 500 14px var(--font-ui); color: var(--ink); }
+.quest-body small { color: var(--ink-soft); font-size: 11px; }
+.quest-bar { height: 6px; margin: 6px 0 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.quest-bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.4s; }
+.quest-claim { min-width: 64px; }
+.quest-chest { width: 100%; margin-bottom: 10px; }
+/* Classement des joueurs : rang, pseudo, niveau atteint, étoiles. */
+.board-card { max-height: 86vh; display: flex; flex-direction: column; }
+.board-list { overflow-y: auto; min-height: 0; }
+.board-list li { display: grid; grid-template-columns: 2.2em 1fr auto auto; gap: 10px; align-items: center; }
+.board-list i { font-style: normal; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.board-list small { color: var(--ink-soft); font-size: 11px; }
 
 /* Bouton pleine largeur du menu utilisateur (éditeur). */
 .user-large { width: 100%; }
@@ -1214,7 +1302,9 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
 /* Mode marteau : on désigne la cible, le plateau le dit clairement. */
 .app.hammer .board { box-shadow: 0 0 0 3px var(--alert), 0 10px 28px hsl(var(--h) 30% 60% / 0.13); }
 .app.hammer .block:not(.k-wall) { cursor: crosshair; }
-.action-cost.free { background: hsl(150 45% 93%); color: hsl(150 40% 38%); }
+/* Offert par la série de victoires : orange « flamme », pour ne pas le
+   confondre avec le vert de la pub. */
+.action-cost.free { background: #fff1dc; color: #a2601a; font-weight: 600; }
 
 /* ---------- Superpositions ---------- */
 

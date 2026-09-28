@@ -87,7 +87,28 @@ export async function submitDailyPuzzle(level, title) {
 
 /** GET /api/daily-puzzle — today's grid, or null if the queue is empty. */
 export async function getDailyPuzzle() {
-  return dailyPuzzle.ofTheDay();
+  return (await officialDaily()) || dailyPuzzle.ofTheDay();
+}
+
+/**
+ * The official daily challenge: one generated grid per date, the same for
+ * everyone (`tools/build-daily.mjs` → levels/daily.json). Grids drawn in the
+ * editor only ever reached their author's own device, so for nearly every
+ * player there was no daily puzzle — and the daily quest needs one.
+ */
+let dailyFile = null;
+async function officialDaily() {
+  try {
+    dailyFile ||= fetch('levels/daily.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const file = await dailyFile;
+    const date = new Date().toISOString().slice(0, 10);
+    const level = file?.days?.[date];
+    if (!level) return null;
+    const ids = level.blocks.map((b) => b.id);
+    return { id: `official-${date}`, title: '', official: true, level: { ...level, blocks: level.blocks.filter((b) => ids.includes(b.id)) } };
+  } catch {
+    return null;
+  }
 }
 
 /**
