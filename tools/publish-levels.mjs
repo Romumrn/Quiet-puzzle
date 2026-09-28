@@ -130,10 +130,13 @@ const levelRow = (realmId) => (lv) => `  (${[
     lv.minDrags,
     sqlSmallintArray(lv.starDrags),
     sqlJsonb(lv.objective),
-    // Only these three travel in `grid`; every other field has its own column,
-    // which is what lets the catalogue view count and order without opening the
-    // jsonb.
-    sqlJsonb({ gates: lv.gates, blocks: lv.blocks, solution: lv.solution }),
+    // The board travels in `grid`; every other field has its own column, which
+    // is what lets the catalogue view count and order without opening the
+    // jsonb. The client spreads `grid` straight into the level, so anything the
+    // engine reads off the board belongs here — `oneWay` was left out once, and
+    // every one-way world went online with no arrows at all.
+    sqlJsonb({ gates: lv.gates, blocks: lv.blocks, solution: lv.solution,
+      ...(lv.oneWay?.length ? { oneWay: lv.oneWay } : {}) }),
     `'published'`,
   ].join(', ')})`;
 

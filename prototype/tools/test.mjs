@@ -625,11 +625,13 @@ console.log('\n== Carte du projet (AGENTS.md) ==');
                     'conditionMet', 'canMove',
                     // The generation chain is the most frequently used section, so it
                     // must stay aligned with the real code names.
-                    'realmOf', 'curve', 'makeGates', 'placeAtGate',
-                    'distanceToGate', 'measureGestures', 'demandOf', 'demandBudget',
-                    'starThresholds', 'mulberry32', 'shuffled', 'LEVELS_PER_REALM'];
+                    'realmOf', 'profileOf', 'FEATURES', 'buildLevel', 'solveParks',
+                    'normalize', 'measureGestures', 'limitsFor',
+                    'starThresholds', 'mulberry32', 'LEVELS_PER_REALM'];
   const sources = ['../generator/realms.js', '../generator/curve.js',
-                   '../generator/build.js', '../generator/index.js',
+                   '../generator/rush/build.js', '../generator/rush/engine.js',
+                   '../generator/rush/solve.js', '../generator/rush/measure.js',
+                   '../generator/index.js',
                    'src/core/block.js', 'src/core/board.js',
                    'src/core/stars.js', 'src/data/levelStore.js',
                    'src/data/api.js', 'src/data/analytics.js', 'src/meta/daily.js',
@@ -802,10 +804,17 @@ console.log('\n== Indices ==');
     const b = new Board(level);
     const conseil = b.hint();
     if (!conseil) { absents++; continue; }
-    // L'indice doit être vérifiable : le bloc désigné doit réellement pouvoir sortir.
+    // L'indice doit être vérifiable : le bloc désigné doit réellement pouvoir
+    // sortir — ou, pour un indice de PARKING (sans porte), arriver là où
+    // l'indice dit de le garer.
     const avant = b.remaining();
     const chemin = Array.isArray(conseil.path) ? conseil.path : Array.isArray(conseil.chemin) ? conseil.chemin : [];
     for (const pos of chemin.slice(1)) b.dragTowards(conseil.id, pos.x, pos.y);
+    if (!conseil.gate) {
+      const bloc = b.blocks.get(conseil.id), fin = chemin[chemin.length - 1];
+      if (bloc && fin && bloc.x === fin.x && bloc.y === fin.y) fiables++;
+      continue;
+    }
     if (b.blocks.has(conseil.id)) {
       const [dx, dy] = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] }[conseil.gate];
       b.step(conseil.id, dx, dy);
@@ -813,7 +822,7 @@ console.log('\n== Indices ==');
     if (b.remaining() === avant - 1) fiables++;
   }
   check(`un indice est proposé sur chacun des ${TOTAL_LEVELS} niveaux`, absents === 0, absents + ' sans indice');
-  check('le bloc désigné sort réellement', fiables === TOTAL_LEVELS, fiables + '/' + TOTAL_LEVELS);
+  check('le bloc désigné sort, ou se gare, réellement', fiables === TOTAL_LEVELS, fiables + '/' + TOTAL_LEVELS);
 }
 
 console.log(echecs ? `\n${echecs} test(s) en échec\n` : '\nTous les tests passent\n');

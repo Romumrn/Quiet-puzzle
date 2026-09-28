@@ -5,232 +5,112 @@ level database (Supabase first, `prototype/levels/` as a seed), never the
 generator.
 
 ```
-realms.js            the world table: identity, board, mechanic ramps, tier
-tiers.js             TIERS — the named difficulty steps
-curve.js             curve() ramps quantities inside a world; limitsFor() sets the limits
-build.js             the backward placement algorithm
-index.js             getLevel(n), and curateRealm() — the pool ordering
+realms.js            the fifty worlds: identity, features, parks ramp → profileOf()
+curve.js             limitsFor() — star thresholds, move and time limits
+index.js             getLevel(n), and buildRealm() — the twenty levels, ordered
+rush/engine.js       compact copy of board.js's rules, fast enough to search
+rush/solve.js        solveParks() — the fewest parks that clear a board
+rush/build.js        buildLevel() — random board, climb, capacity, real-engine check
+rush/measure.js      measureGestures() — gestures of a reference solution
 difficulty-map.mjs   renders the whole database as one page — read it before tuning
 templates/           the map's HTML shell
 ```
 
-**50 worlds, 1000 levels.** Median gesture count climbs from 6 to 35, with a step
-at world 30 where the `relentless` tier starts (21 to 29).
+**50 worlds, 1000 levels.** Worlds 0–16 introduce one mechanic each; 17–49
+combine two or three the player already knows.
 
 ---
 
-## Adding a world
+## What makes a level hard
 
-Five files, in this order. Skipping any one of them produces a world that half
-exists.
+A **park** is a gesture that moves a block without taking it out. The generator
+measures difficulty as the fewest parks a board needs, and how many separate
+times the board jams along the way (`stuckPhases`).
 
-**1. `generator/realms.js`** — one row. Keep it to identity, board and mechanic
-ramps; name a `tier` and let it carry the difficulty knobs.
+Why parks: the thousand levels this generator replaced were built by walking
+each block backwards out of its gate. Every block inherited a free path home, so
+clearing whatever was free always freed the rest. Measured over that database, a
+player picking free blocks **at random** won every level once gate capacity was
+set aside, and not one reference solution contained a gesture that was not an
+exit. Density, gate width, piece size, gesture floors — all turned up, none
+changed that. Playtesting the replacement put "hard but fair" at **6 to 11
+parks**, with the parks spread across the level rather than bunched at the start.
 
-```js
-{
-  id: 30, tier: 'relentless',
-  name: { fr: '…', en: '…', es: '…', it: '…', zh: '…' },
-  difficulty: { fr: '…', en: '…', es: '…', it: '…', zh: '…' },
-  hue: 345,
-  palette: ['#…', '#…', '#…', '#…', '#…', '#…'],   // exactly six
-  novelty: null,
-  introduces: { fr: '…', en: '…', es: '…', it: '…', zh: '…' },
-  W: 11, H: 13, colorCount: 6, gateCount: 8,
-  walls: [7, 10], locks: [5, 7], rails: [10, 15],
-  anchors: [8, 12], bulky: [6, 10], duals: [1, 3],
-  sharedGates: [3, 5],
-  demandTarget: 145,
-},
-```
+## How a level is built (`rush/build.js`)
 
-**2. `prototype/tools/mondes.py`** — the matching row: key, display name, subject
-to draw, flower palette, paper colour and hue. This is what the image generator
-reads.
+1. **Random board.** Gates first; then the world's special blocks
+   (`profile.counts`); then rails and free blocks up to the fill ratio. Every
+   block gets a colour it can actually use under its own movement rule — a rail
+   or an anchor never leaves its line, so its gate must sit on that line.
+2. **Climb.** Move a block within its reach, re-draw one elsewhere, or move an
+   arrow; keep the change if the board needs as many parks or more. Stops at the
+   level's target (`parks` ramped across the world).
+3. **Capacity**, for worlds that have it: each gate gets exactly what the
+   solution routes through it (margin zero), unused gates are dropped, and the
+   search runs again under that constraint.
+4. **Real-engine check.** The solution is replayed on `prototype/src/core/board.js`.
+   Any disagreement discards the board. Nothing unverified reaches a player.
 
-**3. The branch image** — see `prototype/docs/decor-de-la-carte.md`, which now
-covers adding one world rather than regenerating all thirty.
+## The solver (`rush/solve.js`)
 
-**4. `prototype/styles/main.css`** — one more `.realm:nth-child(31)` rule
-pointing at the new image and its paper colour, next to the existing thirty.
+Every block leaves exactly once, so exits are a fixed cost. An exit is taken the
+moment it is possible (`normalize`), which is always safe — it frees room,
+advances countdowns, empties colours, opens shutters — **except under
+capacity**: the room a block takes may be the room another needed. So a block
+that could choose between gates with a capacity is a branch, a free one (it
+costs no park). Hence a 0-1 breadth-first search: free branches stay in the
+current layer, parks open the next.
 
-**5. Build, look, publish.**
+A block that can reach only one gate is still taken greedily under capacity.
+That is an approximation: a block's reachable gates change as others move, so
+the search can overestimate parks on rare capacity boards. The reference
+solution is still valid — it is replayed on the real engine.
+
+## Adding or changing a world
+
+**`realms.js`** — one line in `PLAN` (features, board, colours, parks ramp). A
+new mechanic also needs an entry in `FEATURES` (name in five languages, what it
+adds to the profile) and, if it introduces itself, a sentence in `INTRODUCES`.
+
+A new world ALSO needs its identity row (`IDENTITY`), its branch image
+(`prototype/tools/mondes.py`, `prototype/docs/decor-de-la-carte.md`) and one
+`.realm:nth-child()` CSS rule in `prototype/styles/main.css`.
+
+Then:
 
 ```bash
-node prototype/tools/build-levels.mjs --realm 30    # one world, minutes not tens of minutes
+node prototype/tools/build-levels.mjs --realm 30    # one world
+node prototype/tools/build-levels.mjs --index-only  # the catalogue, after names or texts
 node generator/difficulty-map.mjs                   # look at it next to the others
-node prototype/tools/test.mjs --solveur             # the grids are new: run the full pass
-SUPABASE_TOKEN=sbp_xxx node tools/publish-levels.mjs --realm 30
+node prototype/tools/test.mjs --solveur             # the grids are new: full pass
+node tools/publish-levels.mjs --realm 30            # needs SUPABASE_TOKEN
 ```
 
----
+A world takes minutes to hours: 6×6 boards in seconds per level, 7×7 boards at
+the top of the ramp several minutes. Build worlds in parallel (`--realm` per
+process), then `--index-only`. The full 1000 took about nine hours on a
+14-core laptop — under `caffeinate -is`: an idle Mac on AC still sleeps, and a
+build that "runs" at 3 % CPU is a build the machine suspended.
 
 ## Two things that are expensive to forget
 
-**Never switch a gesture floor on for a published world.** `minDrags` changes
-which candidate grid is kept, hence the grid, hence the star thresholds, hence
-the records already set against them. Floors are for new worlds.
+**Regenerating a published world changes its grids**, hence its star
+thresholds, hence every record set against them. The 2026-09 rebuild was done
+during the beta, with every player's progress reset.
 
-**Adding a world loosens every earlier level.** `limitsFor()` derives its
-`tighten` factor from `TOTAL_LEVELS`, so a fifty-first world would raise the move
-and time limits of levels 1–1000. Grids and star thresholds do not move; the
-safety nets do. Going from 600 to 1000 was done knowingly, at a moment when
-`user_progress` held zero rows — nobody had a record to invalidate. **That window
-is closed once the game ships.** After that, freeze the span: replace
-`TOTAL_LEVELS` in `limitsFor()` with a constant `PROGRESSION_SPAN = 1000`.
+**The ceiling is the search, not the board.** Past eight to eleven parks on a
+7×7 board the state space outgrows the per-candidate budget (`climbBudget`,
+40 000 states above 8 parks) and the climb stalls below its target — the build
+reports it per level (`parksShort`). Asking for more parks there produces the
+same boards and more warnings. Later worlds get harder by combining mechanics.
 
----
+## Mechanics the solver sees
 
-## What the levers actually do
+All of the game's: rails, walls, countdown locks, colour seals, key, joker,
+anchors, heavy blocks (capacity cost ×2), two-colour blocks, shared gates,
+narrow gates, large pieces, one-way cells, late gates, sliders. Each rule in
+`rush/engine.js` names the `Board` method it mirrors — change one, change both.
 
-Measured over the shipped database — regenerate the map to re-read any of this.
-
-| Lever | Where | What it moves |
-|---|---|---|
-| `density` | tier | blocks on the board — capped at 78 % fill, see below |
-| `minDrags` | tier | rejects candidate grids under a gesture floor |
-| `curated` | tier | order the realm's twenty levels by what they MEASURED, not what they were asked to be |
-| `demandTarget` | world | how much the solver has to backtrack. Seconds per level at build time |
-| `margin` | tier | slack on gate capacity. `null` removes capacity entirely |
-| `minShapeSize`, `largeShapes` | tier | piece sizes. Bigger pieces mean *fewer* blocks, so fewer gestures |
-| `wideGateRatio`, `sharedGates` | tier / world | how contested the exits are |
-| `oneWay` | world | ONE-WAY cells — a block on one may only leave the way the arrow points |
-| `shutters` | world | gates that stay SHUT until N blocks have left |
-| `sliders` | world | blocks that RUN until something stops them |
-| `parking` | tier | a block that must be moved aside without exiting. **Does not deliver on dense boards** — see below |
-| `walls`, `locks`, `rails`, `anchors`, `bulky`, `duals` | world | which mechanics appear, ramped across the twenty levels |
-
-### The block-count ceiling
-
-`density` is read against the board's AREA, but what a block costs is its CELLS,
-and that average moves with the realm: barring one-cell pieces and allowing the
-four-cell bar takes it from 2.3 up to 3.6. The same density therefore asks for a
-comfortable grid on one realm and an impossible one on another — world 47
-(11×13, density 0.32) came out asking for **110 % of its own board**, and
-generation failed outright on level 960 after two thousand attempts.
-
-`curve()` now caps the count at **78 % fill**, expressed in cells. Two things
-follow. A new world can no longer ask for the impossible. And the old counts were
-fiction: world 300 asked for 27 blocks at 94 % fill, which the generator never
-reached — the `blockCount - 10` tolerance absorbed the gap silently.
-
-**Board size sets the ceiling.** A 9×11 board tops out near 29 gestures whatever
-the floor asks for: `relentless` on world 29 lifted the median from 23 to 27 and
-the minimum from 19 to 26, then stopped. A band of `[26, 34]` produced exactly
-the same grids as `[26, 30]` and simply reported twice as many misses. To go
-past 30, grow the board — that is the lever, not the floor.
-
----
-
-## What changes the KIND of problem, and what only changes its size
-
-Every knob in the table above varies how hard the exit order is to FIND. None of
-them changes what kind of question the level asks. Measured on the shipped
-database, the first seven worlds clear on a uniformly random exit order a hundred
-times out of a hundred: the player is not choosing, they are tidying.
-
-`build()` generates **backwards** — each block is brought in through its gate and
-walked back — so the walk only ever crosses free cells and **every level is
-solvable by pure exit ordering**. `solver.js` says the same from the other end:
-auxiliary moves, nudging a block aside to open a corridor, are not explored.
-
-Three mechanics break out of that, and all three are built.
-
-### One-way cells (`oneWay`) — built
-
-A block standing on one may only leave the way the arrow points. It is the first
-genuinely SPATIAL constraint the board has: until now every route could be walked
-backwards, so a mistake was always recoverable. An arrow makes a wrong entry
-final.
-
-Arrows are **read off the reference solution**, not scattered and then checked:
-placed on a cell the solution already walks, pointing the way it already goes. The
-level stays solvable by construction — no verification pass, no candidates thrown
-away.
-
-The condition is unanimity **over the block's whole body**, not its anchor cell.
-The engine holds a block if ANY of its cells sits on an arrow, so agreement has to
-be computed the same way. Scoring anchors alone was tried and it broke the
-reference solution on all three test levels: a four-cell bar whose body crossed an
-arrow placed for another block could no longer move.
-
-Note for tuning: arrows PRUNE the solver's search — one test level fell from
-26 000 states to 25. `demand` therefore understates the difficulty of an arrow
-world, which is exactly right: fewer options for the machine, more traps for a
-human.
-
-### Shuttered gates (`shutters`) — built
-
-A gate closed until N blocks have left, with the countdown shown and the gate
-visibly dimmed. Also read off the solution: a gate first used at the seventh exit
-can be shut for up to six.
-
-One known coarseness: a solution step records a gate's SIDE, not its identity, so
-two gates on the same side are conflated. The code always takes the earliest first
-use, so it is conservative — a level can never be locked — but a gate that could
-stay shut a long while is barely shut at all. Fixing it means giving solution
-steps a gate index.
-
-### Sliding blocks (`sliders`) — built
-
-Pushed, the block runs until something stops it. The other kinds restrict where a
-block may GO; this one takes away the choice of where it STOPS — you no longer
-place it, you aim it, and the board has to be read for what will catch it.
-
-`board.slideTarget()` answers where a run ends, and three callers must agree
-exactly: the engine when the finger lets go, the solver when it enumerates where
-a block can go, and the generator when it walks one backwards. Four things had to
-change, and each was a real bug first:
-
-1. **`dragTowards` rocked the block.** A slider overshoots the point being
-   dragged to, the next pass aims back and overshoots again. A slide that does
-   not bring it closer now ends the gesture.
-2. **The solver's successor function.** This is why sliding could not simply be
-   bolted onto `step()`: a cell CROSSED is not a cell you can STOP on. Walking
-   the grid one cell at a time had the solver plan through positions no player
-   can reach — levels declared solvable that are not.
-3. **`measureGestures` overcounted**, 40 to 52 gestures on levels that take just
-   under thirty: its waypoint search assumes a block can be halted anywhere and
-   fell back on its safety over and over. A slider is ONE gesture, whatever its
-   route. That figure sets the star thresholds, so overcounting hands the player
-   three stars for nothing.
-4. **The gate travels with the answer.** A slider that runs out of the board can
-   only have its gate identified at the END of the run; computing it from where
-   the run BEGAN found nothing, and the solver declared unsolvable the very
-   levels it had a solution for.
-
-The backward walk is one straight line, like an anchor's. It has to be the exact
-inverse of what the block will do, and a slider does not advance a cell — so
-every intermediate stop in its solution would need a blocker standing there at
-that moment, which the walk cannot promise: the cell it just vacated is by
-definition empty.
-
----
-
-## Two things that were measured and REJECTED
-
-Recorded so nobody spends the afternoon again.
-
-**Parking on dense boards.** A block moved somewhere it does not exit from, to
-free the way for another. It works, it is verified by `solve(board, budget, 1)`,
-and a playtest confirmed the levels are better. But it needs somewhere to park:
-grafting it onto a finished grid landed three times in eight on world 2 and
-**zero times in eight on world 15**. Built as a real world (10×12, 30-39 blocks)
-it delivered on none of twenty levels. Dropping the density to `[0.18, 0.23]` got
-one in twenty and cost the whole difficulty gain, back to 22-29 gestures.
-
-Building the crossing into the walk instead — so the generator lays the remaining
-pieces AROUND it and reserves the pocket — is implemented and still does not bite:
-fourteen verifications out of eighteen came back "still solvable by ordering". The
-reason is that the backward walk fixes only ONE valid order and the solver is
-under no obligation to follow it; it sends the victim out first and the way is
-clear. Requiring a mutual block was not enough either, because a large open board
-almost always has another route. The next thing to try is targeting ARTICULATION
-POINTS — cells whose removal disconnects the victim from every gate.
-
-**Deliberate doubling back in the walk.** Buying gestures out of the route's
-shape rather than its length. It makes levels EASIER: 29.3 gestures on average
-without it, 26.5 with six reversals, 26.3 with twelve. A reversal costs walk
-steps, so the block rests nearer its gate, and the distance lost outweighs the
-gesture gained — and `dragTowards` cuts corners anyway, so most reversals collapse
-back into one drag.
+Sliders are one gesture per run: a slider cannot be stopped short, so its
+reachable positions are single runs, not a connected region, and
+`measureGestures` counts a slide as one gesture whatever its length.

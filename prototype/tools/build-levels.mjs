@@ -19,7 +19,6 @@ import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getLevel, TOTAL_LEVELS, LEVELS_PER_REALM, REALMS } from '../../generator/index.js';
-import { curve } from '../../generator/curve.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const output = join(root, 'levels');
@@ -82,15 +81,17 @@ for (const R of todo) {
   total += r.size;
   const drags = levels.map((L) => L.minDrags);
   for (const L of levels) {
-    if (L.minDragsShort !== undefined) short.push({ n: L.number, got: L.minDrags, want: L.minDragsShort });
+    if (L.parksShort !== undefined) short.push({ n: L.number, got: L.parks, want: L.parksShort });
   }
+  const parks = levels.map((L) => L.parks);
   rows.push({
     R, first, last, ...r,
     blocks: levels.reduce((s, L) => s + L.blocks.length, 0),
-    // What the tier actually delivered. Without it a floor is a wish: the only
-    // way to know whether a step of the curve holds is to read it back.
+    // What the world actually delivered. Without it a profile is a wish: the
+    // only way to know whether a step of the curve holds is to read it back.
     drags: `${Math.min(...drags)}–${Math.max(...drags)}`,
-    floor: curve(first).minDragsFloor || 0,
+    parks: `${Math.min(...parks)}–${Math.max(...parks)}`,
+    asked: R.parks.join('–'),
   });
 }
 
@@ -126,29 +127,30 @@ const r = (onlyRealm === null || indexOnly) ? writeJson('index.json', index) : {
 total += r.size;
 
 const ko = (n) => `${(n / 1024).toFixed(0)} Ko`;
-console.log('\nrealm                     levels   blocks   drags  floor    size');
+console.log('\nrealm                     levels   blocks   drags   parks  asked    size');
 for (const l of rows) {
   console.log(
     l.R.name.en.padEnd(24),
     `${l.first}–${l.last}`.padStart(8),
     String(l.blocks).padStart(7),
     l.drags.padStart(7),
-    (l.floor || '·').toString().padStart(6),
+    l.parks.padStart(7),
+    l.asked.padStart(6),
     ko(l.size).padStart(8),
     l.kept ? ' (kept)' : '',
   );
 }
 
 /**
- * A tier that promises more gestures than the generator can produce is a
- * tuning error, and it has to be visible here — in playtesting it shows up as
- * "this world feels easier than the last one", which is much harder to trace.
+ * A world that asks for more parks than the generator can produce is a tuning
+ * error, and it has to be visible here — in playtesting it shows up as "this
+ * world feels easier than the last one", which is much harder to trace.
  */
 if (short.length) {
-  console.log(`\n⚠  ${short.length} level(s) below their realm's gesture floor:`);
-  for (const s of short.slice(0, 12)) console.log(`   level ${s.n}: ${s.got} drags, floor ${s.want}`);
+  console.log(`\n⚠  ${short.length} level(s) below the parks their world asked for:`);
+  for (const s of short.slice(0, 12)) console.log(`   level ${s.n}: ${s.got} parks, asked ${s.want}`);
   if (short.length > 12) console.log(`   …and ${short.length - 12} more`);
-  console.log('   Lower the tier\'s minDrags, or give the realm more room (bigger grid, more blocks).');
+  console.log('   Lower the world\'s `parks`, or give it more room (bigger board, fewer walls).');
 }
 
 console.log(`\nindex.json ${ko(r.size)} · ${onlyRealm === null ? 'full database' : 'realm'} ${ko(total)} in levels/`);
