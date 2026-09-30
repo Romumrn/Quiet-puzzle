@@ -37,7 +37,8 @@ export function show(r) {
   el('result-title').textContent = t(r.won ? 'result.won'
     : r.reason === 'time' ? 'result.timeout.title' : 'result.nomoves.title');
   renderStars(el('result-stars'), r.won ? r.stars : 0);
-  // The third star is the prize: drawn a size up.
+  // The third star is the prize: it lands with more weight (see the sequence).
+  // Same size as the others once landed — drawn a size up, it sat off the line.
   if (r.won && r.stars === 3) el('result-stars').children[2].classList.add('big');
   el('result-score').textContent = r.score;
 
@@ -274,11 +275,11 @@ function playSequence(r, card, novelty) {
       const big = star.classList.contains('big');
       reveal(star);
       play(star, [
-        { transform: 'translateY(-34px) scale(1.9)', opacity: 0, filter: 'brightness(1.8) blur(1px)' },
+        { transform: `translateY(-34px) scale(${big ? 2.4 : 1.9})`, opacity: 0, filter: 'brightness(1.8) blur(1px)' },
         { transform: 'translateY(0) scale(0.92)', opacity: 1, filter: 'brightness(1.5) blur(0)', offset: 0.6 },
-        { transform: 'translateY(0) scale(1.06)', filter: 'brightness(1.15)', offset: 0.8 },
+        { transform: `translateY(0) scale(${big ? 1.25 : 1.06})`, filter: 'brightness(1.15)', offset: 0.8 },
         { transform: 'translateY(0) scale(1)', opacity: 1, filter: 'brightness(1)' },
-      ], { duration: big ? 460 : 380, easing: 'cubic-bezier(.3,.7,.4,1)' });
+      ], { duration: big ? 520 : 380, easing: 'cubic-bezier(.3,.7,.4,1)' });
       await seq.wait(big ? 230 : 190);
       fx.star?.(i, big);
       if (big) {

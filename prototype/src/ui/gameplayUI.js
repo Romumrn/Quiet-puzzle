@@ -1,6 +1,6 @@
 /**
  * GameplayUI — equivalent of Scripts/UI/GameplayUI.cs (tech doc §4)
- * In-game HUD: clock, moves left, blocks left, star preview.
+ * In-game HUD: clock, moves made, star preview.
  */
 
 import { objectiveLabel } from '../data/levelStore.js';
@@ -33,25 +33,23 @@ export function mount(level, streak = 0) {
   const daily = !level.number;
   el('hud-level-word').hidden = daily;
   el('hud-level').textContent = daily ? (level.realm || t('daily.title')) : level.number;
-  lastRemaining = null;
+  lastDrags = null;
 }
 
-let lastRemaining = null;
+let lastDrags = null;
 
 export function update(board) {
   const level = board.level;
-  el('hud-moves').textContent = t('hud.moves', { n: board.dragsUsed() });
-
-  // The counter twitches as it goes down: a block leaving must be visible in
-  // the HUD too, not only on the board.
-  const remaining = board.remaining();
-  const counter = el('hud-blocks');
-  if (lastRemaining !== null && remaining < lastRemaining) {
+  // Moves made so far — what the stars are counted on. The counter twitches
+  // with each one, so the gesture registers in the HUD too.
+  const drags = board.dragsUsed();
+  const counter = el('hud-drags');
+  if (lastDrags !== null && drags !== lastDrags) {
     counter.classList.add('pop');
     setTimeout(() => counter.classList.remove('pop'), 200);
   }
-  lastRemaining = remaining;
-  counter.textContent = remaining;
+  lastDrags = drags;
+  counter.textContent = drags;
   el('hud-time').textContent = mmss(board.timeRemaining);
 
   const share = board.timeRemaining / level.timeLimit;

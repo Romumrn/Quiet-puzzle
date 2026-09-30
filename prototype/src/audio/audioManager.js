@@ -236,25 +236,6 @@ export class AudioManager {
     this._play(`exit${d}`, gain, delay);
   }
 
-  /**
-   * A counter ticking up (result screen). Synthesised, very short and quiet:
-   * a dozen of them in half a second must read as a purr, not as clicks.
-   */
-  tick() {
-    if (!this.ready || !this.sfxOn) return;
-    const t = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = 1320;
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.045, t + 0.004);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-    osc.connect(g).connect(this.sfxGain);
-    osc.start(t);
-    osc.stop(t + 0.06);
-  }
-
   /** New level: the run starts again from the low note. */
   resetRun() {
     this.step = 0;

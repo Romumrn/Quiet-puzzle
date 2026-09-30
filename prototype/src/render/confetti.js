@@ -67,3 +67,37 @@ export function snow(emoji) {
 
   setTimeout(() => layer.remove(), (maxEnd + 0.4) * 1000);
 }
+
+const PETAL_BURST = 9;
+
+/**
+ * A handful of petals springing from a tap on the home screen, then drifting
+ * down, swaying, in the realm's hue (they inherit `--h`). Placed in `host` at
+ * (x, y), in its own pixels. Transform and opacity only, self-cleaning, and
+ * nothing at all when the player asked for less motion.
+ */
+export function petalBurst(host, x, y) {
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  let longest = 0;
+  for (let i = 0; i < PETAL_BURST; i++) {
+    const p = document.createElement('i');
+    p.className = 'petal-pop';
+    const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.3; // mostly upwards
+    const pop = 26 + Math.random() * 34;
+    const fall = 1.9 + Math.random() * 1.4;
+    p.style.left = `${x}px`;
+    p.style.top = `${y}px`;
+    p.style.setProperty('--px', `${Math.round(Math.cos(angle) * pop)}px`);
+    p.style.setProperty('--py', `${Math.round(Math.sin(angle) * pop)}px`);
+    p.style.setProperty('--sway', `${Math.round((Math.random() - 0.5) * 70)}px`);
+    p.style.setProperty('--drop', `${Math.round(140 + Math.random() * 160)}px`);
+    p.style.setProperty('--spin', `${Math.round((Math.random() - 0.5) * 540)}deg`);
+    p.style.setProperty('--size', `${Math.round(8 + Math.random() * 7)}px`);
+    p.style.setProperty('--light', `${Math.round(74 + Math.random() * 12)}%`);
+    p.style.animationDuration = `${fall.toFixed(2)}s`;
+    host.appendChild(p);
+    longest = Math.max(longest, fall);
+    setTimeout(() => p.remove(), fall * 1000 + 100);
+  }
+  return longest;
+}

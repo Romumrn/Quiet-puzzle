@@ -255,6 +255,24 @@ body { display: grid; place-items: center; }
   100% { transform: translate(var(--sway), 108vh) rotate(320deg); opacity: 0; }
 }
 
+/* Petals shaken loose by a tap around the buttons (confetti.petalBurst): they
+   spring from the finger, then drift down swaying and fade. Behind the
+   buttons, like the others (`z-index: -1` in the menu's stacking context). */
+.petal-pop {
+  position: absolute; z-index: -1; pointer-events: none;
+  width: var(--size); height: calc(var(--size) * 0.72);
+  margin: calc(var(--size) * -0.36) 0 0 calc(var(--size) * -0.5);
+  border-radius: 80% 0 80% 0;
+  background: hsl(var(--h) 64% var(--light, 80%));
+  animation: petal-pop 2.4s cubic-bezier(0.2, 0.6, 0.4, 1) forwards;
+}
+@keyframes petal-pop {
+  0% { transform: translate(0, 0) rotate(0) scale(0.4); opacity: 0; }
+  12% { transform: translate(var(--px), var(--py)) rotate(calc(var(--spin) * 0.2)) scale(1); opacity: 0.9; }
+  55% { transform: translate(calc(var(--px) + var(--sway)), calc(var(--py) + var(--drop) * 0.45)) rotate(calc(var(--spin) * 0.6)); opacity: 0.8; }
+  100% { transform: translate(calc(var(--px) - var(--sway) * 0.5), calc(var(--py) + var(--drop))) rotate(var(--spin)); opacity: 0; }
+}
+
 /* "Play" breathes, slowly: the one thing to do on this screen. */
 #btn-play { animation: play-breathe 3.2s ease-in-out infinite; }
 @keyframes play-breathe { 50% { scale: 1.03; } }
@@ -303,7 +321,7 @@ body { display: grid; place-items: center; }
 .stars { display: flex; gap: 3px; }
 .stars i { font-style: normal; color: var(--line); font-size: 14px; }
 .stars i.on { color: var(--award); }
-.stars-lg { justify-content: center; gap: 10px; }
+.stars-lg { justify-content: center; align-items: center; gap: 10px; }
 .stars-lg i { font-size: 30px; }
 .stars-lg i.on { animation: star-pop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
 .stars-lg i.on:nth-child(2) { animation-delay: 0.12s; }
@@ -554,8 +572,11 @@ body { display: grid; place-items: center; }
           mask-image: linear-gradient(180deg, transparent, #000 12%, #000 80%, transparent);
 }
 .brief-art .petal { display: none; }
-#screen-brief[data-decor~="branch"] .brief-art::before { display: block; }
-#screen-brief[data-decor~="petals"] .brief-art .petal { display: block; }
+[data-decor~="branch"] > .brief-art::before { display: block; }
+[data-decor~="petals"] > .brief-art .petal { display: block; }
+/* The result screen wears the same scenery (main.js, applyScenery): a veil
+   that hides the board, the branch and the petals behind the card. */
+#overlay-result[data-decor] { isolation: isolate; background: hsl(var(--h) 34% 96% / 0.97); }
 .brief-card {
   margin: auto 0; padding: 30px 22px 22px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 26px;
@@ -1533,7 +1554,6 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
 /* Waiting for its turn: invisible, but holding its place — the card never
    changes size as the sequence fills it. */
 .result-card .pending { opacity: 0; pointer-events: none; }
-.stars-lg i.big { font-size: 38px; }
 /* "Next", once the rest has landed: a slow, soft breath. */
 .btn.pulse { animation: soft-pulse 2.2s ease-in-out infinite; }
 @keyframes soft-pulse {

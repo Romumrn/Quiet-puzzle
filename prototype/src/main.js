@@ -47,6 +47,7 @@ import * as admin from './data/admin.js';
 import * as adminPanel from './ui/adminPanel.js';
 import { isNative } from './native/capacitor.js';
 import { registerBackHandler, registerLifecycle } from './native/lifecycle.js';
+import * as confetti from './render/confetti.js';
 import { Browser } from '../vendor/capacitor-browser.esm.js';
 import { Share } from '../vendor/capacitor-share.esm.js';
 
@@ -219,10 +220,13 @@ const MAP_FX = {
   unlock: () => { audio.chime(5, 0.8); haptics.tick(); },
 };
 
-/** Sounds and buzzes for the win sequence (resultScreen.js). */
+/**
+ * Buzzes and sounds for the win sequence (resultScreen.js). The stars and the
+ * counters are silent — a note per star and a ticking count, on top of the
+ * victory arpeggio, were too much (playtest, 2026-09-30); a star still buzzes.
+ */
 const RESULT_FX = {
-  star: (i, big) => { audio.chime([2, 3, 5][i] ?? 5, big ? 0.95 : 0.75); haptics.tick(); },
-  tick: () => audio.tick(),
+  star: () => haptics.tick(),
   pop: () => audio.chime(4, 0.5),
 };
 
@@ -239,10 +243,21 @@ function showMap() {
 }
 
 /**
- * Scenery behind the level brief: 'branch' (the realm's map branch),
- * 'petals' (slow petals in the level's hue), or both.
+ * Scenery behind the level brief and the result screen: 'branch' (the realm's
+ * map branch), 'petals' (slow petals in the level's hue), or both.
  */
 const BRIEF_DECOR = 'branch petals';
+
+/**
+ * Dresses `host` (which holds a `.brief-art`) with the scenery of level `n`'s
+ * realm: the same branch image its stretch of the map carries. The path is
+ * relative to styles/main.css, where the variable is used.
+ */
+function applyScenery(host, n) {
+  const branch = String(levels.realmOf(Math.max(1, n || 1)).id % 50 + 1).padStart(2, '0');
+  host.style.setProperty('--brief-branch', `url('../images/branches/branche-${branch}.webp')`);
+  host.dataset.decor = BRIEF_DECOR;
+}
 
 async function showBrief(n) {
   stopClock();
@@ -259,11 +274,7 @@ async function showBrief(n) {
   // The realm name comes from the CATALOGUE, not from the level: the database
   // stores it in every language, whereas `level.realm` is frozen at generation.
   el('brief-realm').textContent = i18n.realmText(levels.realmOf(n), 'name');
-  // The realm's branch, the same image its stretch of the map carries. The
-  // path is relative to styles/main.css, where the variable is used.
-  const branch = String(levels.realmOf(n).id % 50 + 1).padStart(2, '0');
-  el('screen-brief').style.setProperty('--brief-branch', `url('../images/branches/branche-${branch}.webp')`);
-  el('screen-brief').dataset.decor = BRIEF_DECOR;
+  applyScenery(el('screen-brief'), n);
   el('brief-number').textContent = n;
   screens.renderStars(el('brief-stars'), rec.stars);
   el('brief-objective').textContent = hud.labelFor(level);
@@ -731,6 +742,7 @@ async function finishLevel() {
     const trial = editorTrial;
     editorTrial = null;
     if (won) announceQuests(quests.onLevelCreated());
+    el('overlay-result').removeAttribute('data-decor'); // no realm to dress it with
     result.show({
       won, stars, score: board.dragsUsed(), level: 0, duration,
       coinsEarned: 0, reason: board.failReason, remaining: board.remaining(),
@@ -754,6 +766,7 @@ async function finishLevel() {
     dailyEntry = null;
     if (won) {
       const { score } = await api.submitDailyScore({
+        puzzleId: entry.id,
         drags: board.dragsUsed(),
         minDrags: level.minDrags || board.dragsUsed(),
         seconds: duration,
@@ -765,7 +778,7 @@ async function finishLevel() {
       await updateDailyPuzzleButton();
       updateStreakBadge();
       await showMenu();
-      showLeaderboard(score, reward);
+      showLeaderboard(score, reward, entry.id);
     } else {
       showMenu();
     }
@@ -810,6 +823,9 @@ async function finishLevel() {
     return;
   }
 
+  // The result screen wears the level brief's scenery: the realm's branch and
+  // its falling petals, over a veil that hides the board.
+  applyScenery(el('overlay-result'), level.number);
   result.show({
     won,
     stars,
@@ -843,6 +859,18 @@ async function finishLevel() {
 // ---------------------------------------------------------------------------
 
 el('btn-play').onclick = showMap;
+
+/**
+ * A tap on the home screen AROUND the buttons shakes a few petals loose from
+ * where the finger landed — a little something to play with while deciding.
+ * Taps on anything interactive are left alone.
+ */
+el('screen-menu').addEventListener('pointerdown', (ev) => {
+  if (ev.target.closest('button, a, input, label, [data-lives]')) return;
+  const host = el('screen-menu');
+  const r = host.getBoundingClientRect();
+  confetti.petalBurst(host, ev.clientX - r.left, ev.clientY - r.top);
+});
 
 livesUI.init({ ads });
 
@@ -1209,6 +1237,7 @@ registerBackHandler(() => {
       openEditor(trial);
       return true;
     }
+    if (dailyEntry) { dailyEntry = null; showMenu(); return true; }
     showMap();
     return true;
   }
@@ -1491,26 +1520,40 @@ function dailyReward() {
   return t(`daily.reward.${r.kind}`, { n: r.amount });
 }
 
-function showLeaderboard(myScore, reward = null) {
+/**
+ * The daily puzzle's ranking: every player who played it (server), or — offline,
+ * or before the server knows it — this device's own, which says so.
+ */
+async function showLeaderboard(myScore, reward = null, puzzleId = null) {
   el('rank-reward').hidden = !reward;
   el('rank-reward').textContent = reward || '';
-  const list = dailyPuzzle.leaderboard();
+  el('rank-mine').textContent = t('board.loading');
+  el('rank-list').replaceChildren();
+  el('rank-note').hidden = true;
+  el('overlay-rank').hidden = false;
+
+  const server = await api.getDailyLeaderboard(puzzleId);
+  const local = !server || !server.length;
+  const list = local
+    ? dailyPuzzle.leaderboard().map((e) => ({ rank: e.rank, name: e.author, score: e.score, me: e.me }))
+    : server;
+  const total = local ? list.length : (server[0]?.total ?? list.length);
   const me = list.find((e) => e.me);
   el('rank-mine').textContent = me
-    ? `${t('daily.score', { score: myScore ?? me.score })} · ${t('daily.rank', { rank: me.rank, total: list.length })}`
+    ? `${t('daily.score', { score: myScore ?? me.score })} · ${t('daily.rank', { rank: me.rank, total })}`
     : '';
   el('rank-list').replaceChildren(...list.slice(0, 10).map((e) => {
     const li = document.createElement('li');
     if (e.me) li.className = 'me';
     const who = document.createElement('span');
-    who.textContent = e.me ? t('daily.rank.me') : e.author;
+    who.textContent = e.me ? t('daily.rank.me') : e.name;
     const pts = document.createElement('b');
     pts.textContent = e.score;
     li.append(who, pts);
     return li;
   }));
   if (!list.length) el('rank-list').textContent = t('daily.rank.empty');
-  el('overlay-rank').hidden = false;
+  el('rank-note').hidden = !local;
 }
 
 // ---------------------------------------------------------------------------
@@ -1682,8 +1725,21 @@ async function updateGreeting() {
   el('menu-greeting-text').textContent = t('menu.greeting', { name });
   const avatar = el('menu-greeting-avatar');
   const avatarUrl = avatarOf(user);
-  avatar.hidden = !avatarUrl;
-  if (avatarUrl) avatar.src = avatarUrl;
+  avatar.hidden = false;
+  // Google's photo server refuses some loads (a Referer it dislikes — hence
+  // `referrerpolicy="no-referrer"` on the <img> — or its rate limit): the
+  // browser then showed its broken-image icon. The initial takes its place.
+  avatar.onerror = () => { avatar.onerror = null; avatar.src = initialAvatar(name); };
+  avatar.src = avatarUrl || initialAvatar(name);
+}
+
+/** A round badge with the name's first letter, for when there is no photo. */
+function initialAvatar(name) {
+  const letter = [...(name || '?').trim()][0]?.toUpperCase() || '?';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">`
+    + `<circle cx="20" cy="20" r="20" fill="#d9a3bd"/>`
+    + `<text x="20" y="26.5" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="600" fill="#fff">${letter.replace(/[<&>]/g, '')}</text></svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 el('menu-greeting').onclick = () => openPanel(true);
@@ -1761,6 +1817,12 @@ document.querySelectorAll('[data-nav]').forEach((b) => {
       editorTrial = null;
       openEditor(trial);
       return undefined;
+    }
+    // The daily puzzle is started from the home screen: back goes there, not
+    // to a map it has nothing to do with.
+    if (screens.current() === 'game' && dailyEntry && b.dataset.nav === 'map') {
+      dailyEntry = null;
+      return showMenu();
     }
     return b.dataset.nav === 'menu' ? showMenu() : showMap();
   };
