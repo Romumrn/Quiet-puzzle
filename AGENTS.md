@@ -207,6 +207,12 @@ Newest first. Short enough to skim, detailed enough to know whether a bug you ju
 
 ### 2026-09-30
 
+- **Playtest round 2 (evening), not released yet** — Android is at versionCode 6 (1.5) in `build.gradle`, but the next release waits for more tester feedback:
+  - **Daily puzzle ranked across all players**: table `daily_scores` + RPCs `submit_daily_score` / `daily_leaderboard` (migration `20260930190000`, applied via the SQL editor). The local ranking is only the offline fallback. First names, as on the main leaderboard (`20260930180000`, applied).
+  - **Consecutive gestures on the same block are one move** (`Board.endGesture(hasMoved, id)`, `lastMovedId` in the snapshot); another block or a hammer blow in between and it counts again. Tests in `test.mjs`, "Compte des coups".
+  - HUD shows Time · Moves · Stars (no blocks-left counter, no moves pill). Win screen: no note per star, third star same size, level scenery behind the card. Back from the daily puzzle → home.
+  - Home: lives top-left, daily quests / daily puzzle as two small buttons that glow when something waits (no red dot), 26 falling petals, a tap around the buttons lets a few float down (`confetti.petalBurst`).
+  - Google avatar: `referrerpolicy="no-referrer"` and an initial-letter badge when the photo fails.
 - **Replay after a win showed a frozen, empty board (Android).** `startLevel()` hides the result screen, then awaits the interstitial; `admob.showInterstitial()` called `ensureInitialized()` outside its `try`, so a consent/initialize failure (app not live yet) rejected through `startLevel()` before the board was rebuilt. Now never rejects, loading capped at 5 s, and `adBeforeLevel()` catches anyway.
 - **Daily ranking popping up after an ordinary level.** `dailyEntry` / `editorTrial` were only cleared by `finishLevel`: leaving the daily puzzle with the back arrow scored the next map level as the daily puzzle (and never saved it). Cleared in `showBrief()`.
 - **Onboarding.** Boosters hidden before level 5 (`BOOSTERS_FROM`), one card explains them; monochrome line icons. Home screen trimmed (no level count, leaderboard moved to the ☰ panel, daily gift folded into the streak badge); menu counters painted from the save before any network.
