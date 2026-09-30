@@ -325,6 +325,17 @@ body { display: grid; place-items: center; }
   padding: 8px 6px; border-radius: 14px; font-size: 13px; line-height: 1.2;
 }
 .btn-mini .mini-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* Something waiting (a quest reward to collect, today's puzzle not played):
+   the button glows softly, breathing like "Play" — an invitation, not an
+   alarm, so no red dot. */
+.btn-mini.ready {
+  border-color: var(--accent);
+  animation: mini-glow 2.8s ease-in-out infinite;
+}
+@keyframes mini-glow {
+  0%, 100% { scale: 1; box-shadow: 0 0 0 0 hsl(var(--h) 60% 65% / 0), 0 4px 14px hsl(var(--h) 60% 60% / 0.12); }
+  50% { scale: 1.025; box-shadow: 0 0 0 5px hsl(var(--h) 60% 70% / 0.2), 0 4px 18px hsl(var(--h) 60% 60% / 0.28); }
+}
 .btn-mini small { font-size: 11px; opacity: 0.7; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .menu-liens { display: flex; gap: 8px; }
 
@@ -1378,10 +1389,7 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
 .info-text { margin: 6px 0 4px; color: var(--ink-soft); font: 400 15px/1.5 var(--font-ui);; white-space: pre-line; }
 .info-icon .action-icon { width: 30px; height: 30px; }
 /* Quêtes du jour : icône, intitulé + barre, bouton de récolte. */
-.btn-quests.ready { box-shadow: 0 0 0 2px var(--accent); }
-/* A reward waiting: the icon gives a little shake every few seconds. */
-.quest-icon { display: inline-block; }
-.btn-quests.ready .quest-icon { animation: wiggle 3.6s ease-in-out infinite; }
+/* A little shake every few seconds — the streak badge while its gift waits. */
 @keyframes wiggle {
   0%, 82%, 100% { transform: rotate(0); }
   85% { transform: rotate(-14deg) scale(1.12); }
@@ -1389,8 +1397,6 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
   91% { transform: rotate(-7deg); }
   94% { transform: rotate(4deg); }
 }
-.btn-quests { position: relative; }
-.btn-quests.ready::after { content: ''; position: absolute; top: 6px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--alert, #e0655a); }
 .quest-list { list-style: none; display: grid; gap: 8px; margin: 8px 0 14px; padding: 0; text-align: left; }
 .quest { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--ground); }
 .quest.claimed { opacity: 0.55; }

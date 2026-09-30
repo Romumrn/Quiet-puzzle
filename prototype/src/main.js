@@ -647,7 +647,7 @@ async function onEnd(id, hasMoved, tap) {
   updateBoosters();
   if (tap && board.gameState === GameState.PLAYING) showBlockInfo(id);
   if (!hasMoved || board.gameState !== GameState.PLAYING) return;
-  const events = board.endGesture(true);
+  const events = board.endGesture(true, id);
   await view.apply(events);
   view.refreshLocks();
   view.refreshGates();
@@ -1424,6 +1424,8 @@ async function updateDailyPuzzleButton() {
   el('daily-puzzle-sub').textContent = mine
     ? t('daily.done', { score: mine.score })
     : (entry.title || t('daily.play'));
+  // Not played yet today: the button glows, like a quest reward waiting.
+  button.classList.toggle('ready', !mine);
 }
 
 el('btn-daily-puzzle').onclick = async () => {
