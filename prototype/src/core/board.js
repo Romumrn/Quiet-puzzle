@@ -37,6 +37,7 @@ export class Board {
     // Gestures spent. There is no cap: a player who needs two thousand moves
     // still wins, with no star (see `stars`).
     this.drags = 0;
+    this.lastMovedId = null;   // block of the last gesture (see endGesture)
     this.timeRemaining = level.timeLimit;
     this.exited = [];          // ids that left, in order
     this.gameState = GameState.PLAYING;
@@ -416,11 +417,20 @@ export class Board {
     return { events, exited: false, blockedReason };
   }
 
-  /** Ends a gesture: spends a move if it actually shifted something. */
-  endGesture(hasMoved) {
+  /**
+   * Ends a gesture: spends a move if it actually shifted something.
+   *
+   * `id` is the block the gesture moved. Picking the SAME block straight up
+   * again — let go by mistake, grabbed again to finish the move — does not
+   * spend a second move: consecutive gestures on one block are one move, as
+   * the reference solution counts them. Moving another block in between (or
+   * the hammer) ends that: the next gesture on the first block counts again.
+   */
+  endGesture(hasMoved, id = null) {
     const events = [];
     if (!hasMoved) return events;
-    this.drags++;
+    if (id === null || id !== this.lastMovedId) this.drags++;
+    this.lastMovedId = id;
     events.push(...this._collectUnlocks());
     this._settle(events);
     return events;
@@ -466,6 +476,7 @@ export class Board {
     this.remember();
     this.blocks.delete(id);
     this.exited.push(id);
+    this.lastMovedId = null;   // a hammer blow sits between two gestures
     this._reindex();
     const events = this._collectUnlocks();
     this._settle(events);
@@ -490,6 +501,7 @@ export class Board {
       blocks: [...this.blocks.values()].map((b) => ({ b, x: b.x, y: b.y })),
       exited: [...this.exited],
       moves: this.drags,
+      lastMovedId: this.lastMovedId,
       state: this.gameState,
       // Gate capacity is consumed: without it in the snapshot, an undo would
       // give the block back but not its room in the gate.
@@ -502,6 +514,7 @@ export class Board {
     for (const { b, x, y } of snap.blocks) { b.x = x; b.y = y; this.blocks.set(b.id, b); }
     this.exited = [...snap.exited];
     this.drags = snap.moves;
+    this.lastMovedId = snap.lastMovedId ?? null;
     this.gameState = snap.state;
     this.gates.forEach((g, i) => { g.capacity = snap.capacities[i]; });
     this._reindex();

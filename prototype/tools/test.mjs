@@ -234,6 +234,29 @@ console.log('\n== Murs et verrous ==');
   check('tous les verrous s\'ouvrent au cours de la solution', verrousDebloquables);
 }
 
+console.log('\n== Compte des coups ==');
+{
+  // Reprendre tout de suite le même bloc (lâché par erreur) ne coûte pas un
+  // second coup ; un autre bloc entre les deux, ou le marteau, si.
+  const b = new Board(getLevel(1));
+  const [a, c] = [...b.blocks.keys()];
+  b.endGesture(true, a); b.endGesture(true, a);
+  const same = b.dragsUsed();
+  b.endGesture(true, c); b.endGesture(true, a);
+  const between = b.dragsUsed();
+  const snap = b.snapshot();
+  b.endGesture(true, c);
+  b.restore(snap);
+  b.endGesture(true, a);
+  const afterUndo = b.dragsUsed();
+  b.smash(c);
+  b.endGesture(true, a);
+  check('le même bloc repris aussitôt compte pour un seul coup', same === 1, `${same} coup(s)`);
+  check('un autre bloc entre deux : chaque geste compte', between === 3, `${between} coups`);
+  check('annuler rend aussi le « dernier bloc bougé »', afterUndo === 3, `${afterUndo} coups`);
+  check('un coup de marteau entre deux : le geste suivant compte', b.dragsUsed() === 4, `${b.dragsUsed()} coups`);
+}
+
 console.log('\n== Intégrité de la grille ==');
 {
   let chevauchements = 0, horsGrille = 0;
