@@ -32,7 +32,8 @@ export function limitsFor(n, g) {
    * needs fifteen parks and more.
    */
   const playable = g.blocks.filter((b) => b.kind !== KIND.WALL).length;
-  const timeLimit = Math.min(600, Math.round((30 + 4 * g.minDrags + 15 * (g.parks || 0) + 20 * (g.traps || 0)) / 5) * 5);
+  // Never under a minute (the game clamps at 60 s as well — MIN_TIME_S).
+  const timeLimit = Math.max(60, Math.min(600, Math.round((30 + 4 * g.minDrags + 15 * (g.parks || 0) + 20 * (g.traps || 0)) / 5) * 5));
 
   return { starDrags, moveLimit, timeLimit, playable };
 }

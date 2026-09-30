@@ -444,7 +444,8 @@ export function buildLevel(p, t, seed) {
   // being a puzzle and becomes a chore (playtest, 2026-09-27).
   // And a level may overshoot its own target only so far: a climb can jump from
   // 4 parks to 10, and a first-world level at 10 is not a first-world level.
-  const ceiling = Math.min(p.maxParks || 30, target + Math.max(3, Math.round(target * 0.7)));
+  // `overshoot` tightens that for a world that must read as a smooth ramp.
+  const ceiling = Math.min(p.maxParks || 30, target + (p.overshoot ?? Math.max(3, Math.round(target * 0.7))));
   // One trap on the easiest levels of a trap world, four on its summit.
   const trapGoal = 1 + Math.round(3 * t);
   // Climbing tries thousands of boards, most of them dead ends: a small budget

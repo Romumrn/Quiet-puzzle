@@ -29,12 +29,29 @@ function mulberry32(seed) {
   };
 }
 
+/**
+ * Realms laid out as a steady RAMP instead of a sawtooth: the first two, where
+ * a new player learns the game. Playtesters found them "very irregular" — a
+ * cycle's easy opening right after its hard peak read as random jumps (2, 5,
+ * 2, 2, 4… parks), not as a breather (2026-09-30). Here each level is a notch
+ * harder than the one before, and only the summit is labelled.
+ */
+export const RAMP_REALMS = new Set([0, 1]);
+
 const cache = new Map();
 
 /** @returns {Array<{ f: number, tier: 'hard'|'superhard'|null }>} one entry per level */
 export function realmShape(realmId, count = 20) {
   const key = `${realmId}:${count}`;
   if (cache.has(key)) return cache.get(key);
+  if (RAMP_REALMS.has(realmId)) {
+    const ramp = Array.from({ length: count }, (_, k) => ({
+      f: count > 1 ? k / (count - 1) : 1,
+      tier: k === count - 1 ? 'superhard' : null,
+    }));
+    cache.set(key, ramp);
+    return ramp;
+  }
   const rng = mulberry32(0x5a17 + realmId * 7919);
   const out = [];
   let left = count;

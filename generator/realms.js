@@ -102,8 +102,11 @@ const INTRODUCES = {
 
 const PLAN = [
   // Chapter 1 — one new mechanic per world
-  { features: ['basics'], W: 5, H: 5, colors: 3, parks: [2, 5], railShare: 0 },
-  { features: ['rails'], W: 5, H: 6, colors: 3, parks: [4, 8] },
+  // Worlds 1 and 2 are a steady ramp (RAMP_REALMS in core/sawtooth.js), and a
+  // level may overshoot its target by one park at most: playtesters found the
+  // sawtooth and the +3 overshoots "very irregular" there (2026-09-30).
+  { features: ['basics'], W: 5, H: 5, colors: 3, parks: [2, 5], railShare: 0, overshoot: 1 },
+  { features: ['rails'], W: 5, H: 6, colors: 3, parks: [4, 8], overshoot: 1 },
   { features: ['walls'], W: 6, H: 6, colors: 4, parks: [6, 10] },
   { features: ['locks'], W: 6, H: 7, colors: 4, parks: [6, 10] },
   { features: ['joker'], W: 7, H: 7, colors: 4, parks: [6, 11] },

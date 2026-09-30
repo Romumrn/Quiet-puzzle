@@ -22,14 +22,17 @@
 const MODE = 'classic';
 
 /**
- * Generation of the level set the cache belongs to.
+ * Generation of the level set the cache belongs to. Bumping this makes every
+ * earlier cache entry unreadable: the next launch fetches everything again.
  *
- * The cached catalogue is served without revalidation (see `loadCatalog`), so
- * a replaced level set never reaches a device that already has one cached —
- * the old grids stay forever. Bumping this makes every earlier cache entry
- * unreadable. Bump it together with `PROGRESS_EPOCH` in `save.js`.
+ * Republishing a realm no longer needs it — the catalogue is revalidated in
+ * the background (see `loadCatalog`) and a realm whose stamp moved is fetched
+ * again on the launch after. Bump it when a new build must show new grids on
+ * its very FIRST launch (3: worlds 1–2 smoothed, 2026-09-30). Progress is a
+ * different matter: `PROGRESS_EPOCH` in `save.js`, only when a level set is
+ * replaced wholesale.
  */
-const CACHE_GENERATION = 2;
+const CACHE_GENERATION = 3;
 const CATALOG_KEY = `catalog:g${CACHE_GENERATION}`;
 
 /**
@@ -204,17 +207,25 @@ async function fromDisk(path) {
 /**
  * The catalogue.
  *
- * The cached copy is served straight away when there is one, and it is not
- * revalidated: the stamp that would say whether it is stale lives in the
- * catalogue itself, so checking would mean fetching it anyway. A realm
- * published while the application is open is picked up on the next launch —
- * which is what `clearCache()` is for in the admin panel.
+ * The cached copy is served straight away when there is one — the map must not
+ * wait on the network — and a fresh one is fetched IN THE BACKGROUND and cached
+ * for the next launch. It carries each realm's stamp: a realm republished since
+ * is then seen as stale and fetched again (`loadRealmLevels`).
+ *
+ * It used to be served with no revalidation at all, which meant a cached
+ * catalogue — and so every cached realm — was kept forever: a republished world
+ * never reached a device that had already played it.
  */
 export async function loadCatalog() {
   if (FORCE_SEED) return { ...(await fromDisk('index.json')), source: 'seed' };
 
   const cached = await cacheGet(CATALOG_KEY);
-  if (cached && cached.index) return cached.index;
+  if (cached && cached.index) {
+    catalogFromDb()
+      .then((index) => cachePut(CATALOG_KEY, { index }))
+      .catch(() => { /* offline: the cached catalogue stays, retried next launch */ });
+    return cached.index;
+  }
 
   try {
     const index = await catalogFromDb();
