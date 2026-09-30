@@ -47,11 +47,27 @@ export async function manageConsent() {
   await AdMob.showPrivacyOptionsForm();
 }
 
-/** @returns {Promise<boolean>} true if the ad actually showed. */
+/** How long an interstitial may take to load before the level opens without it. */
+const INTERSTITIAL_LOAD_MS = 5000;
+
+/**
+ * @returns {Promise<boolean>} true if the ad actually showed. Never rejects:
+ * the level waits on it. `ensureInitialized()` used to sit outside the `try`,
+ * so a consent/initialize failure (the app not yet live on the Play Store)
+ * rejected through `startLevel()` after the result screen was already hidden —
+ * "Replay" left the won, empty board frozen on screen. Loading is also capped:
+ * a request that never settles must not hold the level hostage either.
+ */
 export async function showInterstitial() {
-  await ensureInitialized();
   try {
-    await AdMob.prepareInterstitial({ adId: AD_UNITS.INTERSTITIAL });
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('interstitial load timeout')), INTERSTITIAL_LOAD_MS);
+    });
+    await Promise.race([
+      ensureInitialized().then(() => AdMob.prepareInterstitial({ adId: AD_UNITS.INTERSTITIAL })),
+      timeout,
+    ]).finally(() => clearTimeout(timer));
     await AdMob.showInterstitial();
     return true;
   } catch {

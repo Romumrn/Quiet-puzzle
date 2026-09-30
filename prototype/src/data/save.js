@@ -60,6 +60,9 @@ const EMPTY = () => ({
   theme: null,       // chosen theme, or null for the realm's hue
   badges: [],        // badges earned
   hints: 0,          // free hints, spent before coins
+  hammers: 0,        // free hammers, spent before an ad
+  boostersIntro: false, // the booster bar's one-time explanation was shown
+  dailyRewardOn: null,  // 'YYYY-MM-DD' of the last daily puzzle bonus paid
   lastPlayDay: null, // 'YYYY-MM-DD'
   dailyClaimedOn: null,
   createdAt: new Date().toISOString(),

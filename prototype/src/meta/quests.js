@@ -6,10 +6,11 @@
  * the chest is mine"). Royal Match, Candy Crush and Toy Blast all run them; the
  * one lesson they share is to call them what they are and show them up front.
  *
- * The first quest is always the daily puzzle — the one thing everybody plays
- * the same day. The other two are drawn from the pool below, seeded by the
+ * The first quest is always a run of levels — 10 or 20 — the backbone of a
+ * playing day. The other two are drawn from the pool below, seeded by the
  * date, among the quests the player can actually do (no joker quest before the
- * joker world).
+ * joker world). The daily puzzle is no longer a quest: it pays its own random
+ * bonus (`dailyReward()` in main.js).
  *
  * Everything is local (the save): quests are a pacing device, not a ledger.
  */
@@ -20,7 +21,6 @@ import * as currency from '../monetization/currency.js';
 
 /** kind → how it is counted, its range, its reward, and from which level it may be drawn. */
 export const POOL = Object.freeze({
-  levels: { range: [3, 5], coins: 15, from: 1 },
   exits: { range: [40, 70], coins: 15, from: 1 },
   stars: { range: [6, 10], coins: 15, from: 1 },
   perfect: { range: [2, 3], coins: 20, from: 5 },
@@ -28,8 +28,19 @@ export const POOL = Object.freeze({
   streak: { range: [3, 3], coins: 20, from: 10 },
   jokers: { range: [3, 5], coins: 20, from: 81 },
 });
-export const DAILY = Object.freeze({ kind: 'daily', target: 1, coins: 25 });
+/** The fixed first quest: finish 10 or 20 levels, paid by the size of the run. */
+export const LEVELS = Object.freeze({ kind: 'levels', targets: [10, 20], coins: { 10: 30, 20: 50 } });
+/**
+ * "Create a level in the editor": not every day — one day in `every`, the same
+ * days for everybody (by date), it takes the place of one drawn quest. Done
+ * when a grid drawn in the editor passes the solver's check, or is won in a
+ * test run (`onLevelCreated`). From level `from`: the editor means something
+ * once the player knows a few mechanics.
+ */
+export const CREATE = Object.freeze({ kind: 'create', target: 1, coins: 30, every: 3, from: 5 });
 export const CHEST = 40;
+/** Bump when the shape of a day's quests changes: today's list is redrawn. */
+const VERSION = 2;
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -44,22 +55,27 @@ function draw(date, unlocked) {
   const kinds = Object.keys(POOL).filter((k) => unlocked >= POOL[k].from);
   const picked = [];
   while (picked.length < 2 && kinds.length) picked.push(kinds.splice(Math.floor(rng() * kinds.length), 1)[0]);
+  const day = Math.floor(Date.parse(`${date}T00:00:00Z`) / 86400000);
+  const creating = unlocked >= CREATE.from && day % CREATE.every === 0;
+  if (creating) picked.length = Math.min(picked.length, 1);
+  const run = LEVELS.targets[Math.floor(rng() * LEVELS.targets.length)];
   return [
-    { ...DAILY, progress: 0, claimed: false },
+    { kind: LEVELS.kind, target: run, coins: LEVELS.coins[run], progress: 0, claimed: false },
     ...picked.map((kind) => {
       const [a, b] = POOL[kind].range;
       let target = a + Math.floor(rng() * (b - a + 1));
       if (target >= 20) target = Math.round(target / 5) * 5; // "60 blocks", not "61"
       return { kind, target, coins: POOL[kind].coins, progress: 0, claimed: false };
     }),
+    ...(creating ? [{ kind: CREATE.kind, target: CREATE.target, coins: CREATE.coins, progress: 0, claimed: false }] : []),
   ];
 }
 
 /** Today's quests, drawn on first read of the day. */
 export function list() {
   const d = store.load();
-  if (d.quests?.date !== today()) {
-    d.quests = { date: today(), list: draw(today(), d.unlockedLevel || 1), chest: false };
+  if (d.quests?.date !== today() || d.quests.v !== VERSION) {
+    d.quests = { date: today(), v: VERSION, list: draw(today(), d.unlockedLevel || 1), chest: false };
     store.save(d);
   }
   return d.quests;
@@ -93,9 +109,14 @@ export function onLevelWon(r) {
   });
 }
 
-/** The daily puzzle won. Its blocks count towards the exit quest too. */
+/** The daily puzzle won. Its blocks count towards the exit quest. */
 export function onDailyWon({ exits }) {
-  return advance({ daily: 1, exits });
+  return advance({ exits });
+}
+
+/** A grid drawn in the editor was proven solvable, or won in a test run. */
+export function onLevelCreated() {
+  return advance({ create: 1 });
 }
 
 export const readyToClaim = () => list().list.filter((q) => q.progress >= q.target && !q.claimed).length

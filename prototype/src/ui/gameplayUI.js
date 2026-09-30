@@ -6,6 +6,7 @@
 import { objectiveLabel } from '../data/levelStore.js';
 import { t } from './i18n.js';
 import { renderStars } from './screens.js';
+import { flameSvg } from '../render/motion.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -14,7 +15,19 @@ export function labelFor(level) { return objectiveLabel(level); }
 
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, '0')}`;
 
-export function mount(level) {
+/**
+ * @param level the level being played
+ * @param streak levels won in a row coming into it — from 3, a small flame
+ *   and the count sit next to the level number, discreet: a reason not to lose.
+ */
+export function mount(level, streak = 0) {
+  const chip = el('hud-streak');
+  chip.hidden = streak < 3;
+  if (streak >= 3) {
+    chip.innerHTML = `${flameSvg('hud-flame')}<b></b>`;
+    chip.lastChild.textContent = streak;
+    chip.title = t('result.streak', { n: streak });
+  }
   // The daily puzzle has no number: it carries its title instead. "Level 0"
   // read like a bug, and it very nearly was one.
   const daily = !level.number;

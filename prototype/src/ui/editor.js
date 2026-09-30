@@ -1,108 +1,138 @@
 /**
- * Level editor.
+ * Level editor — built for a phone.
  *
- * Lets you draw a grid by hand: drop shapes, pick their colour and their kind,
- * open gates in the walls, then CHECK that the result is playable before giving
- * it to anyone. The check leans on the solver (src/core/solver.js), not on
- * intuition.
+ * The grid is drawn by the game's own renderer (render/boardView.js): what you
+ * edit is exactly what the player will see — blocks, gates, capacities, one-way
+ * arrows. A transparent layer on top takes the touches.
  *
- * Model: pick a shape from the palette, drop it on the grid. Tapping an
- * existing block removes it. Tapping a wall cycles the gate colour at that
- * spot; neighbouring cells of the same colour are merged into a single gate on
- * export.
+ * Four MODES, one at a time, always visible at the top — the old editor mixed
+ * placing, erasing and opening gates on the same tap, and players could not
+ * tell what a tap would do:
+ *  - Blocks : pick a type, a colour and a shape below, press the grid — a ghost
+ *             of the block follows the finger (green: it fits, red: it does not)
+ *             and it is placed where the finger lifts.
+ *  - Gates  : tap the edge of the grid to open a gate of the chosen colour
+ *             (plain, with a capacity, or opening late). The same colour again
+ *             closes it; another colour makes it a shared gate.
+ *  - Arrows : tap a cell to make it one-way in the chosen direction.
+ *  - Eraser : tap a block, a gate or an arrow to remove it.
+ *
+ * Every mechanic of the game is available: normal, rail, anchor, slider,
+ * joker, two-colour, heavy, locks (countdown, colour seal, key), key, sealed
+ * wall; plain, capacity, late and shared gates; one-way cells.
+ *
+ * Check runs the solver (src/core/solver.js); Test plays the grid; a grid the
+ * solver has cleared can be proposed as the daily puzzle.
  */
 
-import { SHAPES, COLORS, KIND } from '../core/block.js';
+import { SHAPES, KIND, colorsOf } from '../core/block.js';
 import { Board } from '../core/board.js';
 import { solve } from '../core/solver.js';
-import { t } from './i18n.js';
+import { BoardView } from '../render/boardView.js';
+import { t, colorName } from './i18n.js';
 import * as myLevels from '../meta/myLevels.js';
 
 const SIDES = ['top', 'right', 'bottom', 'left'];
-/**
- * An anchor needs its direction, hence the four entries: direction is what
- * defines it, just as the axis defines a rail.
- */
-const KINDS = [
-  { kind: KIND.NORMAL, key: 'editor.kind.normal' },
-  { kind: KIND.RAIL, key: 'editor.kind.rail.h', axis: 'h' },
-  { kind: KIND.RAIL, key: 'editor.kind.rail.v', axis: 'v' },
-  { kind: KIND.JOKER, key: 'editor.kind.joker' },
-  { kind: KIND.LOCKED, key: 'editor.kind.locked' },
-  { kind: KIND.WALL, key: 'editor.kind.wall' },
-  { kind: KIND.BULKY, key: 'editor.kind.bulky' },
-  { kind: KIND.ANCHOR, key: 'editor.kind.anchor.top', dir: 'top' },
-  { kind: KIND.ANCHOR, key: 'editor.kind.anchor.right', dir: 'right' },
-  { kind: KIND.ANCHOR, key: 'editor.kind.anchor.bottom', dir: 'bottom' },
-  { kind: KIND.ANCHOR, key: 'editor.kind.anchor.left', dir: 'left' },
-];
-
-/** Exit arrows, shared by the anchor kinds and the grid preview. */
+const DIRS = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] };
 const ARROWS = { top: '▲', right: '▶', bottom: '▼', left: '◀' };
+const COLOR_COUNT = 6;
+
+/**
+ * Block types, in the order a player meets them in the game. `mark` is what the
+ * chip shows, in the board's own vocabulary.
+ */
+const TYPES = [
+  { id: 'normal', kind: KIND.NORMAL, mark: '' },
+  { id: 'rail', kind: KIND.RAIL, mark: '↔' },
+  { id: 'wall', kind: KIND.WALL, mark: '', noColor: true },
+  { id: 'locked', kind: KIND.LOCKED, mark: '◔' },
+  { id: 'joker', kind: KIND.JOKER, mark: '✳', noColor: true },
+  { id: 'anchor', kind: KIND.ANCHOR, mark: '➜' },
+  { id: 'bulky', kind: KIND.BULKY, mark: '×2' },
+  { id: 'dual', kind: KIND.DUAL, mark: '' },
+  { id: 'key', kind: KIND.NORMAL, mark: '◈', isKey: true },
+  { id: 'slide', kind: KIND.SLIDE, mark: '≋' },
+];
+const W_MIN = 4, W_MAX = 8, H_MIN = 4, H_MAX = 9;
+const UNDO_DEPTH = 60;
 
 const el = (id) => document.getElementById(id);
 
-let state = null;
-let choice = { shape: 0, color: 0, kind: 0, lockCount: 2 };
-/**
- * The eraser is a TOOL, not a block kind: you do not place an eraser, you
- * choose to erase. Filing it among the kinds forced you to deselect it before
- * placing anything, and turned a mode into a brush.
- */
-let eraserOn = false;
+let state = null;          // { W, H, blocks, gates: {side: [cell|null]}, oneWay: [] }
+let history = [];          // snapshots for undo
+let mode = 'blocks';
+let panel = 'main';        // 'main' | 'size'
+const choice = {
+  type: 'normal', color: 0, color2: 1, shape: 1,
+  axis: 'h', dir: 'right',
+  lock: 'exits', lockCount: 2, lockColor: 1,
+  gateType: 'plain', gateCount: 2,
+  arrowDir: 'right',
+};
+let view = null;
 let onTest = null;
 let onSubmit = null;
+let onCreated = null;      // a grid proven solvable: the "create a level" quest
 let draftId = null;
+let lastCheck = null;      // the grid the solver last cleared, as JSON
 
 const empty = (W, H) => ({
   W, H,
   blocks: [],
   gates: {
-    top: new Array(W).fill(null),
-    bottom: new Array(W).fill(null),
-    left: new Array(H).fill(null),
-    right: new Array(H).fill(null),
+    top: new Array(W).fill(null), bottom: new Array(W).fill(null),
+    left: new Array(H).fill(null), right: new Array(H).fill(null),
   },
+  oneWay: [],
 });
 
-export function init({ onTest: test, onSubmit: submit, level = null, id = null }) {
+export function init({ onTest: test, onSubmit: submit, onCreated: created = null, level = null, id = null }) {
   onTest = test;
+  onCreated = created;
   onSubmit = submit;
   // Resuming a draft: the editor reopens on the grid it is given, and remembers
   // its id so as not to create a duplicate on every test run.
   draftId = id;
   state = empty(6, 7);
-  eraserOn = false;
+  history = [];
+  mode = 'blocks';
+  panel = 'main';
+  lastCheck = null;
   if (level) importInto(level);
-  buildPalettes();
+  if (!view) {
+    view = new BoardView(el('ed-board'));
+    buildOverlay();
+  }
   wireButtons();
-  draw();
+  render();
+}
+
+/** The phone's "back" button: undo first, leave when there is nothing left. */
+export function goBack() {
+  return undo();
 }
 
 // ---------------------------------------------------------------------------
 // Conversion to the level format
 // ---------------------------------------------------------------------------
 
-/** The colours of an edge cell, always as a list. */
-const gateColors = (v) => (v === null || v === undefined ? [] : (Array.isArray(v) ? v : [v]));
-const sameGate = (a, b) => gateColors(a).join() === gateColors(b).join();
+const sameGate = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-/** Merges neighbouring wall cells of the same colour into gates. */
+/** Merges neighbouring edge cells with the very same settings into gates. */
 function mergedGates() {
   const gates = [];
   for (const side of SIDES) {
     const cells = state.gates[side];
     let i = 0;
     while (i < cells.length) {
-      const colors = gateColors(cells[i]);
-      if (!colors.length) { i++; continue; }
-      // Two neighbouring cells only form one gate if they accept exactly the
-      // same colours — a two-colour gate does not merge into its single-colour
-      // neighbour, they do not open onto the same blocks.
+      const g = cells[i];
+      if (!g) { i++; continue; }
       let len = 1;
-      while (i + len < cells.length && sameGate(cells[i + len], cells[i])) len++;
-      const gate = { side, start: i, length: len, color: colors[0] };
-      if (colors.length > 1) gate.colors = [...colors];
+      while (i + len < cells.length && sameGate(cells[i + len], g)) len++;
+      const gate = { side, start: i, length: len, color: g.colors[0] };
+      if (g.colors.length > 1) gate.colors = [...g.colors];
+      if (g.capacity) gate.capacity = g.capacity;
+      if (g.opensAfter) gate.opensAfter = g.opensAfter;
       gates.push(gate);
       i += len;
     }
@@ -114,6 +144,7 @@ function mergedGates() {
 export function toLevel() {
   const playable = state.blocks.filter((b) => b.kind !== KIND.WALL).length;
   const base = Math.max(4, playable);
+  const key = state.blocks.find((b) => b.isKey);
   return {
     levelId: 'custom',
     number: 0,
@@ -121,236 +152,518 @@ export function toLevel() {
     difficulty: 'custom',
     width: state.W,
     height: state.H,
-    colorCount: COLORS.length,
+    colorCount: COLOR_COUNT,
     moveLimit: Math.round(base * 2.2) + 3,
-    timeLimit: Math.max(45, base * 10),
+    timeLimit: Math.max(60, base * 10), // never under a minute (MIN_TIME_S in main.js)
     minDrags: base,
     objective: { type: 'clear_all', target: playable },
     starDrags: [Math.ceil(base * 1.3), Math.ceil(base * 1.8)],
     estimatedTime: Math.max(45, base * 10),
     gates: mergedGates(),
-    blocks: state.blocks.map((b) => ({ ...b })),
+    // A key lock points at THE key's id, whatever order the blocks were drawn in.
+    blocks: state.blocks.map((b) => (b.condition?.type === 'block'
+      ? { ...b, condition: { type: 'block', id: key ? key.id : -1 } } : { ...b })),
+    oneWay: state.oneWay.map((a) => ({ ...a })),
     solution: [], // no reference solution: hints go through the solver
   };
 }
 
+/** Loads a grid in the level format into the editor's state. */
+function importInto(n) {
+  state = empty(n.width, n.height);
+  state.blocks = n.blocks.map((b) => ({ ...b }));
+  for (const g of n.gates || []) {
+    const cell = { colors: g.colors?.length ? [...g.colors] : [g.color] };
+    if (g.capacity) cell.capacity = g.capacity;
+    if (g.opensAfter) cell.opensAfter = g.opensAfter;
+    for (let k = 0; k < g.length; k++) state.gates[g.side][g.start + k] = { ...cell, colors: [...cell.colors] };
+  }
+  state.oneWay = (n.oneWay || []).map((a) => ({ ...a }));
+}
+
 // ---------------------------------------------------------------------------
-// Palettes
+// Undo
 // ---------------------------------------------------------------------------
 
-/**
- * Undo. We keep the STACK of placed blocks rather than a snapshot of the grid:
- * it is the last gesture the player wants to take back, and a stack is enough —
- * all the more so as it survives erasures, a block removed with the eraser
- * having nothing left to undo.
- */
-function undoLast() {
-  if (!state.blocks.length) return false;
-  state.blocks.pop();
-  draw();
+/** Call BEFORE every change: the grid as it was is what "undo" brings back. */
+function remember() {
+  history.push(JSON.stringify(state));
+  if (history.length > UNDO_DEPTH) history.shift();
+}
+
+function undo() {
+  if (!history.length) return false;
+  state = JSON.parse(history.pop());
+  render();
+  setStatus(t('editor.undone'));
   return true;
 }
 
-/** Called by the phone's "back" button. */
-export function goBack() {
-  return undoLast();
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+
+function render() {
+  lastCheck = null;
+  const board = new Board(toLevel());
+  view.mount(board);
+  drawSlots();
+  renderModes();
+  renderPanel();
+  el('ed-undo').disabled = !history.length;
+  el('ed-size').textContent = `${state.W} × ${state.H}`;
+  setStatus(t(`editor.help.${mode}`));
 }
 
-function buildPalettes() {
-  const tools = el('ed-tools');
-  if (tools) {
-    tools.replaceChildren();
+function renderModes() {
+  for (const b of el('ed-modes').children) b.classList.toggle('sel', b.dataset.mode === mode);
+  el('ed-board').dataset.mode = mode;
+}
 
-    const eraser = document.createElement('button');
-    eraser.className = 'ed-tool';
-    eraser.id = 'ed-eraser';
-    eraser.title = t('editor.eraser');
-    eraser.setAttribute('aria-label', t('editor.eraser'));
-    eraser.textContent = '🧽';
-    eraser.onclick = () => { eraserOn = !eraserOn; updatePalettes(); };
+/** The small square each chip shows: the block as it will look, in its colour. */
+function swatch(type, color, color2) {
+  const s = document.createElement('span');
+  s.className = `ed-swatch t-${type.id}`;
+  if (!type.noColor) s.style.setProperty('--tile', `var(--c${color})`);
+  if (type.id === 'dual') s.style.setProperty('--c-alt', `var(--c${color2})`);
+  s.textContent = type.id === 'rail' ? (choice.axis === 'h' ? '↔' : '↕')
+    : type.id === 'anchor' ? ARROWS[choice.dir] : type.mark;
+  return s;
+}
 
-    const undo = document.createElement('button');
-    undo.className = 'ed-tool';
-    undo.title = t('editor.undo');
-    undo.setAttribute('aria-label', t('editor.undo'));
-    undo.textContent = '↶';
-    undo.onclick = () => undoLast();
+function chip(label, selected, onclick, extraClass = '') {
+  const b = document.createElement('button');
+  b.className = `ed-chip ${extraClass}`.trim();
+  b.classList.toggle('sel', selected);
+  if (typeof label === 'string') b.textContent = label; else b.append(...label);
+  b.onclick = onclick;
+  return b;
+}
 
-    tools.append(eraser, undo);
+function row(titleKey, children, extraClass = '') {
+  const wrap = document.createElement('div');
+  wrap.className = `ed-row ${extraClass}`.trim();
+  if (titleKey) {
+    const title = document.createElement('span');
+    title.className = 'ed-legend';
+    title.textContent = t(titleKey);
+    wrap.appendChild(title);
+  }
+  const line = document.createElement('div');
+  line.className = 'ed-line';
+  line.append(...children);
+  wrap.appendChild(line);
+  return wrap;
+}
+
+function colorRow(titleKey, current, pick, exclude = -1) {
+  const dots = [];
+  for (let c = 0; c < COLOR_COUNT; c++) {
+    const b = document.createElement('button');
+    b.className = `ed-color c${c}`;
+    b.classList.toggle('sel', c === current);
+    b.disabled = c === exclude;
+    b.setAttribute('aria-label', colorName(c));
+    b.onclick = () => pick(c);
+    dots.push(b);
+  }
+  return row(titleKey, dots, 'ed-colors');
+}
+
+function stepper(value, min, max, set) {
+  const box = document.createElement('span');
+  box.className = 'ed-stepper';
+  const minus = document.createElement('button');
+  minus.className = 'ed-step'; minus.textContent = '−'; minus.disabled = value <= min;
+  minus.onclick = () => set(value - 1);
+  const v = document.createElement('b');
+  v.textContent = value;
+  const plus = document.createElement('button');
+  plus.className = 'ed-step'; plus.textContent = '+'; plus.disabled = value >= max;
+  plus.onclick = () => set(value + 1);
+  box.append(minus, v, plus);
+  return box;
+}
+
+const reRender = () => renderPanel();
+
+function renderPanel() {
+  const host = el('ed-panel');
+  host.replaceChildren();
+
+  if (panel === 'size') {
+    host.append(
+      row('editor.width', [stepper(state.W, W_MIN, W_MAX, (w) => resize(w, state.H))]),
+      row('editor.height', [stepper(state.H, H_MIN, H_MAX, (h) => resize(state.W, h))]),
+    );
+    return;
   }
 
-  const shapes = el('ed-shapes');
-  shapes.replaceChildren(...SHAPES.map((sh, i) => {
-    const b = document.createElement('button');
-    b.className = 'ed-shape';
-    b.title = sh.key;
-    const g = document.createElement('span');
-    g.style.gridTemplateColumns = `repeat(${sh.w}, 9px)`;
-    g.style.gridTemplateRows = `repeat(${sh.h}, 9px)`;
-    for (let y = 0; y < sh.h; y++) {
-      for (let x = 0; x < sh.w; x++) {
-        const c = document.createElement('i');
-        if (sh.cells.some(([a, d]) => a === x && d === y)) c.className = 'on';
-        g.appendChild(c);
-      }
+  const type = TYPES.find((x) => x.id === choice.type);
+
+  if (mode === 'blocks') {
+    // 1. What kind of block.
+    host.appendChild(row('editor.type', TYPES.map((x) => chip(
+      [swatch(x, choice.color, choice.color2), Object.assign(document.createElement('small'), { textContent: t(`editor.t.${x.id}`) })],
+      x.id === choice.type,
+      () => { choice.type = x.id; reRender(); },
+      'ed-type',
+    )), 'ed-scroll-row'));
+
+    // 2. Its settings, only those it has.
+    const opts = [];
+    if (type.id === 'rail') {
+      opts.push(chip('↔', choice.axis === 'h', () => { choice.axis = 'h'; reRender(); }),
+        chip('↕', choice.axis === 'v', () => { choice.axis = 'v'; reRender(); }));
     }
-    b.appendChild(g);
-    // Picking a shape means "I want to place this" — leaving the eraser on
-    // would silently swallow the very next tap on the grid, with nothing
-    // visibly different on screen (the eraser's only other tell, a `cursor`
-    // change, does not exist on a touchscreen). Exclusive by construction
-    // beats a state a player can forget is still active.
-    b.onclick = () => { choice.shape = i; eraserOn = false; updatePalettes(); };
-    return b;
-  }));
+    if (type.id === 'anchor') {
+      for (const d of SIDES) opts.push(chip(ARROWS[d], choice.dir === d, () => { choice.dir = d; reRender(); }));
+    }
+    if (type.id === 'locked') {
+      opts.push(chip(t('editor.lock.exits'), choice.lock === 'exits', () => { choice.lock = 'exits'; reRender(); }),
+        chip(t('editor.lock.color'), choice.lock === 'color', () => { choice.lock = 'color'; reRender(); }),
+        chip(t('editor.lock.key'), choice.lock === 'block', () => { choice.lock = 'block'; reRender(); }));
+    }
+    // The countdown's number sits on the same line as the lock's options.
+    if (type.id === 'locked' && choice.lock === 'exits') {
+      opts.push(stepper(choice.lockCount, 1, 12, (n) => { choice.lockCount = n; reRender(); }));
+    }
+    if (opts.length) host.appendChild(row(type.id === 'locked' ? 'editor.opens' : 'editor.direction', opts));
+    if (type.id === 'locked' && choice.lock === 'color') {
+      host.appendChild(colorRow('editor.lock.waits', choice.lockColor, (c) => { choice.lockColor = c; reRender(); }));
+    }
 
-  const colors = el('ed-colors');
-  colors.replaceChildren(...COLORS.map((c, i) => {
-    const b = document.createElement('button');
-    b.className = `ed-color c${i}`;
-    b.title = c.name;
-    b.textContent = c.glyph;
-    b.onclick = () => { choice.color = i; updatePalettes(); };
-    return b;
-  }));
+    // 3. Its colour(s).
+    if (!type.noColor) {
+      host.appendChild(colorRow('editor.color', choice.color, (c) => {
+        choice.color = c;
+        if (choice.color2 === c) choice.color2 = (c + 1) % COLOR_COUNT;
+        reRender();
+      }));
+    }
+    if (type.id === 'dual') {
+      host.appendChild(colorRow('editor.color2', choice.color2, (c) => { choice.color2 = c; reRender(); }, choice.color));
+    }
 
-  const kinds = el('ed-kinds');
-  kinds.replaceChildren(...KINDS.map((n, i) => {
-    const b = document.createElement('button');
-    b.className = 'ed-kind';
-    b.textContent = t(n.key);
-    b.onclick = () => { choice.kind = i; updatePalettes(); };
-    return b;
-  }));
+    // 4. Its shape, drawn in its colour.
+    host.appendChild(row('editor.shape', SHAPES.map((sh, i) => {
+      const g = document.createElement('span');
+      g.className = 'ed-shape-cells';
+      g.style.gridTemplateColumns = `repeat(${sh.w}, 8px)`;
+      g.style.gridTemplateRows = `repeat(${sh.h}, 8px)`;
+      if (!type.noColor) g.style.setProperty('--tile', `var(--c${choice.color})`);
+      for (let y = 0; y < sh.h; y++) {
+        for (let x = 0; x < sh.w; x++) {
+          const c = document.createElement('i');
+          if (sh.cells.some(([a, d]) => a === x && d === y)) c.className = 'on';
+          g.appendChild(c);
+        }
+      }
+      return chip([g], i === choice.shape, () => {
+        choice.shape = i;
+        // A rail follows its shape's long side unless it is square.
+        if (sh.w > sh.h) choice.axis = 'h'; else if (sh.h > sh.w) choice.axis = 'v';
+        reRender();
+      }, `ed-shape t-${type.id}`);
+    }), 'ed-scroll-row'));
+    return;
+  }
 
-  updatePalettes();
-}
+  if (mode === 'gates') {
+    host.appendChild(colorRow('editor.color', choice.color, (c) => { choice.color = c; reRender(); }));
+    host.appendChild(row('editor.gate', [
+      chip(t('editor.gate.plain'), choice.gateType === 'plain', () => { choice.gateType = 'plain'; reRender(); }),
+      chip(t('editor.gate.capacity'), choice.gateType === 'capacity', () => { choice.gateType = 'capacity'; reRender(); }),
+      chip(t('editor.gate.late'), choice.gateType === 'late', () => { choice.gateType = 'late'; reRender(); }),
+    ]));
+    if (choice.gateType !== 'plain') {
+      host.appendChild(row(choice.gateType === 'capacity' ? 'editor.gate.cells' : 'editor.gate.after',
+        [stepper(choice.gateCount, 1, 12, (n) => { choice.gateCount = n; reRender(); })]));
+    }
+    return;
+  }
 
-function updatePalettes() {
-  [...el('ed-shapes').children].forEach((b, i) => b.classList.toggle('sel', i === choice.shape));
-  [...el('ed-colors').children].forEach((b, i) => b.classList.toggle('sel', i === choice.color));
-  [...el('ed-kinds').children].forEach((b, i) => b.classList.toggle('sel', i === choice.kind));
-  // The eraser lights up on its own: it is a mode, and a mode must be visible
-  // from a distance.
-  el('ed-eraser')?.classList.toggle('sel', eraserOn);
-  el('ed-grid')?.classList.toggle('erasing', eraserOn);
+  if (mode === 'arrows') {
+    host.appendChild(row('editor.direction', SIDES.map((d) =>
+      chip(ARROWS[d], choice.arrowDir === d, () => { choice.arrowDir = d; reRender(); }))));
+    return;
+  }
+
+  const note = document.createElement('p');
+  note.className = 'ed-note';
+  note.textContent = t('editor.help.erase.more');
+  host.appendChild(note);
 }
 
 // ---------------------------------------------------------------------------
-// Grid
+// Touch layer: cells and edge slots
+// ---------------------------------------------------------------------------
+
+function buildOverlay() {
+  const root = el('ed-board');
+  const hit = document.createElement('div');
+  hit.className = 'ed-hit';
+  hit.id = 'ed-hit';
+  const ghost = document.createElement('div');
+  ghost.className = 'ed-ghost';
+  ghost.id = 'ed-ghost';
+  ghost.hidden = true;
+  const slots = document.createElement('div');
+  slots.className = 'ed-slots';
+  slots.id = 'ed-slots';
+  root.append(ghost, hit, slots);
+
+  let pressing = false;
+  const cellAt = (ev) => view.cellFromPoint(ev.clientX, ev.clientY);
+  hit.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    hit.setPointerCapture?.(ev.pointerId);
+    const p = cellAt(ev);
+    if (mode === 'blocks') {
+      if (occupant(p.x, p.y)) { setStatus(t('editor.occupied'), 'ko'); flashMode('erase'); return; }
+      pressing = true;
+      showGhost(p);
+    } else if (mode === 'arrows') {
+      toggleArrow(p.x, p.y);
+    } else if (mode === 'erase') {
+      eraseAt(p.x, p.y);
+    } else if (mode === 'gates') {
+      setStatus(t('editor.help.gates'), 'ko');
+    }
+  });
+  hit.addEventListener('pointermove', (ev) => { if (pressing) showGhost(cellAt(ev)); });
+  const end = (ev, cancel) => {
+    if (!pressing) return;
+    pressing = false;
+    el('ed-ghost').hidden = true;
+    if (!cancel) place(ghostOrigin(cellAt(ev)));
+  };
+  hit.addEventListener('pointerup', (ev) => end(ev, false));
+  hit.addEventListener('pointercancel', (ev) => end(ev, true));
+}
+
+/** Where the shape lands when the finger is on cell p: the finger holds its first cell. */
+function ghostOrigin(p) {
+  const [cx, cy] = SHAPES[choice.shape].cells[0];
+  return { x: p.x - cx, y: p.y - cy };
+}
+
+function fits(o) {
+  const sh = SHAPES[choice.shape];
+  return sh.cells.every(([dx, dy]) => {
+    const x = o.x + dx, y = o.y + dy;
+    return x >= 0 && y >= 0 && x < state.W && y < state.H && !occupant(x, y);
+  });
+}
+
+function showGhost(p) {
+  const ghost = el('ed-ghost');
+  const o = ghostOrigin(p);
+  const sh = SHAPES[choice.shape];
+  const ok = fits(o);
+  ghost.hidden = false;
+  ghost.className = `ed-ghost ${ok ? 'ok' : 'ko'}`;
+  const type = TYPES.find((x) => x.id === choice.type);
+  ghost.style.setProperty('--tile', type.kind === KIND.WALL ? 'hsl(var(--h) 10% 78%)' : `var(--c${choice.color})`);
+  ghost.replaceChildren(...sh.cells.map(([dx, dy]) => {
+    const c = document.createElement('i');
+    c.style.left = `${(o.x + dx) * view.cell}px`;
+    c.style.top = `${(o.y + dy) * view.cell}px`;
+    return c;
+  }));
+  setStatus(ok ? t('editor.release') : t('editor.status.overflow'), ok ? '' : 'ko');
+}
+
+/** One tap target per edge cell, just over the wall. */
+function drawSlots() {
+  const host = el('ed-slots');
+  host.replaceChildren();
+  for (const side of SIDES) {
+    state.gates[side].forEach((g, i) => {
+      const s = document.createElement('button');
+      s.className = `ed-slot ed-slot-${side}` + (g ? ' open' : '');
+      s.style.setProperty('--i', i);
+      s.setAttribute('aria-label', t('editor.gate.here'));
+      s.onclick = () => {
+        if (mode === 'gates') toggleGate(side, i);
+        else if (mode === 'erase' && g) { remember(); state.gates[side][i] = null; render(); }
+      };
+      host.appendChild(s);
+    });
+  }
+}
+
+/** Points at the mode a player should switch to: its tab pulses once. */
+function flashMode(m) {
+  const tab = [...el('ed-modes').children].find((b) => b.dataset.mode === m);
+  if (!tab) return;
+  tab.classList.remove('flash');
+  void tab.offsetWidth;
+  tab.classList.add('flash');
+}
+
+// ---------------------------------------------------------------------------
+// Editing
 // ---------------------------------------------------------------------------
 
 function occupant(x, y) {
   return state.blocks.find((b) => b.cells.some(([dx, dy]) => b.x + dx === x && b.y + dy === y));
 }
 
-const W_MIN = 4, W_MAX = 8, H_MIN = 4, H_MAX = 9;   // matches the clamp in resize()
-
-/** Keeps the width/height stepper in sync with `state` — called from every
- *  path that can change the grid's size, via `draw()`. */
-function updateGridControls() {
-  el('ed-w-value').textContent = state.W;
-  el('ed-h-value').textContent = state.H;
-  el('ed-w-minus').disabled = state.W <= W_MIN;
-  el('ed-w-plus').disabled = state.W >= W_MAX;
-  el('ed-h-minus').disabled = state.H <= H_MIN;
-  el('ed-h-plus').disabled = state.H >= H_MAX;
+function place(o) {
+  if (!fits(o)) { setStatus(t('editor.status.overflow'), 'ko'); return; }
+  const type = TYPES.find((x) => x.id === choice.type);
+  const sh = SHAPES[choice.shape];
+  if (type.isKey && state.blocks.some((b) => b.isKey)) { setStatus(t('editor.onekey'), 'ko'); return; }
+  remember();
+  const block = {
+    id: Math.max(0, ...state.blocks.map((b) => b.id)) + 1,
+    color: type.noColor ? (type.kind === KIND.WALL ? -1 : choice.color) : choice.color,
+    cells: sh.cells.map(([a, b]) => [a, b]),
+    x: o.x, y: o.y,
+    kind: type.kind,
+    axis: type.kind === KIND.RAIL ? choice.axis : null,
+    dir: type.kind === KIND.ANCHOR ? choice.dir : null,
+    condition: null,
+  };
+  if (type.id === 'dual') block.colors = [choice.color, choice.color2];
+  if (type.isKey) block.isKey = true;
+  if (type.kind === KIND.LOCKED) {
+    block.condition = choice.lock === 'exits' ? { type: 'exits', count: choice.lockCount }
+      : choice.lock === 'color' ? { type: 'color', color: choice.lockColor }
+      : { type: 'block' };
+  }
+  state.blocks.push(block);
+  render();
+  setStatus(t('editor.placed'), 'ok');
 }
 
-function draw() {
-  updateGridControls();
-  const grid = el('ed-grid');
-  grid.style.setProperty('--ew', state.W);
-  grid.style.setProperty('--eh', state.H);
-  grid.replaceChildren();
-
-  // Wall cells: a tap cycles the gate colour.
-  for (const side of SIDES) {
-    state.gates[side].forEach((color, i) => {
-      const colors = gateColors(color);
-      const m = document.createElement('button');
-      m.className = `ed-wall ed-wall-${side}`
-        + (colors.length ? ` c${colors[0]} open` : '')
-        + (colors.length > 1 ? ' dual' : '');
-      m.style.setProperty('--i', i);
-      if (colors.length > 1) m.style.setProperty('--c-alt', `var(--c${colors[1]})`);
-      m.textContent = colors.map((c) => COLORS[c].glyph).join('');
-      m.onclick = () => {
-        if (eraserOn) { state.gates[side][i] = null; draw(); return; }
-        // A tap ADDS the chosen colour; the same tap on a colour already there
-        // removes it. A gate accepts two at most — beyond that, it could no
-        // longer be read at a glance on the board.
-        const next = colors.includes(choice.color)
-          ? colors.filter((c) => c !== choice.color)
-          : [...colors, choice.color].slice(-2);
-        state.gates[side][i] = next.length ? next : null;
-        draw();
-      };
-      grid.appendChild(m);
-    });
+function eraseAt(x, y) {
+  const b = occupant(x, y);
+  if (b) {
+    remember();
+    state.blocks = state.blocks.filter((o) => o !== b);
+    render();
+    return;
   }
-
-  for (let y = 0; y < state.H; y++) {
-    for (let x = 0; x < state.W; x++) {
-      const block = occupant(x, y);
-      const c = document.createElement('button');
-      c.className = 'ed-cell';
-      c.style.setProperty('--x', x);
-      c.style.setProperty('--y', y);
-      c.dataset.x = x;
-      c.dataset.y = y;
-      if (block) {
-        c.classList.add('filled', `k-${block.kind}`);
-        if (block.color >= 0 && block.kind !== KIND.JOKER) c.classList.add(`c${block.color}`);
-        c.textContent = block.kind === KIND.WALL ? '' : block.kind === KIND.JOKER ? '✳'
-          : block.kind === KIND.LOCKED ? '🔒'
-          : block.kind === KIND.ANCHOR ? ARROWS[block.dir]
-          : COLORS[block.color].glyph;
-      }
-      c.onclick = () => {
-        if (eraserOn) { if (block) remove(block); return; }
-        if (block) remove(block); else place(x, y);
-      };
-      grid.appendChild(c);
-    }
-  }
-  setStatus('');
+  const i = state.oneWay.findIndex((a) => a.x === x && a.y === y);
+  if (i >= 0) { remember(); state.oneWay.splice(i, 1); render(); }
 }
 
-function place(x, y) {
-  const shape = SHAPES[choice.shape];
-  const kind = KINDS[choice.kind];
-  if (eraserOn) return;
-  if (x + shape.w > state.W || y + shape.h > state.H) { setStatus(t('editor.status.overflow')); return; }
-  if (shape.cells.some(([dx, dy]) => occupant(x + dx, y + dy))) { setStatus(t('editor.status.occupied')); return; }
-
-  state.blocks.push({
-    id: (state.blocks.at(-1)?.id ?? 0) + 1,
-    color: kind.kind === KIND.WALL ? -1 : choice.color,
-    cells: shape.cells.map(([a, b]) => [a, b]),
-    x, y,
-    kind: kind.kind,
-    axis: kind.axis || null,
-    dir: kind.dir || null,
-    condition: kind.kind === KIND.LOCKED ? { type: 'exits', count: choice.lockCount } : null,
-  });
-  draw();
-}
-
-/** Loads a grid in the `GET /api/level/{n}` format into the editor's state. */
-function importInto(n) {
-  state = empty(n.width, n.height);
-  state.blocks = n.blocks.map((b) => ({ ...b }));
-  for (const g of n.gates) {
-    const colors = g.colors?.length ? [...g.colors] : [g.color];
-    for (let k = 0; k < g.length; k++) state.gates[g.side][g.start + k] = colors;
-  }
+function toggleArrow(x, y) {
+  if (x < 0 || y < 0 || x >= state.W || y >= state.H) return;
+  const [dx, dy] = DIRS[choice.arrowDir];
+  remember();
+  const i = state.oneWay.findIndex((a) => a.x === x && a.y === y);
+  const same = i >= 0 && state.oneWay[i].dx === dx && state.oneWay[i].dy === dy;
+  if (i >= 0) state.oneWay.splice(i, 1);
+  if (!same) state.oneWay.push({ x, y, dx, dy });
+  render();
 }
 
 /**
- * Stores the current state in the history. Called when testing and when
- * submitting: those are the two moments the player shows they care about their
- * grid, and the only ones where losing it would sting.
+ * A tap on an edge cell with the chosen colour and gate type:
+ *  - nothing there → a gate opens;
+ *  - that colour already there, same settings → it closes (or leaves a shared
+ *    gate with its other colour);
+ *  - that colour there, other settings → the settings change;
+ *  - another colour there → the gate becomes shared (two colours at most).
+ */
+function toggleGate(side, i) {
+  const settings = {};
+  if (choice.gateType === 'capacity') settings.capacity = choice.gateCount;
+  if (choice.gateType === 'late') settings.opensAfter = choice.gateCount;
+  const cur = state.gates[side][i];
+  remember();
+  let next;
+  if (!cur) {
+    next = { colors: [choice.color], ...settings };
+  } else if (cur.colors.includes(choice.color)) {
+    const same = (cur.capacity || 0) === (settings.capacity || 0) && (cur.opensAfter || 0) === (settings.opensAfter || 0);
+    if (same) {
+      const left = cur.colors.filter((c) => c !== choice.color);
+      next = left.length ? { ...cur, colors: left } : null;
+    } else {
+      next = { colors: cur.colors, ...settings };
+    }
+  } else {
+    next = { ...cur, colors: [...cur.colors, choice.color].slice(-2) };
+  }
+  state.gates[side][i] = next;
+  render();
+}
+
+function resize(W, H) {
+  W = Math.max(W_MIN, Math.min(W_MAX, W));
+  H = Math.max(H_MIN, Math.min(H_MAX, H));
+  if (W === state.W && H === state.H) return;
+  remember();
+  const previous = state;
+  state = empty(W, H);
+  // We keep whatever still fits in the new grid.
+  state.blocks = previous.blocks.filter((b) => b.cells.every(([dx, dy]) => b.x + dx < W && b.y + dy < H));
+  for (const side of SIDES) {
+    previous.gates[side].forEach((c, i) => { if (i < state.gates[side].length) state.gates[side][i] = c; });
+  }
+  state.oneWay = previous.oneWay.filter((a) => a.x < W && a.y < H);
+  render();
+}
+
+// ---------------------------------------------------------------------------
+// Checking, testing, proposing
+// ---------------------------------------------------------------------------
+
+/** What is obviously missing, before bothering the solver. Null when nothing. */
+function problem(level) {
+  if (!level.gates.length) return t('editor.status.nogate');
+  if (!level.objective.target) return t('editor.status.noblock');
+  if (level.blocks.some((b) => b.condition?.type === 'block' && b.condition.id < 0)) return t('editor.status.nokey');
+  for (const b of level.blocks) {
+    if (b.kind === KIND.WALL || b.kind === KIND.JOKER) continue;
+    const reachable = level.gates.some((g) => colorsOf(g).some((c) => colorsOf(b).includes(c)));
+    if (!reachable) return t('editor.status.nocolorgate', { color: colorName(b.color) });
+  }
+  return null;
+}
+
+function check() {
+  const level = toLevel();
+  const issue = problem(level);
+  if (issue) { setStatus(issue, 'ko'); return null; }
+  setStatus(t('editor.checking'));
+  const r = solve(new Board({ ...level, moveLimit: 9999, timeLimit: 9999 }));
+  if (r.solvable) {
+    lastCheck = { json: JSON.stringify(level), exits: r.order.length };
+    onCreated?.();
+    setStatus(t('editor.solvable', { n: r.order.length }), 'ok',
+      { label: t('editor.submit.short'), run: propose });
+  } else {
+    setStatus(t(r.gaveUp ? 'editor.status.aborted' : 'editor.status.unsolved'), 'ko');
+  }
+  return r;
+}
+
+function propose() {
+  const level = toLevel();
+  // The grid must be the very one the solver just cleared: an unsolvable grid
+  // sent to everybody is the one flaw this queue must never let through.
+  if (!lastCheck || lastCheck.json !== JSON.stringify(level)) {
+    setStatus(t('editor.submit.unsolved'), 'ko');
+    return;
+  }
+  const title = prompt(t('editor.submit.ask'), '');
+  if (title === null) return;
+  // The number of exits in the solution found stands in as a gesture
+  // reference: with no reference solution, it is the only honest measure.
+  const full = { ...level, minDrags: Math.max(1, lastCheck.exits) };
+  keep(full, { title: title.trim(), submitted: true });
+  onSubmit?.(full, title.trim());
+  setStatus(t('editor.submit.ok'), 'ok');
+}
+
+/**
+ * Stores the current grid in "My levels". Called when testing and when
+ * proposing: the two moments the player shows they care about their grid.
  */
 function keep(level, { title = '', submitted = false } = {}) {
   draftId = myLevels.record(level, { id: draftId, title, submitted });
@@ -362,7 +675,6 @@ function openMyLevels() {
   const entries = myLevels.list();
   host.replaceChildren(...entries.map((e) => {
     const li = document.createElement('li');
-
     const info = document.createElement('button');
     info.className = 'mine-open';
     const title = document.createElement('b');
@@ -372,19 +684,18 @@ function openMyLevels() {
       + `${e.submitted ? ' · ' + t('editor.proposed') : ''}`;
     info.append(title, detail);
     info.onclick = () => {
+      remember();
       importInto(e.level);
       draftId = e.id;
-      draw();
       el('overlay-mine').hidden = true;
+      render();
       setStatus(t('editor.loaded'), 'ok');
     };
-
     const discard = document.createElement('button');
     discard.className = 'mine-del';
     discard.setAttribute('aria-label', t('editor.delete'));
     discard.textContent = '×';
     discard.onclick = () => { myLevels.remove(e.id); openMyLevels(); };
-
     li.append(info, discard);
     return li;
   }));
@@ -392,127 +703,38 @@ function openMyLevels() {
   el('overlay-mine').hidden = false;
 }
 
-function remove(block) {
-  state.blocks = state.blocks.filter((b) => b !== block);
-  draw();
-}
-
 // ---------------------------------------------------------------------------
-// Buttons
+// Buttons and status
 // ---------------------------------------------------------------------------
 
-function setStatus(message, tone = '') {
+function setStatus(message, tone = '', action = null) {
   const z = el('ed-status');
-  z.textContent = message;
   z.className = 'ed-status' + (tone ? ` ${tone}` : '');
+  const text = document.createElement('span');
+  text.textContent = message;
+  z.replaceChildren(text);
+  if (action) {
+    const b = document.createElement('button');
+    b.className = 'btn btn-primary btn-sm';
+    b.textContent = action.label;
+    b.onclick = action.run;
+    z.appendChild(b);
+  }
 }
 
 function wireButtons() {
-  el('ed-w-minus').onclick = () => resize(state.W - 1, state.H);
-  el('ed-w-plus').onclick = () => resize(state.W + 1, state.H);
-  el('ed-h-minus').onclick = () => resize(state.W, state.H - 1);
-  el('ed-h-plus').onclick = () => resize(state.W, state.H + 1);
-
-  el('ed-clear').onclick = () => { state = empty(state.W, state.H); draw(); };
-
-  el('ed-check').onclick = () => {
-    const level = toLevel();
-    if (!level.gates.length) { setStatus(t('editor.status.nogate'), 'ko'); return; }
-    if (!level.objective.target) { setStatus(t('editor.status.noblock'), 'ko'); return; }
-    const r = solve(new Board({ ...level, moveLimit: 9999, timeLimit: 9999 }));
-    if (r.solvable) {
-      setStatus(t('editor.status.solvable', { n: r.order.length, states: r.states }), 'ok');
-    } else if (r.gaveUp) {
-      setStatus(t('editor.status.aborted'), 'ko');
-    } else {
-      setStatus(t('editor.status.unsolved'), 'ko');
-    }
-  };
-
+  for (const b of el('ed-modes').children) {
+    b.onclick = () => { mode = b.dataset.mode; panel = 'main'; render(); };
+  }
+  el('ed-undo').onclick = () => undo();
+  el('ed-size').onclick = () => { panel = panel === 'size' ? 'main' : 'size'; renderPanel(); };
+  el('ed-check').onclick = () => check();
   el('ed-test').onclick = () => {
     const level = toLevel();
-    if (!level.gates.length || !level.objective.target) {
-      setStatus(t('editor.status.needboth'), 'ko');
-      return;
-    }
+    const issue = problem(level);
+    if (issue) { setStatus(issue, 'ko'); return; }
     keep(level);
     onTest?.(level, draftId);
   };
-
-  /**
-   * Submit the grid as the daily puzzle.
-   *
-   * The solver is run again HERE rather than trusting the "Check" button:
-   * nothing forces the player to have clicked it, and an unsolvable grid sent
-   * to everybody is the one flaw this queue must never let through. An aborted
-   * search counts as a refusal — when in doubt, we do not submit.
-   */
-  el('ed-submit').onclick = () => {
-    const level = toLevel();
-    if (!level.gates.length || !level.objective.target) {
-      setStatus(t('editor.submit.unsolved'), 'ko');
-      return;
-    }
-    const r = solve(new Board({ ...level, moveLimit: 9999, timeLimit: 9999 }));
-    if (!r.solvable) { setStatus(t('editor.submit.unsolved'), 'ko'); return; }
-
-    const title = prompt(t('editor.submit.ask'), '');
-    if (title === null) return;
-    // The number of exits in the solution found stands in as a gesture
-    // reference: with no reference solution, it is the only honest measure we
-    // have.
-    const full = { ...level, minDrags: Math.max(1, r.order.length) };
-    keep(full, { title: title.trim(), submitted: true });
-    onSubmit?.(full, title.trim());
-    setStatus(t('editor.submit.ok'), 'ok');
-  };
-
-  el('ed-export').onclick = async () => {
-    const json = JSON.stringify(toLevel(), null, 2);
-    el('ed-json').value = json;
-    el('ed-json').hidden = false;
-    try {
-      await navigator.clipboard.writeText(json);
-      setStatus(t('editor.status.copied'), 'ok');
-    } catch {
-      setStatus(t('editor.status.shown'), 'ok');
-    }
-  };
-
   el('ed-mine').onclick = () => openMyLevels();
-
-  el('ed-import').onclick = () => {
-    const zone = el('ed-json');
-    zone.hidden = false;
-    if (!zone.value.trim()) { setStatus(t('editor.status.paste')); return; }
-    try {
-      const n = JSON.parse(zone.value);
-      state = empty(n.width, n.height);
-      state.blocks = n.blocks.map((b) => ({ ...b }));
-      for (const g of n.gates) {
-        for (let k = 0; k < g.length; k++) state.gates[g.side][g.start + k] = g.color;
-      }
-      draw();
-      setStatus(t('editor.status.imported'), 'ok');
-    } catch (e) {
-      setStatus(t('editor.status.badjson', { error: e.message }), 'ko');
-    }
-  };
-}
-
-function resize(W, H) {
-  W = Math.max(4, Math.min(8, W));
-  H = Math.max(4, Math.min(9, H));
-  const previous = state;
-  state = empty(W, H);
-  // We keep whatever still fits in the new grid.
-  state.blocks = previous.blocks.filter((b) => {
-    const maxX = Math.max(...b.cells.map((c) => c[0])) + b.x;
-    const maxY = Math.max(...b.cells.map((c) => c[1])) + b.y;
-    return maxX < W && maxY < H;
-  });
-  for (const side of SIDES) {
-    previous.gates[side].forEach((c, i) => { if (i < state.gates[side].length) state.gates[side][i] = c; });
-  }
-  draw();
 }

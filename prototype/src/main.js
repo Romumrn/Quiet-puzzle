@@ -67,10 +67,13 @@ let dailyEntry = null;
 /** The current draft when trying out a grid from the editor, otherwise null. */
 let editorTrial = null;
 let clock = null;
+/** The shortest clock a level ever starts with, in seconds. */
+const MIN_TIME_S = 60;
 let busy = false;
 let offerUsed = false;    // the continue offer is worth one use per attempt
 let levelFailures = 0;    // used so the very first defeat is never cut by an ad
 let levelStartedAt = 0;
+let lastContact = null; // the wall the dragged block last squashed against (feelContact)
 let freebies = streakBonus.bonusFor(0); // boosters the win streak brought into this level
 
 /**
@@ -107,13 +110,9 @@ async function showMenu() {
   const p = await api.getProfile();
   el('menu-stars').textContent = p.totalStars;
   el('menu-coins').textContent = p.coins;
-  // "121 / 160" rather than "121": on its own, the number does not say where
-  // you are — it read like a score, when it measures progress.
-  el('menu-progress').textContent = `${p.currentLevel}/${levels.totalLevels()}`;
   await updateDailyPuzzleButton();
   updateQuestButton();
   updateStreakBadge();
-  updateDailyGift();
   updateMuteDot();
   await updateGreeting();
   theme.apply(p.currentLevel); // the menu takes the colour of where the player is
@@ -124,20 +123,31 @@ async function showMenu() {
 }
 
 /**
- * Streak badge, on the home screen. It only shows from the second day: "1 day
+ * Streak badge, on the home screen — it also carries the daily gift, which
+ * used to be a card of its own under the counters. While today's gift waits,
+ * the badge lights up with its amount ("🔥 3 j · +12") and a tap claims it;
+ * afterwards it just states the streak, and only from the second day: "1 day
  * streak" rewards nothing, it states that you are here.
  */
 function updateStreakBadge() {
   const badge = el('streak-badge');
   const days = daily.streak();
-  badge.hidden = days < 2;
+  const gift = daily.canClaim();
+  badge.classList.toggle('gift', gift);
+  badge.hidden = !gift && days < 2;
   if (badge.hidden) return;
   const tier = daily.tierFor(days);
+  const streak = `${tier?.badge || '🔥'} ${t('streak.badge', { n: Math.max(days, 1) })}`;
+  badge.textContent = gift ? `${streak} · +${daily.todaysReward()}` : streak;
+  badge.setAttribute('aria-label', gift ? t('menu.daily') : streak);
+}
+
+/** A tap on the badge: claims the gift if it waits, else says what comes next. */
+function onStreakBadge() {
+  if (daily.canClaim()) { claimDailyGift(); return; }
+  const days = daily.streak();
   const next = daily.nextTier(days);
-  badge.textContent = `${tier.badge} ${t('streak.badge', { n: days })}`;
-  badge.title = next
-    ? t('streak.next', { n: next.days - days, what: rewardLabel(next.reward) })
-    : '';
+  if (next) screens.toast(t('streak.next', { n: next.days - days, what: rewardLabel(next.reward) }), 2200);
 }
 
 const rewardLabel = (r) => (r
@@ -171,52 +181,22 @@ function payStreakRewards() {
 }
 
 /**
- * Daily gift: visible only while it can be claimed.
- *
- * `hidden` is set on both branches. Setting it only when the gift is available
- * left the button on screen after it had been claimed — it kept its place, and
- * a second tap did nothing at all, which reads as a broken button rather than
- * as a gift already taken.
- */
-function updateDailyGift() {
-  const button = el('btn-daily');
-  const available = daily.canClaim();
-  button.classList.remove('claimed');
-  button.disabled = false;
-  button.hidden = !available;
-  if (!available) return;
-  el('daily-title').textContent = t('menu.daily');
-  el('daily-sub').textContent = t(daily.streak() > 1 ? 'menu.streak.plural' : 'menu.streak', { n: daily.streak() });
-  el('daily-amount').textContent = `+${daily.todaysReward()}`;
-}
-
-/**
- * Claims the gift, then makes the button leave.
- *
- * It does not vanish on the spot: the coins have just been credited, and a
- * button that disappears under the finger leaves the player unsure of what
- * happened. So it acknowledges the tap (the `claimed` class scales it down and
- * fades it out, and the CSS collapses its height), and is hidden for good once
- * the animation has run. `animationend` would be more precise, but it never
- * fires when the player has asked for reduced motion — a timer always does.
+ * Claims the gift. The badge pops (`claimed`) and settles back into a plain
+ * streak counter: a control that vanished under the finger left the player
+ * unsure of what happened.
  */
 const GIFT_EXIT_MS = 420;
 
 function claimDailyGift() {
-  const button = el('btn-daily');
-  if (button.disabled) return;
+  const badge = el('streak-badge');
   const amount = daily.claim();
-  if (!amount) { updateDailyGift(); return; }
-
-  button.disabled = true;
-  button.classList.add('claimed');
-  screens.toast(t('toast.daily', { n: amount, days: daily.streak() }));
+  if (!amount) { updateStreakBadge(); return; }
+  badge.classList.add('claimed');
+  screens.toast(t('toast.daily', { n: amount, days: daily.streak() }), 2000);
   updateMenuCounters();
-  updateStreakBadge();
   setTimeout(() => {
-    button.hidden = true;
-    button.classList.remove('claimed');
-    button.disabled = false;
+    badge.classList.remove('claimed');
+    updateStreakBadge();
   }, GIFT_EXIT_MS);
 }
 
@@ -226,23 +206,64 @@ function updateBanner(screen) {
   el('app').classList.toggle('with-banner', !el('banner').hidden);
 }
 
+/**
+ * The level just won for the first time, while the player has not moved on:
+ * the next `showMap()` plays its stars, the path and the unlock, then forgets
+ * it — reopening the map later does not replay anything.
+ */
+let mapReveal = null;
+
+/** Sounds and buzzes for the map's unlock (mapScreen.js). */
+const MAP_FX = {
+  star: (i) => { audio.chime(1 + i, 0.55); haptics.tick(); },
+  unlock: () => { audio.chime(5, 0.8); haptics.tick(); },
+};
+
+/** Sounds and buzzes for the win sequence (resultScreen.js). */
+const RESULT_FX = {
+  star: (i, big) => { audio.chime([2, 3, 5][i] ?? 5, big ? 0.95 : 0.75); haptics.tick(); },
+  tick: () => audio.tick(),
+  pop: () => audio.chime(4, 0.5),
+};
+
 function showMap() {
   stopClock();
   result.hide();
   realmComplete.hide();
-  mapScreen.render(showBrief);
+  const reveal = mapReveal && { ...mapReveal, fx: MAP_FX };
+  mapReveal = null;
+  mapScreen.render(showBrief, reveal);
   livesUI.refresh();
   screens.show('map');
   updateBanner('map');
 }
 
+/**
+ * Scenery behind the level brief: 'branch' (the realm's map branch),
+ * 'petals' (slow petals in the level's hue), or both.
+ */
+const BRIEF_DECOR = 'branch petals';
+
 async function showBrief(n) {
   stopClock();
+  mapReveal = null; // moved on: the map will not replay the last win
+  // Every map level comes through here. A daily puzzle or an editor trial the
+  // player walked out of (back arrow) used to leave its flag set, since only
+  // `finishLevel` cleared it: the next map level won was then scored as the
+  // daily puzzle — the daily ranking popped up out of nowhere and the level's
+  // own progress was never saved.
+  dailyEntry = null;
+  editorTrial = null;
   level = await api.getLevel(n);
   const rec = store.levelRecord(n);
   // The realm name comes from the CATALOGUE, not from the level: the database
   // stores it in every language, whereas `level.realm` is frozen at generation.
   el('brief-realm').textContent = i18n.realmText(levels.realmOf(n), 'name');
+  // The realm's branch, the same image its stretch of the map carries. The
+  // path is relative to styles/main.css, where the variable is used.
+  const branch = String(levels.realmOf(n).id % 50 + 1).padStart(2, '0');
+  el('screen-brief').style.setProperty('--brief-branch', `url('../images/branches/branche-${branch}.webp')`);
+  el('screen-brief').dataset.decor = BRIEF_DECOR;
   el('brief-number').textContent = n;
   screens.renderStars(el('brief-stars'), rec.stars);
   el('brief-objective').textContent = hud.labelFor(level);
@@ -312,11 +333,17 @@ function showStreakBonus() {
 async function adBeforeLevel() {
   if (!level?.number || editorTrial || dailyEntry) return;
   if (levelFailures > 0) return;
-  await ads.showInterstitial({
-    level: level.number,
-    noAds: currency.hasRemovedAds(),
-    firstFailureOfLevel: false,
-  });
+  // Best effort: `startLevel()` has already hidden the result screen, so an ad
+  // failing here must not stop the new board from being built.
+  try {
+    await ads.showInterstitial({
+      level: level.number,
+      noAds: currency.hasRemovedAds(),
+      firstFailureOfLevel: false,
+    });
+  } catch (e) {
+    console.warn('interstitial failed, level starts anyway', e);
+  }
 }
 
 /**
@@ -338,6 +365,7 @@ async function startLevel() {
   openPanel(false);
   result.hide();
   realmComplete.hide();
+  mapReveal = null; // replaying or moving on: the map will not replay the win
   await adBeforeLevel();
   theme.apply(level.number);
   audio.resetRun();
@@ -351,9 +379,13 @@ async function startLevel() {
   // The first level doubles as the tutorial: this game has no other, and the
   // acquisition funnel needs that landmark.
   if (level.number === 1 && !retry) track(EV.TUTORIAL_STARTED, levelContext(level));
+  // Never under a minute on the clock, whatever the level says — the map's
+  // levels all start above it already; the editor's and the daily puzzle's
+  // grids could go down to 45 s.
+  if (!(level.timeLimit >= MIN_TIME_S)) level = { ...level, timeLimit: MIN_TIME_S };
   board = new Board(level);
   board._solver = { solve }; // editor levels: no reference solution
-  hud.mount(level);
+  hud.mount(level, usesLives() ? store.load().levelStreak || 0 : 0);
   hud.update(board);
   screens.show('game');
 
@@ -366,7 +398,10 @@ async function startLevel() {
   }
   view.mount(board);
   hud.update(board);
+  const boosters = boostersUnlocked();
+  el('btn-hint').parentElement.classList.toggle('no-boosters', !boosters);
   updateBoosters();
+  if (boosters) await introduceBoosters();
   busy = false;
   input.locked = false;
   updateBanner('game');
@@ -381,8 +416,8 @@ async function startLevel() {
  */
 function updateBoosters() {
   const broke = !currency.canAfford(currency.PRICES.HINT);
-  badge('hint-cost', freebies.hint, broke ? t('ad.badge') : currency.PRICES.HINT, broke);
-  badge('hammer-cost', freebies.hammer, t('ad.badge'), true);
+  badge('hint-cost', freebies.hint + stock('hint'), broke ? t('ad.badge') : currency.PRICES.HINT, broke);
+  badge('hammer-cost', freebies.hammer + stock('hammer'), t('ad.badge'), true);
   badge('undo-cost', freebies.undo, t('ad.badge'), true);
   el('btn-undo').disabled = !board || !board.canUndo();
 }
@@ -395,12 +430,58 @@ function badge(id, free, price, isAd) {
   cost.classList.toggle('ad', !free && isAd);
 }
 
-/** Spends one streak freebie of this kind, if any is left. */
+/**
+ * Boosters the player OWNS, kept in the save across levels — won on the daily
+ * puzzle (`dailyReward()`) or on a daily-streak tier. Undo has no stock.
+ */
+const STOCK = { hint: 'hints', hammer: 'hammers' };
+const stock = (kind) => (STOCK[kind] && store.load()[STOCK[kind]]) || 0;
+
+/** Spends one free booster of this kind: the streak's first, then the stock. */
 function useFreebie(kind) {
-  if (!freebies[kind]) return false;
-  freebies[kind]--;
-  track('streak_bonus_used', { type: kind, level: level?.number });
+  if (freebies[kind]) {
+    freebies[kind]--;
+    track('streak_bonus_used', { type: kind, level: level?.number });
+    return true;
+  }
+  if (!stock(kind)) return false;
+  const d = store.load();
+  d[STOCK[kind]]--;
+  store.save(d);
+  track('stock_booster_used', { type: kind, level: level?.number });
   return true;
+}
+
+/**
+ * Boosters show up from this level on. Before it, the bar holds Restart alone:
+ * a first-time player has the board to learn, and four unexplained buttons
+ * with ad badges were the first thing testers asked about.
+ */
+const BOOSTERS_FROM = 5;
+
+function boostersUnlocked() {
+  return (level?.number || store.load().unlockedLevel || 1) >= BOOSTERS_FROM;
+}
+
+/**
+ * The day the boosters appear: one card that says what each one does. Resolves
+ * once it is closed, so the clock does not run while the player reads.
+ */
+async function introduceBoosters() {
+  const d = store.load();
+  if (d.boostersIntro) return;
+  d.boostersIntro = true;
+  store.save(d);
+  el('info-icon').replaceChildren(el('btn-hint').querySelector('svg').cloneNode(true));
+  el('info-title').textContent = t('boosters.intro.title');
+  el('info-text').textContent = t('boosters.intro.text');
+  el('overlay-info').hidden = false;
+  track('boosters_introduced', { level: level?.number });
+  await new Promise((resolve) => {
+    const close = () => { el('overlay-info').hidden = true; resolve(); };
+    el('btn-info-ok').onclick = close;
+    el('overlay-info').onclick = (ev) => { if (!el('info-card').contains(ev.target)) close(); };
+  });
 }
 
 /**
@@ -511,18 +592,46 @@ function onDrag(id, x, y) {
   const { events, blockedReason } = board.dragTowards(id, x, y);
   if (!events.length) {
     if (blockedReason) onDirectionBlocked(id, blockedReason);
+    else feelContact(id, x, y, false);
     return false;
   }
-  for (const e of events) if (e.type === 'exit') { audio.exit(); haptics.tick(); }
+  chimeExits(events);
   if (!gestureRemembered) { board.remember(before); gestureRemembered = true; }
   view.apply(events);
+  feelContact(id, x, y, true);
   hud.update(board);
   return true;
+}
+
+/**
+ * Each exit rings the rising chime and carries the run it belongs to, which
+ * the board shows as "×3", "×4"… (boardView `_combo`).
+ */
+function chimeExits(events) {
+  for (const e of events) if (e.type === 'exit') { audio.exit(); e.chain = audio.chain; haptics.tick(); }
+  return events;
+}
+
+/**
+ * The finger asks for (x, y) and the block stopped short of it: it has come up
+ * against a wall or a block. A small squash says so — once per contact, not on
+ * every pointer move while the finger keeps pushing.
+ */
+function feelContact(id, x, y, moved) {
+  const b = board.blocks.get(id);
+  if (!b || (b.x === x && b.y === y)) { lastContact = null; return; }
+  const horiz = Math.abs(x - b.x) >= Math.abs(y - b.y);
+  const dx = horiz ? Math.sign(x - b.x) : 0, dy = horiz ? 0 : Math.sign(y - b.y);
+  const key = `${b.x},${b.y},${dx},${dy}`;
+  if (key === lastContact) return;
+  lastContact = key;
+  view.squash(id, dx, dy, moved);
 }
 
 /** End of gesture: this is where a move is spent. */
 async function onEnd(id, hasMoved, tap) {
   gestureRemembered = false;
+  lastContact = null;
   directionBlockShown = false;
   updateBoosters();
   if (tap && board.gameState === GameState.PLAYING) showBlockInfo(id);
@@ -621,6 +730,7 @@ async function finishLevel() {
   if (editorTrial) {
     const trial = editorTrial;
     editorTrial = null;
+    if (won) announceQuests(quests.onLevelCreated());
     result.show({
       won, stars, score: board.dragsUsed(), level: 0, duration,
       coinsEarned: 0, reason: board.failReason, remaining: board.remaining(),
@@ -651,10 +761,11 @@ async function finishLevel() {
       track('daily_puzzle_completed', { id: entry.id, score, duration });
       announceQuests(quests.onDailyWon(exitCounts()));
       track(EV.DAILY_COMPLETED, { id: entry.id, score, duration });
+      const reward = dailyReward();
       await updateDailyPuzzleButton();
       updateStreakBadge();
-      showMenu();
-      showLeaderboard(score);
+      await showMenu();
+      showLeaderboard(score, reward);
     } else {
       showMenu();
     }
@@ -664,6 +775,9 @@ async function finishLevel() {
   }
 
   if (!won && usesLives()) lives.spend(lives.COST.FAIL, 'fail');
+  // Read before `completeLevel` records it: a FIRST win gets its unlock played
+  // on the map (mapScreen.js) if the player goes back there next.
+  const firstWin = won && !(store.levelRecord(level.number).stars > 0);
   const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won, timeMs: duration * 1000 });
   if (won) announceQuests(quests.onLevelWon({
     stars, ...exitCounts(), tier: levels.tierOf(level.number), streak: res.levelStreak || 0,
@@ -673,6 +787,7 @@ async function finishLevel() {
   // `startLevel`). We just advance the policy's counter: a level ending is
   // indeed what makes an ad eligible.
   ads.policy.noteLevelEnding();
+  mapReveal = firstWin ? { level: level.number, stars } : null;
 
   // A win on the last level of a realm gets the celebration screen instead of
   // the plain result screen — it carries the same stars/reward, plus the next
@@ -715,6 +830,7 @@ async function finishLevel() {
     },
     onMap: showMap,
     onRetry: startLevel,
+    fx: RESULT_FX,
     onNext: async () => {
       if (level.number < levels.totalLevels()) { await showBrief(level.number + 1); startLevel(); }
       else showMap();
@@ -730,7 +846,7 @@ el('btn-play').onclick = showMap;
 
 livesUI.init({ ads });
 
-el('btn-daily').onclick = claimDailyGift;
+el('streak-badge').onclick = onStreakBadge;
 
 el('btn-restart').onclick = () => {
   if (busy) return;
@@ -862,12 +978,8 @@ document.addEventListener('keydown', (ev) => {
 
 async function updatePanel() {
   const p = await api.getProfile();
-  el('user-avatar').textContent = p.playerLevel;
-  el('user-level').textContent = p.playerLevel;
-  el('user-next').textContent = `${p.xpIntoLevel} / ${p.xpRequired} XP`;
-  el('user-xp-fill').style.width = `${(p.xpIntoLevel / p.xpRequired) * 100}%`;
-  el('user-stars').textContent = `${p.totalStars}/${p.maxStars}`;
-  el('user-levels').textContent = p.levelsCompleted;
+  // Stars won, not "103/3000": the ceiling only says how far there is to go.
+  el('user-stars').textContent = p.totalStars;
   el('user-coins').textContent = p.coins;
 
   const d = store.load();
@@ -1008,6 +1120,7 @@ function openEditor(resume = null) {
       level = { ...draft, number: 0, realm: t('editor.trying'), difficulty: '' };
       startLevel();
     },
+    onCreated: () => announceQuests(quests.onLevelCreated()),
     onSubmit: async (draft, title) => {
       const { id } = await api.submitDailyPuzzle(draft, title);
       track('daily_puzzle_submitted_ui', { id });
@@ -1112,6 +1225,7 @@ registerLifecycle({
     if (board?.gameState === GameState.PLAYING && screens.current() === 'game') startClock();
   },
 });
+
 
 // ---------------------------------------------------------------------------
 // Feedback — bug, idea, remark
@@ -1317,32 +1431,13 @@ function updateShop() {
   el('shop-ad-note').textContent = left > 0
     ? t('shop.ad.left', { n: left, total: currency.AD_REWARD.PER_DAY })
     : t('shop.ad.none');
+}
 
-  el('shop-packs').replaceChildren(...currency.PACKS.map((pack) => {
-    const card = document.createElement('button');
-    card.className = 'shop-pack';
-    const total = Math.round(pack.coins * (1 + pack.bonus / 100));
-
-    const amount = document.createElement('b');
-    amount.textContent = total;
-    const bonus = document.createElement('small');
-    bonus.className = 'shop-pack-bonus';
-    bonus.textContent = pack.bonus ? t('shop.pack.bonus', { n: pack.bonus }) : '';
-    const price = document.createElement('span');
-    price.className = 'shop-pack-price';
-    price.textContent = pack.price;
-
-    card.append(amount, bonus, price);
-    card.onclick = () => {
-      track(EV.IAP_STARTED, { productId: pack.id, price: pack.price });
-      const paid = currency.buyPack(pack.id);
-      track(EV.IAP_COMPLETED, { productId: pack.id, price: pack.price, coins: paid });
-      updateShop();
-      updateMenuCounters();
-      screens.toast(t('shop.bought', { n: paid }));
-    };
-    return card;
-  }));
+/** The home screen's counters from the save alone — no database, no network. */
+function paintMenuFromSave() {
+  el('menu-stars').textContent = store.totalStars();
+  el('menu-coins').textContent = currency.balance();
+  updateStreakBadge();
 }
 
 /** Refreshes the menu counters without rebuilding it entirely. */
@@ -1372,7 +1467,33 @@ el('btn-shop-ad').onclick = async () => {
 };
 
 /** Shows the day's leaderboard, with the player's place highlighted. */
-function showLeaderboard(myScore) {
+/**
+ * The daily puzzle's prize, drawn at random once per day: 50 shards, a hammer
+ * or a hint — the last two kept in stock for any later level (`useFreebie`).
+ * Replaying the puzzle to better a score pays nothing more.
+ * @returns {string|null} what was won, as a line for the ranking card.
+ */
+const DAILY_REWARDS = [
+  { kind: 'coins', amount: 50 },
+  { kind: 'hammer', amount: 1 },
+  { kind: 'hint', amount: 1 },
+];
+function dailyReward() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (store.load().dailyRewardOn === today) return null;
+  const r = DAILY_REWARDS[Math.floor(Math.random() * DAILY_REWARDS.length)];
+  if (r.kind === 'coins') currency.credit(r.amount, 'daily_puzzle');
+  const d = store.load(); // after `credit`, which saves on its own
+  d.dailyRewardOn = today;
+  if (r.kind !== 'coins') d[STOCK[r.kind]] = (d[STOCK[r.kind]] || 0) + r.amount;
+  store.save(d);
+  track('daily_puzzle_reward', { type: r.kind, amount: r.amount });
+  return t(`daily.reward.${r.kind}`, { n: r.amount });
+}
+
+function showLeaderboard(myScore, reward = null) {
+  el('rank-reward').hidden = !reward;
+  el('rank-reward').textContent = reward || '';
   const list = dailyPuzzle.leaderboard();
   const me = list.find((e) => e.me);
   el('rank-mine').textContent = me
@@ -1405,7 +1526,7 @@ function exitCounts() {
   };
 }
 
-const QUEST_ICONS = { daily: '📅', levels: '🧩', exits: '🚪', stars: '★', perfect: '🌟', hard: '🔥', streak: '⚡', jokers: '🃏' };
+const QUEST_ICONS = { create: '✏️', daily: '📅', levels: '🧩', exits: '🚪', stars: '★', perfect: '🌟', hard: '🔥', streak: '⚡', jokers: '🃏' };
 
 /** A toast per quest just completed — the list itself waits on the home screen. */
 function announceQuests(done) {
@@ -1480,6 +1601,7 @@ el('btn-quests-close').onclick = () => { el('overlay-quests').hidden = true; };
  * line — the list arrives from the server.
  */
 el('btn-leaderboard').onclick = async () => {
+  openPanel(false);
   track('leaderboard_opened', {});
   el('board-mine').textContent = t('board.loading');
   el('board-list').replaceChildren();
@@ -1499,9 +1621,7 @@ el('btn-leaderboard').onclick = async () => {
     who.textContent = r.me ? t('daily.rank.me') : r.username;
     const stars = document.createElement('b');
     stars.textContent = `★ ${r.stars}`;
-    const lvl = document.createElement('small');
-    lvl.textContent = t('board.level', { n: r.level });
-    li.append(rank, who, lvl, stars);
+    li.append(rank, who, stars);
     return li;
   }));
   if (!board.rows.length) el('board-list').textContent = t('board.empty');
@@ -1634,6 +1754,14 @@ document.querySelectorAll('[data-nav]').forEach((b) => {
       }));
       api.resetLevelStreak();
     }
+    // Leaving a grid being tried out from the editor goes back to the editor,
+    // draft intact — as the phone's back button already did (registerBackHandler).
+    if (screens.current() === 'game' && editorTrial && b.dataset.nav === 'map') {
+      const trial = editorTrial;
+      editorTrial = null;
+      openEditor(trial);
+      return undefined;
+    }
     return b.dataset.nav === 'menu' ? showMenu() : showMap();
   };
 });
@@ -1643,6 +1771,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopClock();
   else if (board && board.gameState === GameState.PLAYING && screens.current() === 'game') startClock();
 });
+
 
 // ---------------------------------------------------------------------------
 // QA panel
@@ -1688,14 +1817,14 @@ el('debug-solve').onclick = async () => {
     if (!path.length) continue;
     for (const pos of path.slice(1)) {
       const { events } = board.dragTowards(step.id, pos.x, pos.y);
-      await view.apply(events);
+      await view.apply(chimeExits(events));
       await new Promise((r) => setTimeout(r, 90));
     }
     // A step with no gate is a park: the block stays where its path ends.
     if (step.gate && board.blocks.has(step.id)) {
       const [dx, dy] = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] }[step.gate];
       const r = board.step(step.id, dx, dy);
-      if (r.ok) await view.apply([r.event]);
+      if (r.ok) await view.apply(chimeExits([r.event]));
     }
     await view.apply(board.endGesture(true));
     hud.update(board);
@@ -1796,6 +1925,12 @@ function refreshDebug() {
   i18n.init();
   applyGlyphs(store.load().glyphs === true);
   applyNight(store.load().night === true);
+  // The player's own numbers straight from the local save, BEFORE anything
+  // waits on the network: the menu is on screen from the first frame, and
+  // used to show index.html's "0" placeholders until the level database,
+  // the session check and the cloud sync had all answered. `showMenu()`
+  // repaints once they have, with whatever the sync brought.
+  paintMenuFromSave();
   try {
     await levels.open();
     // The "go to level" field follows the database's total. Hard-coded in the

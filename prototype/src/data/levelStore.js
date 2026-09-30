@@ -204,6 +204,21 @@ export function realmOf(n) {
 }
 
 /**
+ * The next realm that brings something new after level `n` — the same
+ * `introduces` the level brief announces as "New: …" on a realm's first level
+ * — with `from`, where the current stretch towards it began. Null past the
+ * last novelty. Drives the result screen's "Next novelty in N levels" bar.
+ */
+export function nextNovelty(n) {
+  const cat = requireOpen();
+  const bringing = cat.realms.filter((r) => r.introduces && r.first);
+  const next = bringing.find((r) => r.first > n);
+  if (!next) return null;
+  const prev = [...bringing].reverse().find((r) => r.first <= n);
+  return { realm: next, at: next.first, from: prev ? prev.first : 1 };
+}
+
+/**
  * 'hard' | 'superhard' | null — the labelled peaks of a realm's sawtooth
  * (core/sawtooth.js, the same function the generator built the realm with).
  * Computed rather than read from the level data, so the map can mark a level

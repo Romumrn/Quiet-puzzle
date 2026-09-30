@@ -621,7 +621,7 @@ console.log('\n== Carte du projet (AGENTS.md) ==');
   // Les symboles mis en avant sont les points d'entrée du travail : s'ils
   // disparaissent, la carte envoie chercher ce qui n'est plus là.
   const symboles = ['REALMS', 'COINS_PER_STAR', 'STREAK_TIERS',
-                    'EVENTS', 'PACKS', 'AD_REWARD', 'capacityCost',
+                    'EVENTS', 'AD_REWARD', 'capacityCost',
                     'conditionMet', 'canMove',
                     // The generation chain is the most frequently used section, so it
                     // must stay aligned with the real code names.
@@ -771,27 +771,6 @@ console.log('\n== Coin shop ==');
   const refused = currency.creditAdReward();
   check('once the quota is spent, it pays nothing',
     refused === 0 && currency.balance() === before);
-
-  const pack = currency.PACKS[1];
-  const beforeBalance = currency.balance();
-  const paid = currency.buyPack(pack.id);
-  const expected = Math.round(pack.coins * (1 + pack.bonus / 100));
-  check('a pack pays its coins, bonus included',
-    paid === expected && currency.balance() === beforeBalance + expected,
-    `${paid} for ${pack.coins} +${pack.bonus} %`);
-
-  const beforeUnknown = currency.balance();
-  check('an unknown pack id pays nothing',
-    currency.buyPack('com.puzzle.coins.inexistant') === 0
-    && currency.balance() === beforeUnknown);
-
-  const perEuro = currency.PACKS.map((p) => {
-    const total = p.coins * (1 + p.bonus / 100);
-    return total / Number(p.price.replace(',', '.').replace(/[^\d.]/g, ''));
-  });
-  const ascending = perEuro.every((v, i) => i === 0 || v > perEuro[i - 1]);
-  check('each pack offers more coins per euro than the previous one',
-    ascending, perEuro.map((v) => Math.round(v)).join(' < '));
 
   store.reset();
 }

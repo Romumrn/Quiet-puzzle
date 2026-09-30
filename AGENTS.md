@@ -101,7 +101,7 @@ Supabase first, `prototype/levels/` as a seed.
 
 | Need | File | Reference |
 |---|---|---|
-| Prices, packs, ad rewards | `src/monetization/currency.js` | `PRICES`, `PACKS`, `AD_REWARD` |
+| Prices, ad rewards | `src/monetization/currency.js` | `PRICES`, `AD_REWARD` — no in-app purchases: shards come from play and from the shop's rewarded video (+25, 5 a day) |
 | Rewards per level | `src/data/api.js` | `COINS_PER_STAR`, `coinsFor()` |
 | When an ad appears | `src/monetization/brokerPolicy.js` | `RULES` |
 | Simulated ad playback | `src/monetization/brokerManager.js` | `PLACEMENT`, `AdBroker` |
@@ -204,6 +204,19 @@ cd android && ./gradlew assembleDebug      # or bundleRelease, once signing is c
 ## Changelog
 
 Newest first. Short enough to skim, detailed enough to know whether a bug you just hit is new or already-known.
+
+### 2026-09-30
+
+- **Replay after a win showed a frozen, empty board (Android).** `startLevel()` hides the result screen, then awaits the interstitial; `admob.showInterstitial()` called `ensureInitialized()` outside its `try`, so a consent/initialize failure (app not live yet) rejected through `startLevel()` before the board was rebuilt. Now never rejects, loading capped at 5 s, and `adBeforeLevel()` catches anyway.
+- **Daily ranking popping up after an ordinary level.** `dailyEntry` / `editorTrial` were only cleared by `finishLevel`: leaving the daily puzzle with the back arrow scored the next map level as the daily puzzle (and never saved it). Cleared in `showBrief()`.
+- **Onboarding.** Boosters hidden before level 5 (`BOOSTERS_FROM`), one card explains them; monochrome line icons. Home screen trimmed (no level count, leaderboard moved to the ☰ panel, daily gift folded into the streak badge); menu counters painted from the save before any network.
+- **Economy.** No in-app purchases (coin packs removed); daily puzzle pays a random bonus once a day (50 shards, a hammer or a hint — hammers/hints kept in stock, `hints`/`hammers` in the save); daily quests: always "finish 10 or 20 levels" + two drawn.
+- **Life.** Win sequence on the result screen, slow-motion last block + finale, first-win unlock on the map, block lift/squash/suction, "×N" combos, petals on menu and brief, "next novelty" bar, streak flame. Shared helpers in `src/render/motion.js`.
+- **Level editor rebuilt for phones** (`src/ui/editor.js`): four modes (Blocks / Gates / Arrows / Eraser), the grid drawn by the game's own `BoardView`, press-and-release placement with a ghost, every mechanic (two-colour, slider, key and its locks, colour seals, capacity / late / shared gates, one-way cells), full undo. Export, import and Clear removed.
+- **Touches were read a quarter cell off.** `BoardView.cellFromPoint*` measured from the board's outer edge, wall (CSS border) included: now from the grid's corner (`_origin()`). And `layout()` redraws blocks when the cell size changes (they kept the old size).
+- **Stale French selectors** in `main.css` (`.k-double`, `.gate-partagee`, `--c-bis`, `.lock-couleur`, `.cadenas`, `.poids-mark`, `.gate-fleche`, `.brief-nouveaute`…) matched nothing: two-colour blocks and shared gates showed one colour, colour seals no dot. Renamed to what the code writes.
+- **Colour-blind option = textures** (stripes, dots, checks, zebra, leopard, grid) over blocks and gates, instead of small glyphs.
+- **Clock kept, floored at 60 s** (`MIN_TIME_S` in `main.js`, `limitsFor()`); the map's levels already start at 100 s or more.
 
 ### 2026-09-27
 

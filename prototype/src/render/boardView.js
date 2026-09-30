@@ -9,18 +9,19 @@
  * squares.
  */
 
-import { COLORS, KIND, colorsOf } from '../core/block.js';
+import { KIND, colorsOf } from '../core/block.js';
 import { t, colorName } from '../ui/i18n.js';
+import { play, reducedMotion } from './motion.js';
 
-/**
- * Accessibility option: the player asked for the family symbols.
- *
- * The six colours are normally told apart by hue alone; this flag gives them
- * their glyph back, on blocks as well as on gates. We read it off the DOM
- * rather than passing it as a parameter on every call: the board is fully
- * redrawn when the option changes, and a single place decides.
+/*
+ * Accessibility option ("patterns on blocks", `.with-glyphs` on the app): the
+ * six colours are normally told apart by hue alone; with it, each colour id
+ * also carries a TEXTURE over the whole block and its gates — stripes, dots,
+ * checks, zebra, leopard, grid (styles/main.css, "Colour patterns"). It used to
+ * be a small glyph (●◆▲★■⬢) in the middle of the block, too small to read.
+ * Pure CSS: nothing to draw here, and the ids never change from one world's
+ * palette to the next, so a texture keeps its meaning all game long.
  */
-const withGlyphs = () => document.getElementById('app')?.classList.contains('with-glyphs');
 
 /** Fraction of a cell beyond which a grab reaches into the neighbouring cell. */
 const GRAB_MARGIN = 0.22;
@@ -87,13 +88,32 @@ export class BoardView {
     const availW = this.wrap.clientWidth - 2 * wall - 6;
     const availH = this.wrap.clientHeight - 2 * wall - 6;
     const cell = Math.max(24, Math.floor(Math.min(availW / W, availH / H)));
+    // A new cell size once blocks are drawn: their cells, marks and arrows were
+    // sized in pixels for the old one, and moving them is not enough — redraw.
+    // (The editor's grid shrinks when its settings panel grows; a phone can
+    // rotate or resize mid-level.)
+    const resized = this.cell && cell !== this.cell && this.nodes.size;
 
     this.cell = cell;
     this.root.style.setProperty('--cell', `${cell}px`);
     this.root.style.setProperty('--wall', `${wall}px`);
+    // Tile of the colour patterns, in WHOLE pixels: a fractional tile is
+    // rounded by the browser and drifts, breaking the texture at cell joins.
+    this.root.style.setProperty('--pat-t', `${Math.max(4, Math.round(cell / 4))}px`);
     this.root.style.width = `${cell * W}px`;
     this.root.style.height = `${cell * H}px`;
 
+    if (resized) {
+      // Grid cells come first in their layer, row by row (see `mount`).
+      [...this.gridLayer.querySelectorAll('.grid-cell')].forEach((c, i) => this._place(c, i % W, Math.floor(i / W)));
+      for (const a of this.board.level.oneWay || []) {
+        const c = this.gridLayer.querySelector(`.one-way[data-at="${a.x},${a.y}"]`);
+        if (c) this._place(c, a.x, a.y);
+      }
+      this.refreshGlyphs();   // rebuilds blocks and gates at the new size
+      this.refreshLocks();
+      return;
+    }
     for (const [id, node] of this.nodes) {
       const b = this.board.blocks.get(id);
       if (b) this._place(node, b.x, b.y);
@@ -139,6 +159,7 @@ export class BoardView {
       const cell = document.createElement('div');
       cell.className = 'one-way';
       cell.dataset.dir = a.dx === 1 ? 'right' : a.dx === -1 ? 'left' : a.dy === 1 ? 'down' : 'up';
+      cell.dataset.at = `${a.x},${a.y}`;
       cell.setAttribute('aria-hidden', 'true');
       this.gridLayer.appendChild(cell);
       this._place(cell, a.x, a.y);
@@ -169,11 +190,7 @@ export class BoardView {
       // `title`).
       const arrow = document.createElement('span');
       arrow.className = 'gate-arrow';
-      // The glyph precedes the arrow, not the other way round: the glyph is
-      // what identifies the gate, the arrow only recalls the exit direction.
-      arrow.textContent = (withGlyphs()
-        ? colorsOf(g).map((c) => COLORS[c]?.glyph ?? '').join('')
-        : '') + ARROWS[g.side];
+      arrow.textContent = ARROWS[g.side];
       el.appendChild(arrow);
       el.title = t('gate.exit', { color: colorsOf(g).map(colorName).join(' / ') });
 
@@ -232,6 +249,8 @@ export class BoardView {
       // piece.
       c.style.backgroundSize = `${b.width * this.cell}px ${b.height * this.cell}px`;
       c.style.backgroundPosition = `${-dx * this.cell}px ${-dy * this.cell}px`;
+      // Same anchoring for the colour pattern (accessibility option).
+      c.style.setProperty('--pat-pos', `${-dx * this.cell}px ${-dy * this.cell}px`);
       // The four sides ACTUALLY outside the shape, marked on the cell. That is
       // what lets the styles light and shade only the polyomino's silhouette:
       // an interior edge must draw nothing, otherwise the block breaks back
@@ -253,8 +272,7 @@ export class BoardView {
     // behaviour: padlock, weight, joker. Colour alone identifies its gate — the
     // family glyphs (●◆▲★■⬢) cluttered it without teaching anything to someone
     // already playing by colour.
-    const glyph = withGlyphs() && b.color >= 0 && b.kind !== KIND.WALL && b.kind !== KIND.JOKER;
-    const hasMark = glyph || b.isKey
+    const hasMark = b.isKey
       || b.kind === KIND.LOCKED || b.kind === KIND.BULKY || b.kind === KIND.JOKER;
     if (hasMark) {
       const mark = document.createElement('span');
@@ -274,16 +292,13 @@ export class BoardView {
         // figure, a bulky block looks like an ordinary one and the player
         // cannot anticipate which gate it is about to saturate.
         mark.classList.add('weight-mark');
-        mark.innerHTML = (glyph ? `<span>${COLORS[b.color].glyph}</span>` : '') + '<b>×2</b>';
+        mark.innerHTML = '<b>×2</b>';
       } else if (b.kind === KIND.JOKER) {
         mark.textContent = '✳';
-      } else if (b.isKey) {
-        // The key carries its mark even without the "symbols" option: it is a
-        // rule of the level, not a colour-reading aid. A diamond rather than a
-        // key emoji, in the same register as the rest of the board.
-        mark.textContent = '◈';
       } else {
-        mark.textContent = colorsOf(b).map((c) => COLORS[c].glyph).join('');
+        // The key's mark is a rule of the level, not a colour-reading aid. A
+        // diamond rather than a key emoji, in the same register as the board.
+        mark.textContent = '◈';
       }
       node.appendChild(mark);
     }
@@ -460,15 +475,26 @@ export class BoardView {
 
   /**
    * A block leaving, in two beats: it swells for a fraction of a second (the
-   * gesture's acknowledgement), then shoots through the gate while a spray of
-   * sparks bursts from the opening. This is the game's only moment of reward:
-   * it has to be seen.
+   * gesture's acknowledgement), then the gate SWALLOWS it — it stretches
+   * towards the opening and thins out as it goes through — while a spray of
+   * sparks bursts from the opening and the gate gulps shut behind it. This is
+   * the game's only moment of reward: it has to be seen.
+   *
+   * The LAST block of the level leaves in slow motion (twice the time) with a
+   * bigger burst, and hands over to `finale()`: a wave of light over the empty
+   * grid, every gate lit at once, a soft firework in the realm's colours.
+   *
+   * `e.chain` (set by main.js from the audio's run of chained exits) adds
+   * sparks and, from the third, floats a "×3" over the gate.
    */
   async _exit(e) {
     const node = this.nodes.get(e.id);
     if (!node) return;
     this.nodes.delete(e.id);
     const base = node.style.transform;
+    const last = e.remaining === 0;
+    const chain = e.chain || 1;
+    const exitMs = last ? TIMING.EXIT * 2 : TIMING.EXIT;
 
     // The block exits mid-grab: its transitions are given back, having been cut
     // by the "grabbed" class so it would stick to the finger.
@@ -480,15 +506,41 @@ export class BoardView {
     await wait(TIMING.POP);
 
     this._flashGate(e.gate);
-    this._burst(e.gate, node);
+    const tint = this._burst(e.gate, node, { last, chain });
+    if (chain >= 3) this._combo(e.gate, chain, tint);
 
-    node.style.transitionTimingFunction = 'cubic-bezier(.45,0,.85,.5)';
-    node.style.transitionDuration = `${TIMING.EXIT}ms`;
-    node.style.transform =
-      `${base} translate3d(${e.dx * this.cell * 2.6}px, ${e.dy * this.cell * 2.6}px, 0) scale(0.45)`;
-    node.style.opacity = '0';
-    await wait(TIMING.EXIT);
+    // Sucked in: longer along the exit axis, thinner across it, then gone.
+    const k = (along, across) => (e.dx ? `scale(${along}, ${across})` : `scale(${across}, ${along})`);
+    const toward = (d) => `translate3d(${e.dx * this.cell * d}px, ${e.dy * this.cell * d}px, 0)`;
+    node.style.transition = 'none';
+    setTimeout(() => this._gulp(e.gate), exitMs * 0.55);
+    const done = play(node, [
+      { transform: `${base} scale(1.09)`, opacity: 1 },
+      { transform: `${base} ${toward(0.45)} ${k(1.24, 0.8)}`, opacity: 1, offset: 0.38 },
+      { transform: `${base} ${toward(2.4)} ${k(0.6, 0.2)}`, opacity: 0 },
+    ], { duration: exitMs, easing: 'cubic-bezier(.45,0,.85,.5)', fill: 'forwards' });
+    if (reducedMotion() || document.hidden) await wait(exitMs);
+    else await done;
     node.remove();
+    if (last) this.finale();
+  }
+
+  /** The gate's element on the board. */
+  _gateEl(gate) {
+    return [...this.gateLayer.children].find((n) =>
+      n.classList.contains(`gate-${gate.side}`) && n.classList.contains(`c${gate.color}`));
+  }
+
+  /** The gate closes on the block it has just let through: a small elastic gulp. */
+  _gulp(gate) {
+    const el = this._gateEl(gate);
+    if (!el) return;
+    const vertical = gate.side === 'top' || gate.side === 'bottom';
+    const origin = { top: '50% 100%', bottom: '50% 0', left: '100% 50%', right: '0 50%' }[gate.side];
+    const s = (v) => (vertical ? `1 ${v}` : `${v} 1`);
+    el.style.transformOrigin = origin;
+    play(el, [{ scale: s(1) }, { scale: s(1.5), offset: 0.35 }, { scale: s(0.86), offset: 0.7 }, { scale: s(1) }],
+      { duration: 280, easing: 'ease-out' });
   }
 
   /** Centre of a gate, in board pixels. */
@@ -500,48 +552,114 @@ export class BoardView {
     return { x: this.board.W * this.cell, y: middle };
   }
 
-  /** Ring + sparks at the gate, in the colour of the block that left. */
-  _burst(gate, source) {
+  /**
+   * Ring + sparks at the gate, in the colour of the block that left. A chained
+   * exit throws more sparks (capped); the last block, two rings and a wider,
+   * fuller spray. Returns the tint used.
+   */
+  _burst(gate, source, { last = false, chain = 1 } = {}) {
     const { x, y } = this._gateCenter(gate);
     const tint = getComputedStyle(source).getPropertyValue('--tile') || 'currentColor';
 
-    const ring = document.createElement('div');
-    ring.className = 'ring';
-    ring.style.setProperty('--tile', tint);
-    ring.style.left = `${x}px`;
-    ring.style.top = `${y}px`;
-    ring.style.width = ring.style.height = `${this.cell * 1.4}px`;
-    this.fxLayer.appendChild(ring);
-    setTimeout(() => ring.remove(), 560);
+    this._ring(x, y, tint, this.cell * 1.4, 0);
+    if (last) this._ring(x, y, tint, this.cell * 2.3, 170);
 
     const normal = Math.atan2(
       gate.side === 'bottom' ? 1 : gate.side === 'top' ? -1 : 0,
       gate.side === 'right' ? 1 : gate.side === 'left' ? -1 : 0,
     );
-    for (let i = 0; i < 10; i++) {
-      const angle = normal + (Math.random() - 0.5) * 2.1;
-      const dist = this.cell * (0.7 + Math.random() * 1.5);
-      const p = document.createElement('div');
-      p.className = 'spark';
-      p.style.setProperty('--tile', tint);
-      p.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
-      p.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
-      p.style.left = `${x}px`;
-      p.style.top = `${y}px`;
-      p.style.animationDelay = `${Math.random() * 70}ms`;
-      const size = this.cell * (0.12 + Math.random() * 0.14);
-      p.style.width = p.style.height = `${size}px`;
-      this.fxLayer.appendChild(p);
-      setTimeout(() => p.remove(), 700);
+    const count = last ? 26 : 10 + Math.min(chain - 1, 6) * 3;
+    const reach = last ? 1.5 : 1;
+    for (let i = 0; i < count; i++) {
+      const angle = normal + (Math.random() - 0.5) * (last ? 2.8 : 2.1);
+      const dist = this.cell * (0.7 + Math.random() * 1.5) * reach;
+      this._spark(x, y, tint, angle, dist, this.cell * (0.12 + Math.random() * (last ? 0.2 : 0.14)), Math.random() * 70);
     }
+    return tint;
+  }
+
+  _ring(x, y, tint, size, delay) {
+    const ring = document.createElement('div');
+    ring.className = 'ring';
+    ring.style.setProperty('--tile', tint);
+    ring.style.left = `${x}px`;
+    ring.style.top = `${y}px`;
+    ring.style.width = ring.style.height = `${size}px`;
+    ring.style.animationDelay = `${delay}ms`;
+    this.fxLayer.appendChild(ring);
+    setTimeout(() => ring.remove(), 580 + delay);
+  }
+
+  _spark(x, y, tint, angle, dist, size, delay) {
+    const p = document.createElement('div');
+    p.className = 'spark';
+    p.style.setProperty('--tile', tint);
+    p.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+    p.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
+    p.style.left = `${x}px`;
+    p.style.top = `${y}px`;
+    p.style.animationDelay = `${delay}ms`;
+    p.style.width = p.style.height = `${size}px`;
+    this.fxLayer.appendChild(p);
+    setTimeout(() => p.remove(), 720 + delay);
+  }
+
+  /** "×3", "×4"… rising from the gate and fading: the chime's run, made visible. */
+  _combo(gate, chain, tint) {
+    const { x, y } = this._gateCenter(gate);
+    const tag = document.createElement('div');
+    tag.className = 'combo';
+    tag.textContent = `×${chain}`;
+    tag.style.setProperty('--tile', tint);
+    // Just inside the board, so a top gate's tag is not pushed off the screen.
+    const inset = this.cell * 0.55;
+    tag.style.left = `${x + (gate.side === 'left' ? inset : gate.side === 'right' ? -inset : 0)}px`;
+    tag.style.top = `${y + (gate.side === 'top' ? inset : gate.side === 'bottom' ? -inset : 0)}px`;
+    this.fxLayer.appendChild(tag);
+    setTimeout(() => tag.remove(), 1000);
   }
 
   _flashGate(gate) {
-    const el = [...this.gateLayer.children].find((n) =>
-      n.classList.contains(`gate-${gate.side}`) && n.classList.contains(`c${gate.color}`));
+    const el = this._gateEl(gate);
     if (!el) return;
     el.classList.add('flash');
     setTimeout(() => el.classList.remove('flash'), 420);
+  }
+
+  /**
+   * The grid is empty: a wave of light sweeps over it, every gate lights up at
+   * once, then a soft firework in the realm's colours. Runs alongside the
+   * victory arpeggio (main.js waits PAUSE_BEFORE_SUCCESS after the last exit).
+   */
+  finale() {
+    if (reducedMotion() || document.hidden || !this.board) return;
+    const sweep = document.createElement('div');
+    sweep.className = 'sweep';
+    this.fxLayer.appendChild(sweep);
+    setTimeout(() => sweep.remove(), 900);
+
+    setTimeout(() => {
+      for (const g of this.gateLayer.children) {
+        g.classList.remove('flash');
+        void g.offsetWidth; // restart the animation if a gate was still flashing
+        g.classList.add('flash');
+        setTimeout(() => g.classList.remove('flash'), 520);
+      }
+    }, 200);
+
+    const W = this.board.W * this.cell, H = this.board.H * this.cell;
+    const spots = [[0.3, 0.35], [0.7, 0.3], [0.5, 0.68]];
+    spots.forEach(([fx, fy], i) => setTimeout(() => {
+      if (!this.fxLayer.isConnected) return;
+      const x = W * (fx + (Math.random() - 0.5) * 0.12);
+      const y = H * (fy + (Math.random() - 0.5) * 0.12);
+      const tint = `var(--c${(i * 2 + Math.floor(Math.random() * 2)) % 6})`;
+      this._ring(x, y, tint, this.cell * 1.2, 0);
+      for (let k = 0; k < 14; k++) {
+        const angle = (k / 14) * Math.PI * 2 + Math.random() * 0.3;
+        this._spark(x, y, tint, angle, this.cell * (0.8 + Math.random() * 0.7), this.cell * (0.1 + Math.random() * 0.1), Math.random() * 60);
+      }
+    }, 430 + i * 200));
   }
 
   _unlock(id) {
@@ -658,6 +776,22 @@ export class BoardView {
     setTimeout(() => node.classList.remove('hinted'), 3400);
   }
 
+  /**
+   * The block has just come up against a wall or another block: a small
+   * elastic squash along the way it was going (~130 ms). `afterMove` delays it
+   * until the slide that brought it there has landed.
+   */
+  squash(id, dx, dy, afterMove = false) {
+    const node = this.nodes.get(id);
+    if (!node) return;
+    const b = node.classList.contains('grabbed') ? 1.04 : 1;
+    const s = (along, across) => (dx ? `${b * along} ${b * across}` : `${b * across} ${b * along}`);
+    play(node, [
+      { scale: `${b} ${b}` }, { scale: s(0.93, 1.05), offset: 0.4 },
+      { scale: s(1.02, 0.99), offset: 0.75 }, { scale: `${b} ${b}` },
+    ], { duration: 130, delay: afterMove ? TIMING.MOVE * 0.6 : 0, easing: 'ease-out' });
+  }
+
   setGrabbed(id, on) {
     const node = this.nodes.get(id);
     if (!node) return;
@@ -689,19 +823,27 @@ export class BoardView {
 
   // --- Hit testing ---------------------------------------------------------
 
+  /**
+   * Top-left corner of the GRID on screen. The board's wall is a CSS border
+   * (`.board`, `var(--wall)`), and `getBoundingClientRect()` includes it: the
+   * cells start `clientLeft`/`clientTop` further in. Measured from the outer
+   * edge, every touch was read a quarter of a cell up and to the left.
+   */
+  _origin() {
+    const r = this.root.getBoundingClientRect();
+    return { left: r.left + this.root.clientLeft, top: r.top + this.root.clientTop };
+  }
+
   /** Position in cells, as a continuous value — used to follow the finger. */
   cellFromPointFloat(clientX, clientY) {
-    const r = this.root.getBoundingClientRect();
-    return { x: (clientX - r.left) / this.cell, y: (clientY - r.top) / this.cell };
+    const o = this._origin();
+    return { x: (clientX - o.left) / this.cell, y: (clientY - o.top) / this.cell };
   }
 
   /** Grid cell under a screen point (may fall out of bounds). */
   cellFromPoint(clientX, clientY) {
-    const r = this.root.getBoundingClientRect();
-    return {
-      x: Math.floor((clientX - r.left) / this.cell),
-      y: Math.floor((clientY - r.top) / this.cell),
-    };
+    const f = this.cellFromPointFloat(clientX, clientY);
+    return { x: Math.floor(f.x), y: Math.floor(f.y) };
   }
 
   /**

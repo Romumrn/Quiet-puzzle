@@ -49,25 +49,9 @@ export function debit(amount, reason) {
 export function canAfford(amount) { return store.load().coins >= amount; }
 
 /**
- * Coin packs (doc §5.3). The identifiers follow the stores' naming: this is
- * what will be declared on Google Play and the App Store, and the day the
- * purchase SDK arrives, only the body of `buyPack` will change.
- *
- * The bonus grows with the tier — it is the genre's custom, and it is honest: a
- * player who spends more at once pays less per coin. The amounts are calibrated
- * on the game's economy, where a hint costs 50 coins: the smallest pack buys
- * ten, the largest enough to stop thinking about it.
- */
-export const PACKS = Object.freeze([
-  { id: 'com.puzzle.coins.small', coins: 500, bonus: 0, price: '€1.99' },
-  { id: 'com.puzzle.coins.medium', coins: 1200, bonus: 20, price: '€3.99' },
-  { id: 'com.puzzle.coins.large', coins: 3000, bonus: 50, price: '€8.99' },
-  { id: 'com.puzzle.coins.huge', coins: 8000, bonus: 100, price: '€19.99' },
-]);
-
-/**
  * Coins paid by a rewarded ad watched from the shop, and how many views are
- * granted per day.
+ * granted per day. This is the ONLY way to get shards outside play: there are
+ * no in-app purchases (decision of 2026-09-30 — the coin packs are gone).
  *
  * The daily cap is not there to restrain the player but to protect the economy:
  * without it, an infinite supply of free coins makes every booster painless,
@@ -95,20 +79,6 @@ export function creditAdReward() {
   store.save(d);
   credit(AD_REWARD.COINS, 'shop_rewarded_ad');
   return AD_REWARD.COINS;
-}
-
-/**
- * Buying a pack. SIMULATED: no billing SDK is wired up, and the shop screen
- * says so. The purchase event is logged all the same, in its final form, so
- * that the funnel is measurable before it is real.
- */
-export function buyPack(id) {
-  const pack = PACKS.find((p) => p.id === id);
-  if (!pack) return 0;
-  const total = Math.round(pack.coins * (1 + pack.bonus / 100));
-  credit(total, 'iap_coin_pack');
-  track('iap_purchased', { productId: pack.id, coins: total, price: pack.price, simulated: true });
-  return total;
 }
 
 /** "Remove ads" purchase (doc §5.3, PRODUCT_NO_ADS). */
