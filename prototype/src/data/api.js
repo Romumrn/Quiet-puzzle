@@ -119,15 +119,42 @@ async function officialDaily() {
  * server will compute it for the same reason: a score the client supplies is a
  * score the client chooses.
  */
-export async function submitDailyScore({ drags, minDrags, seconds }) {
+export async function submitDailyScore({ puzzleId, drags, minDrags, seconds }) {
   const score = dailyPuzzle.computeScore({ drags, minDrags, seconds });
   const { improved } = dailyPuzzle.recordScore({ score, drags, seconds });
+  // Then to the server, where every player's best score for this puzzle is
+  // ranked (`submit_daily_score`, migration 20260930190000). Best effort: the
+  // local ranking stays the fallback.
+  if (puzzleId) {
+    try {
+      const { supabase } = await import('./supabaseClient.js');
+      const { error } = await supabase.rpc('submit_daily_score', {
+        p_puzzle_id: String(puzzleId), p_score: score, p_drags: drags, p_seconds: Math.round(seconds),
+      });
+      if (error) throw error;
+    } catch (e) {
+      console.warn('daily score not sent:', e?.message || e);
+    }
+  }
   return { score, improved, leaderboard: dailyPuzzle.leaderboard() };
 }
 
-/** GET /api/daily-puzzle/leaderboard */
-export async function getDailyLeaderboard() {
-  return dailyPuzzle.leaderboard();
+/**
+ * Today's puzzle ranking across ALL players (`daily_leaderboard`), or null when
+ * the server cannot be reached — the caller then shows this device's own.
+ * @returns {Promise<Array<{rank, name, score, me}>|null>}
+ */
+export async function getDailyLeaderboard(puzzleId) {
+  if (!puzzleId) return null;
+  try {
+    const { supabase } = await import('./supabaseClient.js');
+    const { data, error } = await supabase.rpc('daily_leaderboard', { p_puzzle_id: String(puzzleId), p_limit: 50 });
+    if (error) throw error;
+    return (data || []).map((r) => ({ rank: Number(r.rank), name: r.username, score: r.score, me: r.is_me, total: Number(r.total) }));
+  } catch (e) {
+    console.warn('daily leaderboard:', e?.message || e);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
