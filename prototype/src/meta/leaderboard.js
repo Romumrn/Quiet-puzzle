@@ -3,10 +3,11 @@
  * how far they got.
  *
  * The ranking is computed server-side (`public.leaderboard`, migration
- * 20260927120000_leaderboard.sql): `profiles` is readable by its owner only, and
- * the function returns just the public columns — the pseudonym, never the
- * Google identity. It sends the top of the board AND the caller's own row,
- * wherever it sits.
+ * 20260927120000_leaderboard.sql, names from 20260930180000): `profiles` and
+ * `auth.users` are not readable by clients, and the function returns just the
+ * public columns — the player's FIRST name from their Google account (never the
+ * surname), or their pseudonym when there is none. It sends the top of the
+ * board AND the caller's own row, wherever it sits.
  *
  * Anonymous players are not listed (they have not chosen to appear before
  * others); they see the board and an invitation to sign in.
