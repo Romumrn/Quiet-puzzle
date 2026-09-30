@@ -68,36 +68,36 @@ export function snow(emoji) {
   setTimeout(() => layer.remove(), (maxEnd + 0.4) * 1000);
 }
 
-const PETAL_BURST = 9;
+const PETAL_BURST = 7;
 
 /**
- * A handful of petals springing from a tap on the home screen, then drifting
- * down, swaying, in the realm's hue (they inherit `--h`). Placed in `host` at
- * (x, y), in its own pixels. Transform and opacity only, self-cleaning, and
- * nothing at all when the player asked for less motion.
+ * A few petals lifted by a tap on the home screen, then floating down —
+ * slowly, swaying in wide S-curves, visible all the way — in the realm's hue
+ * (they inherit `--h`). A gust of wind was not the idea: the eye must be able
+ * to follow each one down, and the screen stay calm (playtest, 2026-09-30).
+ * Placed in `host` at (x, y), in its own pixels. Transform and opacity only,
+ * self-cleaning, and nothing at all when the player asked for less motion.
  */
 export function petalBurst(host, x, y) {
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-  let longest = 0;
   for (let i = 0; i < PETAL_BURST; i++) {
     const p = document.createElement('i');
     p.className = 'petal-pop';
-    const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.3; // mostly upwards
-    const pop = 26 + Math.random() * 34;
-    const fall = 1.9 + Math.random() * 1.4;
+    const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.9; // upwards, fanned
+    const lift = 18 + Math.random() * 26;
+    const fall = 5 + Math.random() * 2.2;                                  // seconds
     p.style.left = `${x}px`;
     p.style.top = `${y}px`;
-    p.style.setProperty('--px', `${Math.round(Math.cos(angle) * pop)}px`);
-    p.style.setProperty('--py', `${Math.round(Math.sin(angle) * pop)}px`);
-    p.style.setProperty('--sway', `${Math.round((Math.random() - 0.5) * 70)}px`);
-    p.style.setProperty('--drop', `${Math.round(140 + Math.random() * 160)}px`);
-    p.style.setProperty('--spin', `${Math.round((Math.random() - 0.5) * 540)}deg`);
-    p.style.setProperty('--size', `${Math.round(8 + Math.random() * 7)}px`);
+    p.style.setProperty('--px', `${Math.round(Math.cos(angle) * lift * 1.4)}px`);
+    p.style.setProperty('--py', `${Math.round(Math.sin(angle) * lift)}px`);
+    p.style.setProperty('--sway', `${Math.round(18 + Math.random() * 18) * (Math.random() < 0.5 ? -1 : 1)}px`);
+    p.style.setProperty('--drop', `${Math.round(220 + Math.random() * 140)}px`);
+    p.style.setProperty('--spin', `${Math.round((Math.random() - 0.5) * 220)}deg`);
+    p.style.setProperty('--size', `${Math.round(8 + Math.random() * 6)}px`);
     p.style.setProperty('--light', `${Math.round(74 + Math.random() * 12)}%`);
     p.style.animationDuration = `${fall.toFixed(2)}s`;
+    p.style.animationDelay = `${Math.round(Math.random() * 180)}ms`;
     host.appendChild(p);
-    longest = Math.max(longest, fall);
-    setTimeout(() => p.remove(), fall * 1000 + 100);
+    setTimeout(() => p.remove(), fall * 1000 + 400);
   }
-  return longest;
 }

@@ -21,7 +21,11 @@
            arrow in the map and level views. Hidden until a streak is active. -->
       <!-- The daily gift lives IN this badge now (it was a separate card): it
            lights up while today's gift is waiting, and a tap claims it. -->
-      <button class="streak-badge" id="streak-badge" hidden></button>
+      <!-- Top-left corner: the lives first, then the streak (and its gift). -->
+      <div class="menu-corner">
+        <button class="pill lives-pill menu-lives" data-lives></button>
+        <button class="streak-badge" id="streak-badge" hidden></button>
+      </div>
       <!-- Greeting: only for a real (non-anonymous) account — offline/anonymous
            play has no name or photo to show. -->
       <button class="menu-greeting" id="menu-greeting" hidden>
@@ -36,15 +40,18 @@
         <div class="stat"><b id="menu-stars">0</b><small data-i18n="menu.stars">stars</small></div>
         <button class="stat stat-action" id="btn-shop" data-i18n-aria="shop.title"><b id="menu-coins">0</b><small data-i18n="menu.coins">coins</small></button>
       </div>
-      <button class="pill lives-pill menu-lives" data-lives></button>
       <button class="btn btn-primary btn-lg" id="btn-play" data-i18n="menu.play">Play</button>
-      <button class="btn btn-ghost btn-lg btn-quests" id="btn-quests">
-        <span class="quest-icon" aria-hidden="true">📜</span> <span data-i18n="quest.open">Daily quests</span> <small id="quest-count">0/3</small>
-      </button>
-      <button class="btn btn-ghost btn-lg" id="btn-daily-puzzle" hidden>
-        <span data-i18n="daily.title">Daily puzzle</span>
-        <small id="daily-puzzle-sub"></small>
-      </button>
+      <!-- Secondary: two small buttons side by side under "Play". -->
+      <div class="menu-secondary">
+        <button class="btn btn-ghost btn-mini btn-quests" id="btn-quests">
+          <span class="mini-title"><span class="quest-icon" aria-hidden="true">📜</span> <span data-i18n="quest.open">Daily quests</span></span>
+          <small id="quest-count">0/3</small>
+        </button>
+        <button class="btn btn-ghost btn-mini" id="btn-daily-puzzle" hidden>
+          <span class="mini-title" data-i18n="daily.title">Daily puzzle</span>
+          <small id="daily-puzzle-sub"></small>
+        </button>
+      </div>
     </section>
 
     <!-- ============ LEVEL MAP ============ -->

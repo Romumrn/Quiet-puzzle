@@ -264,13 +264,17 @@ body { display: grid; place-items: center; }
   margin: calc(var(--size) * -0.36) 0 0 calc(var(--size) * -0.5);
   border-radius: 80% 0 80% 0;
   background: hsl(var(--h) 64% var(--light, 80%));
-  animation: petal-pop 2.4s cubic-bezier(0.2, 0.6, 0.4, 1) forwards;
+  opacity: 0;
+  /* ease-in-out on every step: each sway eases in and out, like a leaf. */
+  animation: petal-pop 6s ease-in-out both;
 }
 @keyframes petal-pop {
-  0% { transform: translate(0, 0) rotate(0) scale(0.4); opacity: 0; }
-  12% { transform: translate(var(--px), var(--py)) rotate(calc(var(--spin) * 0.2)) scale(1); opacity: 0.9; }
-  55% { transform: translate(calc(var(--px) + var(--sway)), calc(var(--py) + var(--drop) * 0.45)) rotate(calc(var(--spin) * 0.6)); opacity: 0.8; }
-  100% { transform: translate(calc(var(--px) - var(--sway) * 0.5), calc(var(--py) + var(--drop))) rotate(var(--spin)); opacity: 0; }
+  0%   { transform: translate(0, 0) rotate(0) scale(0.5); opacity: 0; }
+  14%  { transform: translate(var(--px), var(--py)) rotate(calc(var(--spin) * 0.1)) scale(1); opacity: 0.85; }
+  36%  { transform: translate(calc(var(--px) + var(--sway)), calc(var(--py) + var(--drop) * 0.25)) rotate(calc(var(--spin) * 0.35)); }
+  58%  { transform: translate(calc(var(--px) - var(--sway)), calc(var(--py) + var(--drop) * 0.5)) rotate(calc(var(--spin) * 0.6)); opacity: 0.8; }
+  80%  { transform: translate(calc(var(--px) + var(--sway) * 0.7), calc(var(--py) + var(--drop) * 0.76)) rotate(calc(var(--spin) * 0.85)); opacity: 0.7; }
+  100% { transform: translate(calc(var(--px) - var(--sway) * 0.3), calc(var(--py) + var(--drop))) rotate(var(--spin)); opacity: 0; }
 }
 
 /* "Play" breathes, slowly: the one thing to do on this screen. */
@@ -314,6 +318,14 @@ body { display: grid; place-items: center; }
 .stat small { color: var(--ink-faint); font-size: 11px; letter-spacing: 0.04em; }
 
 #screen-menu .btn-lg { max-width: 268px; }
+/* Daily quests and daily puzzle: secondary, so small and side by side. */
+.menu-secondary { display: flex; gap: 8px; width: 100%; max-width: 268px; }
+.btn-mini {
+  flex: 1 1 0; min-width: 0; display: grid; justify-items: center; gap: 1px;
+  padding: 8px 6px; border-radius: 14px; font-size: 13px; line-height: 1.2;
+}
+.btn-mini .mini-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.btn-mini small { font-size: 11px; opacity: 0.7; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .menu-liens { display: flex; gap: 8px; }
 
 /* ---------- Étoiles ---------- */
@@ -1159,11 +1171,14 @@ body { display: grid; place-items: center; }
   font-variant-numeric: tabular-nums;
 }
 
-/* Badge de série. Il n'existe que dans l'écran d'accueil (voir index.html) :
-   son `position: absolute` se cale donc sur cet écran, et il disparaît avec
-   lui — plus de badge posé sur la flèche de retour des autres écrans. */
-.streak-badge {
+/* Home screen's top-left corner: the lives, then the streak badge. Only on
+   the home screen (see index.html), so nothing sits on the other screens'
+   back arrows. */
+.menu-corner {
   position: absolute; top: max(18px, env(safe-area-inset-top)); left: 18px; z-index: 18;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: calc(100% - 150px);
+}
+.streak-badge {
   padding: 7px 12px; border-radius: 999px;
   background: var(--surface); border: 1px solid var(--line);
   color: var(--ink-soft); font: 500 13px var(--font-ui);
@@ -1234,7 +1249,7 @@ body { display: grid; place-items: center; }
 .lives-n { font-weight: 500; color: var(--ink); }
 .lives-timer { color: var(--ink-faint); }
 .lives-timer:not(:empty)::before { content: '· '; }
-.menu-lives { align-self: center; margin: 0 auto 12px; }
+.menu-lives { margin: 0; }
 .topbar-pills { display: inline-flex; gap: 6px; justify-self: end; }
 
 button.lives-pill { font-family: inherit; cursor: pointer; }
@@ -1328,8 +1343,6 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
 #shop-ad-note { margin: 6px 0 18px; }
 
 /* Puzzle du jour : l'entrée du menu porte son titre en second niveau. */
-#btn-daily-puzzle { display: grid; gap: 2px; line-height: 1.25; }
-#btn-daily-puzzle small { font-size: 12px; opacity: 0.72; font-weight: 400; }
 
 /* Classement du jour. */
 .rank-mine { margin: 6px 0 12px; color: var(--accent-deep); font: 500 15px var(--font-ui); }
@@ -1365,7 +1378,6 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
 .info-text { margin: 6px 0 4px; color: var(--ink-soft); font: 400 15px/1.5 var(--font-ui);; white-space: pre-line; }
 .info-icon .action-icon { width: 30px; height: 30px; }
 /* Quêtes du jour : icône, intitulé + barre, bouton de récolte. */
-.btn-quests small { opacity: 0.7; font-size: 12px; margin-left: 6px; }
 .btn-quests.ready { box-shadow: 0 0 0 2px var(--accent); }
 /* A reward waiting: the icon gives a little shake every few seconds. */
 .quest-icon { display: inline-block; }
@@ -1377,7 +1389,8 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
   91% { transform: rotate(-7deg); }
   94% { transform: rotate(4deg); }
 }
-.btn-quests.ready::after { content: ''; display: inline-block; width: 8px; height: 8px; margin-left: 8px; border-radius: 50%; background: var(--alert, #e0655a); vertical-align: middle; }
+.btn-quests { position: relative; }
+.btn-quests.ready::after { content: ''; position: absolute; top: 6px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--alert, #e0655a); }
 .quest-list { list-style: none; display: grid; gap: 8px; margin: 8px 0 14px; padding: 0; text-align: left; }
 .quest { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--ground); }
 .quest.claimed { opacity: 0.55; }
