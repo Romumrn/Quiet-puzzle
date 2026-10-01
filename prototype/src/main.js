@@ -674,7 +674,12 @@ function stopClock() {
   if (clock) { clearInterval(clock); clock = null; }
 }
 
+/** The board whose end is being handled: a level is finished once, never twice. */
+let finishedBoard = null;
+
 async function finishLevel() {
+  if (finishedBoard === board) return;
+  finishedBoard = board;
   stopClock();
   busy = true;
   input.locked = true;
@@ -710,6 +715,7 @@ async function finishLevel() {
     }
     if (choice) {
       failOffer.apply(board);
+      finishedBoard = null; // play goes on: this board can end again
       hud.update(board);
       busy = false;
       input.locked = false;

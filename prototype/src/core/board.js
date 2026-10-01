@@ -439,6 +439,11 @@ export class Board {
   /** Time passing, called by the game loop (1 s). */
   tick(seconds = 1) {
     if (this.gameState !== GameState.PLAYING) return [];
+    // The last block can leave while the finger is still down: the win is
+    // declared when the gesture ends (endGesture), which also counts that
+    // gesture's move. Settled here by the clock, it came early and the last
+    // move went uncounted — and the level could be finished twice.
+    if (this.isSolved()) return [];
     this.timeRemaining = Math.max(0, this.timeRemaining - seconds);
     const events = [];
     this._settle(events);

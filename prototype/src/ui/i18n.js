@@ -111,7 +111,7 @@ const STRINGS = {
     'daily.rank.me': 'vous',
     'app.title': 'Quiet Puzzle — un casse-tête pour décompresser',
     'map.next': 'Suivant',
-    'result.drags': 'glissés', 'result.double': 'Doubler les éclats',
+    'result.drags': 'coups', 'result.double': 'Doubler les éclats',
 
     'ad.tag': 'Emplacement publicitaire', 'ad.banner': 'Emplacement bannière 320×50',
     'ad.title': 'Publicité', 'ad.title.rewarded': 'Publicité récompensée',
@@ -287,7 +287,7 @@ const STRINGS = {
     'daily.rank.me': 'you',
     'app.title': 'Quiet Puzzle — a puzzle to unwind with',
     'map.next': 'Next',
-    'result.drags': 'drags', 'result.double': 'Double the shards',
+    'result.drags': 'moves', 'result.double': 'Double the shards',
 
     'ad.tag': 'Ad placement', 'ad.banner': '320×50 banner placement',
     'ad.title': 'Advertisement', 'ad.title.rewarded': 'Rewarded ad',
@@ -463,7 +463,7 @@ const STRINGS = {
     'daily.rank.me': 'tú',
     'app.title': 'Quiet Puzzle — un rompecabezas para desconectar',
     'map.next': 'Siguiente',
-    'result.drags': 'arrastres', 'result.double': 'Duplicar las fragmentos',
+    'result.drags': 'movimientos', 'result.double': 'Duplicar las fragmentos',
 
     'ad.tag': 'Espacio publicitario', 'ad.banner': 'Espacio de banner 320×50',
     'ad.title': 'Publicidad', 'ad.title.rewarded': 'Anuncio recompensado',
@@ -639,7 +639,7 @@ const STRINGS = {
     'daily.rank.me': 'tu',
     'app.title': 'Quiet Puzzle — un rompicapo per staccare',
     'map.next': 'Avanti',
-    'result.drags': 'trascinamenti', 'result.double': 'Raddoppia le schegge',
+    'result.drags': 'mosse', 'result.double': 'Raddoppia le schegge',
 
     'ad.tag': 'Spazio pubblicitario', 'ad.banner': 'Spazio banner 320×50',
     'ad.title': 'Pubblicità', 'ad.title.rewarded': 'Annuncio con premio',
@@ -817,7 +817,7 @@ const STRINGS = {
     'daily.rank.me': '你',
     'app.title': 'Quiet Puzzle — 放松心情的解谜游戏',
     'map.next': '下一关',
-    'result.drags': '次拖动', 'result.double': '碎片翻倍',
+    'result.drags': '步', 'result.double': '碎片翻倍',
 
     'ad.tag': '广告位', 'ad.banner': '320×50 横幅广告位',
     'ad.title': '广告', 'ad.title.rewarded': '奖励广告',

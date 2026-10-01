@@ -255,6 +255,18 @@ console.log('\n== Compte des coups ==');
   check('un autre bloc entre deux : chaque geste compte', between === 3, `${between} coups`);
   check('annuler rend aussi le « dernier bloc bougé »', afterUndo === 3, `${afterUndo} coups`);
   check('un coup de marteau entre deux : le geste suivant compte', b.dragsUsed() === 4, `${b.dragsUsed()} coups`);
+
+  // La grille se vide pendant le geste : l'horloge ne doit pas déclarer la
+  // victoire avant le lâcher, sinon le dernier coup n'est pas compté.
+  const v = new Board(getLevel(1));
+  const last = [...v.blocks.keys()][0];
+  for (const id of [...v.blocks.keys()]) v.blocks.delete(id);
+  v._reindex();
+  v.tick(1);
+  const stillPlaying = v.gameState === 'PLAYING';
+  v.endGesture(true, last);
+  check("l'horloge ne déclare pas la victoire, la fin du geste si", stillPlaying && v.gameState === 'WON' && v.dragsUsed() === 1,
+    `${v.gameState}, ${v.dragsUsed()} coup(s)`);
 }
 
 console.log('\n== Intégrité de la grille ==');
