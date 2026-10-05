@@ -16,7 +16,11 @@
     </style>
 
 
+    <!-- Android 12+ draws its own splash (the launcher icon on this colour)
+         before @drawable/splash: both are the neutral pastel of the web's
+         loading veil, so the launch never flashes violet. -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#f1ecf0</item>
         <item name="android:background">@drawable/splash</item>
     </style>
 </resources>
