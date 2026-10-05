@@ -1034,9 +1034,16 @@ html.night .boot-veil-bar::after { background: rgba(230, 220, 235, 0.45); }
 .block.smashed { pointer-events: none; animation: smash 0.32s ease-in forwards; }
 @keyframes smash { to { transform: scale(0.3) rotate(14deg); opacity: 0; } }
 
-.block.hinted { z-index: 4; }
-.block.hinted .block-cell { animation: hint 1.15s ease-in-out 3; }
-@keyframes hint { 50% { box-shadow: inset 0 0 0 3px var(--ink); } }
+/* L'indice : un fantôme du bloc qui fait le geste (BoardView.ghost). Son trajet
+   est libre, il passe donc au-dessus de la grille sans rien cacher, et ne capte
+   aucun toucher. */
+.block.ghost {
+  z-index: 3; pointer-events: none; opacity: 0;
+  /* Un halo de sa propre couleur sur la silhouette (drop-shadow suit la forme,
+     pas la boîte) : le fantôme de CE bloc. Le joker, sans couleur, prend l'encre. */
+  --ghost-ink: var(--tile, var(--ink));
+  filter: drop-shadow(0 0 calc(var(--cell) * 0.1) var(--ghost-ink)) drop-shadow(0 0 calc(var(--cell) * 0.22) var(--ghost-ink));
+}
 
 /* ---------- Sortie d'un bloc : la récompense ---------- */
 
@@ -1467,6 +1474,8 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
 .action:hover { border-color: var(--accent); color: var(--ink); }
 .action:active { transform: scale(0.97); }
 .action[disabled] { opacity: 0.4; pointer-events: none; }
+/* The bulb thinking (an exact search, up to a couple of seconds on a slow phone). */
+.action[aria-busy="true"] { opacity: 0.5; pointer-events: none; }
 .action-icon {
   width: 24px; height: 24px;
   fill: none; stroke: var(--accent-deep); stroke-width: 1.3;

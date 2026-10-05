@@ -25,6 +25,7 @@ import * as theme from './ui/theme.js';
 import * as bloom from './meta/bloom.js';
 import * as editor from './ui/editor.js';
 import { solve } from './core/solver.js';
+import { askHint } from './core/rush/live.js';
 import * as hud from './ui/gameplayUI.js';
 import * as result from './ui/resultScreen.js';
 import * as realmComplete from './ui/realmComplete.js';
@@ -607,6 +608,7 @@ function onDirectionBlocked(id, reason) {
 /** One finger movement: returns true if the block actually advanced. */
 function onDrag(id, x, y) {
   if (busy || board.gameState !== GameState.PLAYING) return false;
+  view.clearGhost();
   const before = gestureRemembered ? null : board.snapshot();
   const { events, blockedReason } = board.dragTowards(id, x, y);
   if (!events.length) {
@@ -992,7 +994,29 @@ el('btn-undo').onclick = async () => {
  */
 el('btn-hint').onclick = async () => {
   if (!board || busy || board.gameState !== GameState.PLAYING) return;
-  const advice = board.hint();
+  /**
+   * A hint must never be wrong. An anchor or a one-way cell can leave the board
+   * with no way to win, and the reference solution cannot see it — it would
+   * point at a block that still moves, and charge for it. So the advice comes
+   * from an exact search started where the player stands (`askHint`), on the
+   * tap only. A board proven lost is SAID, for free, and nothing more: the
+   * player restarts on their own. Gestures wait while the search runs, so the
+   * answer is about the board on screen.
+   */
+  const asked = board;
+  busy = true;
+  el('btn-hint').setAttribute('aria-busy', 'true');
+  let answer;
+  try { answer = await askHint(board); }
+  catch { answer = { advice: board.hint() }; } // editor board past 64 cells: the engine's limit
+  finally { busy = false; el('btn-hint').removeAttribute('aria-busy'); }
+  if (board !== asked || board.gameState !== GameState.PLAYING) return;
+  if (answer.dead) {
+    track('hint_dead_end', { level: level.number });
+    screens.toast(t('toast.nosolution'));
+    return;
+  }
+  const { advice } = answer;
   if (!advice) { screens.toast(t('toast.nohint')); return; }
 
   if (useFreebie('hint')) {
@@ -1007,7 +1031,7 @@ el('btn-hint').onclick = async () => {
   }
 
   track('hint_used', { level: level.number, blockId: advice.id, park: !advice.gate });
-  view.highlight(advice.id);
+  view.ghost(advice.id, advice.path, advice.gate);
   /**
    * A hint with NO GATE points at a block that must be moved ASIDE, not cleared.
    * Highlighting it and saying nothing is worse than no hint at all: the player

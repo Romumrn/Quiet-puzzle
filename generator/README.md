@@ -8,11 +8,12 @@ generator.
 realms.js            the fifty worlds: identity, features, parks ramp → profileOf()
 curve.js             limitsFor() — star thresholds, move and time limits
 index.js             getLevel(n), and buildRealm() — the twenty levels, ordered
-rush/engine.js       compact copy of board.js's rules, fast enough to search
-rush/solve.js        solveParks() — the fewest parks that clear a board
 rush/build.js        buildLevel() — random board, climb, capacity, real-engine check
 rush/measure.js      measureGestures() — gestures of a reference solution
 ../prototype/src/core/sawtooth.js  realmShape() — a world's sawtooth, shared with the game
+../prototype/src/core/rush/engine.js  compact copy of board.js's rules, fast enough to search
+../prototype/src/core/rush/solve.js   solveParks() — the fewest parks that clear a board;
+                     also the game's hint, which is why it lives there
 difficulty-map.mjs   renders the whole database as one page — read it before tuning
 templates/           the map's HTML shell
 ```
@@ -55,7 +56,7 @@ parks**, with the parks spread across the level rather than bunched at the start
 4. **Real-engine check.** The solution is replayed on `prototype/src/core/board.js`.
    Any disagreement discards the board. Nothing unverified reaches a player.
 
-## The solver (`rush/solve.js`)
+## The solver (`prototype/src/core/rush/solve.js`)
 
 Every block leaves exactly once, so exits are a fixed cost. An exit is taken the
 moment it is possible (`normalize`), which is always safe — it frees room,
@@ -189,7 +190,7 @@ Measured on the 14-core laptop (2026-09-27/28): **about 9 hours**, 20:00 → 05:
 All of the game's: rails, walls, countdown locks, colour seals, key, joker,
 anchors, heavy blocks (capacity cost ×2), two-colour blocks, shared gates,
 narrow gates, large pieces, one-way cells, late gates, sliders. Each rule in
-`rush/engine.js` names the `Board` method it mirrors — change one, change both.
+`core/rush/engine.js` names the `Board` method it mirrors — change one, change both.
 
 Sliders are one gesture per run: a slider cannot be stopped short, so its
 reachable positions are single runs, not a connected region, and

@@ -45,6 +45,7 @@ const wait = (ms) => (document.hidden ? Promise.resolve() : new Promise((r) => s
 
 /** Exit direction, as shown on the gate. */
 const ARROWS = { top: '▲', right: '▶', bottom: '▼', left: '◀' };
+const GHOST_SIDES = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] };
 
 /**
  * Padlock for a key lock.
@@ -128,6 +129,7 @@ export class BoardView {
   // --- Mounting ------------------------------------------------------------
 
   mount(board) {
+    this.clearGhost();
     this.board = board;
     this.nodes.clear();
     this.blockLayer.replaceChildren();
@@ -741,6 +743,7 @@ export class BoardView {
 
   /** Rebuilds the display from the board's state (undo). */
   resync() {
+    this.clearGhost();
     const board = this.board;
     for (const [id, node] of [...this.nodes]) {
       if (!board.blocks.has(id)) { node.remove(); this.nodes.delete(id); }
@@ -752,12 +755,82 @@ export class BoardView {
     this.refreshLocks();
   }
 
-  /** Highlights the block pointed at by a hint. */
-  highlight(id) {
+  /**
+   * The hint, shown as the move itself: a see-through copy of the block
+   * travels its route cell by cell — and out through the gate when the hint is
+   * an exit, or settles on the spot when it is a park. Three passes, then it
+   * goes; the first touch on the board clears it (`clearGhost`). Under reduced
+   * motion it simply waits at the destination.
+   */
+  ghost(id, path, gate) {
+    this.clearGhost();
     const node = this.nodes.get(id);
-    if (!node) return;
-    node.classList.add('hinted');
-    setTimeout(() => node.classList.remove('hinted'), 3400);
+    const b = this.board.blocks.get(id);
+    if (!node || !b || !path?.length) return;
+    const el = node.cloneNode(true);
+    el.classList.remove('grabbed', 'exiting');
+    el.classList.add('ghost');
+    el.removeAttribute('data-id');
+    el.setAttribute('aria-hidden', 'true');
+    this.blockLayer.appendChild(el);
+
+    const c = this.cell;
+    const at = ({ x, y }) => `translate3d(${x * c}px, ${y * c}px, 0)`;
+    const points = path.slice();
+    if (gate) {
+      // Out by the block's own length, plus a little: clear of the wall.
+      const [dx, dy] = GHOST_SIDES[gate];
+      const last = points[points.length - 1];
+      const far = (dx ? b.width : b.height) + 0.4;
+      points.push({ x: last.x + dx * far, y: last.y + dy * far });
+    }
+    const end = points[points.length - 1];
+    this._ghost = { el, anim: null };
+
+    if (reducedMotion()) {
+      el.style.transform = at(path[path.length - 1]);   // on the board, even for an exit
+      el.style.opacity = '0.55';
+      const timer = setTimeout(() => this.clearGhost(el), 2600);
+      this._ghost.stop = () => clearTimeout(timer);
+      return;
+    }
+
+    // A pass: fade in on the block, travel, then either rest on the spot and
+    // fade (park) or glide out through the gate while fading (exit); then a
+    // breath before the next pass.
+    const steps = Math.max(1, path.length - 1);
+    const T = { in: 240, cell: 190, rest: 650, out: 380, gap: 450 };
+    const travel = path.length > 1 ? steps * T.cell : 0;
+    const total = T.in + travel + (gate ? T.out : T.rest + T.out) + T.gap;
+    const o = (ms) => ms / total;
+    const shown = 0.62;
+    const kf = [{ offset: 0, transform: at(path[0]), opacity: 0 },
+      { offset: o(T.in), transform: at(path[0]), opacity: shown, easing: 'ease-in-out' }];
+    path.slice(1).forEach((p, i) => {
+      kf.push({ offset: o(T.in + (travel * (i + 1)) / steps), transform: at(p), opacity: shown,
+        easing: i === path.length - 2 ? 'ease-out' : 'linear' });
+    });
+    let t = T.in + travel;
+    if (gate) {
+      kf.push({ offset: o(t += T.out), transform: at(end), opacity: 0 });
+    } else {
+      kf.push({ offset: o(t += T.rest), transform: at(end), opacity: shown });
+      kf.push({ offset: o(t += T.out), transform: at(end), opacity: 0 });
+    }
+    kf.push({ offset: 1, transform: at(end), opacity: 0 });
+    const anim = el.animate(kf, { duration: total, iterations: 3, fill: 'forwards' });
+    this._ghost.anim = anim;
+    anim.finished.then(() => this.clearGhost(el), () => {});
+  }
+
+  /** Removes the hint's ghost — a touch on the board, an undo, a new level. */
+  clearGhost(only = null) {
+    const g = this._ghost;
+    if (!g || (only && g.el !== only)) return;
+    this._ghost = null;
+    g.stop?.();
+    g.anim?.cancel();
+    g.el.remove();
   }
 
   /**

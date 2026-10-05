@@ -93,7 +93,7 @@ const INTRODUCES = {
  * 200 the boards grow to 8×8 and the peaks to 15–18 parks.
  *
  * `traps`: jokers are added, and capacities chosen so that some gate a joker
- * can reach first is the wrong one (see `countTraps` in rush/solve.js). On
+ * can reach first is the wrong one (see `countTraps` in prototype/src/core/rush/solve.js). On
  * worlds that have capacity, from the eighth on — a trap needs a capacity.
  *
  * Rails are everywhere from world 1: a rail cannot step round an obstacle, and

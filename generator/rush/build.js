@@ -27,8 +27,8 @@
 import { Board } from '../../prototype/src/core/board.js';
 import { pathTo } from '../../prototype/src/core/solver.js';
 import { measureGestures } from './measure.js';
-import { SIDE_VEC, colorsOf, reach, occupancy, occBits, newState } from './engine.js';
-import { solveParks, replay, countTraps } from './solve.js';
+import { SIDE_VEC, colorsOf, reach, occupancy, occBits, newState } from '../../prototype/src/core/rush/engine.js';
+import { solveParks, replay, countTraps } from '../../prototype/src/core/rush/solve.js';
 
 const SHAPES = {
   n1: [[0, 0]],

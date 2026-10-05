@@ -679,8 +679,8 @@ console.log('\n== Carte du projet (AGENTS.md) ==');
                     'normalize', 'measureGestures', 'limitsFor',
                     'starThresholds', 'mulberry32', 'LEVELS_PER_REALM'];
   const sources = ['../generator/realms.js', '../generator/curve.js',
-                   '../generator/rush/build.js', '../generator/rush/engine.js',
-                   '../generator/rush/solve.js', '../generator/rush/measure.js',
+                   '../generator/rush/build.js', 'src/core/rush/engine.js',
+                   'src/core/rush/solve.js', '../generator/rush/measure.js',
                    '../generator/index.js',
                    'src/core/block.js', 'src/core/board.js',
                    'src/core/stars.js', 'src/data/levelStore.js',
@@ -852,6 +852,55 @@ console.log('\n== Indices ==');
   }
   check(`un indice est proposé sur chacun des ${TOTAL_LEVELS} niveaux`, absents === 0, absents + ' sans indice');
   check('le bloc désigné sort, ou se gare, réellement', fiables === TOTAL_LEVELS, fiables + '/' + TOTAL_LEVELS);
+
+  // Une ancre poussée trop tôt se gare devant une porte encore fermée, sur le
+  // seul passage du bloc bleu : plus rien ne bouge. L'ampoule doit le voir,
+  // depuis la position en cours et pas depuis la solution de référence.
+  const { stillSolvable } = await import('../src/core/rush/live.js');
+  const impasse = new Board({ width: 3, height: 3, moveLimit: 99, timeLimit: 99,
+    gates: [{ side: 'right', start: 1, length: 1, color: 'red', opensAfter: 1 },
+            { side: 'bottom', start: 2, length: 1, color: 'blue' }],
+    blocks: [{ id: 1, color: 'red', cells: [[0, 0]], x: 0, y: 1, kind: KIND.ANCHOR, dir: 'right' },
+             { id: 2, color: 'blue', cells: [[0, 0]], x: 2, y: 0, kind: KIND.RAIL, axis: 'v' }] });
+  const auDepart = stillSolvable(impasse);
+  impasse.step(1, 1, 0);
+  const unPas = stillSolvable(impasse);
+  impasse.step(1, 1, 0);
+  check('l\'ampoule voit une impasse creusée par une ancre',
+    auDepart === true && unPas === true && stillSolvable(impasse) === false,
+    `${auDepart} / ${unPas} / ${stillSolvable(impasse)}`);
+  const premier = getLevel(101);
+  check('et ne voit pas d\'impasse au départ d\'un vrai niveau à ancres',
+    stillSolvable(new Board(premier)) !== false);
+
+  // Un indice n'est jamais faux : depuis une partie déjà entamée (hors de la
+  // solution de référence), le geste conseillé laisse une grille qu'on PROUVE
+  // encore gagnable. Une impasse est dite, sans conseil.
+  const { askHint } = await import('../src/core/rush/live.js');
+  check('l\'ampoule signale l\'impasse au lieu de conseiller', (await askHint(impasse)).dead === true);
+  let graine = 4242;
+  const hasard = () => ((graine = (graine * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const sens = Object.values(SIDES);
+  let conseils = 0, faux = [];
+  for (const n of [101, 105, 110, 115, 120, 281, 290, 300]) {
+    const b = new Board({ ...getLevel(n), moveLimit: 9999, timeLimit: 9999 });
+    for (let coup = 0; coup < 6 && b.blocks.size; coup++) {
+      const ids = [...b.blocks.keys()];
+      const id = ids[Math.floor(hasard() * ids.length)];
+      const [dx, dy] = sens[Math.floor(hasard() * 4)];
+      b.step(id, dx, dy);
+    }
+    const r = await askHint(b);
+    if (!r.advice) continue;
+    conseils++;
+    const { id, gate, path } = r.advice;
+    for (const p of path.slice(1)) b.dragTowards(id, p.x, p.y);
+    if (gate && b.blocks.has(id)) b.step(id, ...SIDES[gate]);
+    const bouge = !b.blocks.has(id) || (b.blocks.get(id).x === path.at(-1).x && b.blocks.get(id).y === path.at(-1).y);
+    if (!bouge || stillSolvable(b, 200000) !== true) faux.push(n);
+  }
+  check('un conseil mène toujours à une grille encore gagnable', conseils > 0 && faux.length === 0,
+    faux.length ? 'faux sur ' + faux.join(', ') : `${conseils} conseils vérifiés`);
 }
 
 console.log(echecs ? `\n${echecs} test(s) en échec\n` : '\nTous les tests passent\n');

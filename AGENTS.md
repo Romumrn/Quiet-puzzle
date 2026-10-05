@@ -38,7 +38,8 @@ The runtime code already used mostly English identifiers, so the functional rena
 ### Levels and difficulty
 
 The generator lives in `generator/` at the repository root. It is node-only: no
-module served to the browser imports it. The game reads the level database —
+module served to the browser imports it. Its search engine (`core/rush/`) lives
+in the game instead, because the bulb uses it. The game reads the level database —
 Supabase first, `prototype/levels/` as a seed.
 
 | Need | File | Reference |
@@ -46,11 +47,12 @@ Supabase first, `prototype/levels/` as a seed.
 | Add / adjust a world | `generator/realms.js` | `PLAN` — one line per world: features, board, colours, `parks` ramp |
 | Add a mechanic to the world vocabulary | `generator/realms.js` | `FEATURES` — name in 5 languages + what it adds to the profile (`profileOf()`) |
 | Change what makes a level hard | `generator/rush/build.js` | `buildLevel()` — climbs on the fewest parks; `evaluate()` scores parks and `stuckPhases` |
-| Minimum parks of a board | `generator/rush/solve.js` | `solveParks()` — 0-1 BFS; exits taken greedily by `normalize()` except capacity choices |
-| Game rules as the generator sees them | `generator/rush/engine.js` | mirrors `board.js` rule by rule — change one, change both |
+| Minimum parks of a board | `prototype/src/core/rush/solve.js` | `solveParks()` — 0-1 BFS; exits taken greedily by `normalize()` except capacity choices |
+| The bulb (hint) | `prototype/src/core/rush/live.js` | `askHint()` — exact search from the board in play, in a worker; never a guess, says when the board is lost; `LIVE_BUDGET` |
+| Game rules as the generator sees them | `prototype/src/core/rush/engine.js` | mirrors `board.js` rule by rule — change one, change both |
 | Adjust star thresholds | `src/core/stars.js` | `starThresholds()` / `MARGIN_3_STAR` / `MARGIN_2_STAR` — the only place |
 | Change limit formulas (moves, time) | `generator/curve.js` | `limitsFor()` — time is paid per park and per trap, up to 10 min; `moveLimit` is the 1★ line, never a defeat |
-| Traps (joker exits that strand a block) | `generator/rush/build.js`, `rush/solve.js` | `capacityVariants()` re-routes a joker; `countTraps()` + `capacityDead()` prove the dead end; `traps: true` in `PLAN` |
+| Traps (joker exits that strand a block) | `generator/rush/build.js`, `core/rush/solve.js` | `capacityVariants()` re-routes a joker; `countTraps()` + `capacityDead()` prove the dead end; `traps: true` in `PLAN` |
 | Recalibrate thresholds against real scores | `src/data/levelStore.js` | `starThresholds(ref)` and the saved `level.starDrags` table |
 | Order a world's levels (sawtooth, hard / super hard labels) | `prototype/src/core/sawtooth.js` | `realmShape()` — shared by `generator/index.js` (targets) and `levelStore.tierOf()` (map flames, brief label); change it and the realm must be rebuilt |
 | Daily challenge grids | `tools/build-daily.mjs` | writes `levels/daily.json`, one grid per date; loaded by `api.getDailyPuzzle()` |
@@ -58,7 +60,7 @@ Supabase first, `prototype/levels/` as a seed.
 | Publish to Supabase | `tools/publish-levels.mjs` | needs `SUPABASE_TOKEN`; `--dry-run` prints the SQL |
 | See the whole difficulty curve | `generator/difficulty-map.mjs` | renders all levels as one page |
 | Add a world (full procedure) | `generator/README.md` | the files that must agree, and the ceiling |
-| Sliding blocks | `board.js` `slideTarget()` | the engine, `solver.js` and `rush/engine.js` must agree |
+| Sliding blocks | `board.js` `slideTarget()` | the engine, `solver.js` and `core/rush/engine.js` must agree |
 | Draw a world's branch image | `prototype/docs/decor-de-la-carte.md` | one row in `mondes.py`, run the script, one CSS rule |
 | Add a block type | 4 files — see the New block section |
 
@@ -77,12 +79,14 @@ Supabase first, `prototype/levels/` as a seed.
 | Block types, shapes, colors | `src/core/block.js` | `KIND`, `SHAPES`, `COLORS`, `capacityCost()` |
 | Stars, win, loss | `src/core/board.js` | `stars()`, `_settle()` |
 | Verify if a grid is solvable | `src/core/solver.js` | `solve()` |
+| Is the board in play still winnable? What is the next move? | `src/core/rush/live.js` | `askHint()`, `stillSolvable()` |
 
 ### UI
 
 | Need | File |
 |---|---|
 | Board rendering, animations, block marks | `src/render/boardView.js` |
+| The hint's ghost (the move shown on the board) | `src/render/boardView.js` — `ghost()`, `clearGhost()`; `.block.ghost` in `styles/main.css` |
 | Block material (rounded edges, reflection, shadow, relief) | `styles/main.css` — all styling is on `.block`: `--bevel`, `--reflection`, and shadow `filter`; silhouette relief is on `.block-cell::after` |
 | Touch dragging | `src/input/input.js` |
 | Result screen (win / loss) | `src/ui/resultScreen.js` — shards come out from behind the card into the purse in its middle, "Double" beside it: `flyShards()`, `.result-gain`; the next novelty is only announced from `NOVELTY_WINDOW` (6) levels away |
@@ -213,6 +217,13 @@ cd android && ./gradlew assembleDebug      # or bundleRelease, once signing is c
 Newest first. Short enough to skim, detailed enough to know whether a bug you just hit is new or already-known.
 
 ### 2026-10-05
+
+- **The bulb never gives a wrong hint, and says when the board is lost** (user decision). Anchors and one-way cells make some gestures irreversible, and `board.hint()` reads the REFERENCE solution: off its path it could point at a block that still moves but no longer leads anywhere — and charge for it. The bulb now calls `askHint()` (`prototype/src/core/rush/live.js`): an exact search from the board as it stands (`findSolution()` in `core/rush/solve.js`, best-first on parks + 0.2 × blocks left), in a module worker (`hintWorker.js`), on the tap only — never after every gesture. Proven lost → toast `toast.nosolution`, free, and nothing else: the player restarts on their own. Solution found → its first gesture is the hint. Out of budget → `toast.nohint`, no guess. Untouched board → the reference hint, proven at build time. Gestures wait while it thinks (`busy`; the bulb fades, `aria-busy`).
+  - **Why `rush/engine.js` and `rush/solve.js` moved into `prototype/src/core/rush/`**: the game is served from `prototype/` unbundled and cannot import `generator/`. The generator imports them from there, as it already did `board.js`.
+  - **Budget `LIVE_BUDGET` = 15 000 states, sized for a 1 GB phone.** Measured: peak heap ≈ 30 MB (runs under a 48 MB cap), 34 ms median / 0.6 s worst on a Mac, so roughly 0.3 s / 5 s on a low-end phone — in the worker, the screen keeps drawing. 97 % of mid-game positions on the densest worlds get a hint (`solveParks` at the same budget: 56 %).
+  - **The hint is shown as a ghost**, not a blinking outline: `BoardView.ghost(id, path, gate)` sends a see-through copy of the block, haloed in its own colour (`.block.ghost`, `--tile`), along the cell-by-cell route (`pathTo()` in `core/solver.js`) — out through the gate for an exit, resting on the spot for a park. Three passes; the first drag, an undo or a new board clears it (`clearGhost`). Reduced motion: it simply waits at the destination. `highlight()` and `.hinted` are gone.
+  - **Try it without signing in**: `prototype/park-test.html?n=101` (local, gitignored) opens any level of the base with the real bulb and ghost.
+  - **Getting stuck is rare in practice**: 4 800 random positions on the anchor (101–120) and one-way (281–300) worlds, anchors pushed early on purpose — not one dead end. They show up with capacity and traps.
 
 - **No defeat any more: the clock only holds the third star** (user decision). `Board._settle()` never sets FAILED; the clock runs to 0 and stays there, `stars()` caps at 2 past it (`inTime()`, `dragStars()`). HUD: no red when low, the time fades at 0, a toast says it once. Brief shows "★★★ en N · m:ss". Consequences: the fail offer (rewarded "continue") and `lives.COST.FAIL` are dormant — hearts are now only spent on a restart (half) — and the win streak only breaks on restart or abandon. Lives deliberately left as they are ("on verra à l'usage"). Tests: "Le chrono ne fait pas perdre".
 - **Rewards**: the flower (`meta/bloom.js`), the 3★ target / new best on the result screen, shards flying into the card's purse, "Play" straight to the current level, and the map replaying the whole run of levels won since it was last shown, with one glowing line that stays lit.
