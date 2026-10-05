@@ -96,7 +96,7 @@ Supabase first, `prototype/levels/` as a seed.
 | Realm-complete celebration (confetti, next-realm preview) | `src/ui/realmComplete.js`, `src/render/confetti.js` |
 | Level editor | `src/ui/editor.js` |
 | Music (which track plays) | `src/audio/manifest.js` — `MUSIC`; volume `MUSIC_VOLUME` in `src/audio/audioManager.js` |
-| Make or change the music | `tools/music_organic.py` — composed in code (seeded), played by REAL instruments (FreePats CC0 soundfonts: piano, harp, hang, kalimba, water glasses) through FluidSynth (`brew install fluidsynth`). The soundfonts live in `tools/soundfonts/` (gitignored, ~150 MB, re-download from freepats.zenvoid.org). Never add room noise before normalising: it came out as loud hiss. The old numpy-synth `tools/music.py` still makes the exit chimes |
+| Make or change the music | `tools/music_organic.py` — composed in code (seeded), played by REAL instruments (FreePats CC0 soundfonts: piano, harp, hang, kalimba, water glasses) through FluidSynth (`brew install fluidsynth`). The soundfonts live in a local `soundfonts` folder next to the script — gitignored, so absent from clones and CI (~150 MB; re-download from freepats.zenvoid.org, file names in the script's `SF2`). Never add room noise before normalising: it came out as loud hiss. `python3 tools/music_organic.py sons` re-renders the six kalimba exit chimes (`ECHELLE_SORTIE`). The old numpy-synth `tools/music.py` only keeps « Verrière » |
 | All visible text | `src/ui/i18n.js` (5 languages) + `data-i18n` in `index.html` |
 | Navigation and wiring across screens | `src/main.js` |
 | Styles | `styles/main.css` |
