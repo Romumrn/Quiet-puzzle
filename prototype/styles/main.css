@@ -136,6 +136,42 @@ body { display: grid; place-items: center; }
   transition: background 700ms ease;
 }
 
+/* Premier lancement (pas de teinte mémorisée, voir index.html) : un voile
+   calme couvre le menu le temps que la base, la session et la synchro
+   répondent, plutôt que de le montrer rose puis de le repeindre. Neutre, sans
+   teinte : on ne sait pas encore celle du joueur. */
+.boot-veil {
+  position: absolute; inset: 0; z-index: 200;
+  display: grid; place-items: center;
+  background: #f1ecf0; /* = le splash Android (mobile/assets-src/splash.svg) */
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 600ms ease, visibility 0s linear 600ms;
+}
+html.booting .boot-veil {
+  opacity: 1; visibility: visible; pointer-events: auto;
+  transition: none;
+}
+html.night .boot-veil { background: linear-gradient(180deg, #2a2530 0%, #1c1820 100%); }
+
+/* Une barre fine où une lueur passe et revient, sans jamais se presser. */
+.boot-veil-bar {
+  position: relative; overflow: hidden;
+  width: 96px; height: 3px; border-radius: 999px;
+  background: rgba(120, 100, 115, 0.14);
+}
+.boot-veil-bar::after {
+  content: ''; position: absolute; inset: 0; width: 40%;
+  border-radius: inherit;
+  background: rgba(120, 100, 115, 0.45);
+  animation: boot-glide 2.4s ease-in-out infinite alternate;
+}
+html.night .boot-veil-bar { background: rgba(230, 220, 235, 0.12); }
+html.night .boot-veil-bar::after { background: rgba(230, 220, 235, 0.45); }
+@keyframes boot-glide {
+  from { transform: translateX(-10%); }
+  to { transform: translateX(160%); }
+}
+
 /* ---------- Écrans ---------- */
 
 .screen {
@@ -278,7 +314,9 @@ body { display: grid; place-items: center; }
 }
 
 /* "Play" breathes, slowly: the one thing to do on this screen. */
-#btn-play { animation: play-breathe 3.2s ease-in-out infinite; }
+#btn-play { animation: play-breathe 3.2s ease-in-out infinite; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+#btn-play small { font-size: 11px; font-weight: 400; opacity: 0.82; letter-spacing: 0.04em; }
+#btn-play small:empty { display: none; }
 @keyframes play-breathe { 50% { scale: 1.03; } }
 
 /* Formes de fond : à peine perceptibles, elles donnent de la profondeur sans
@@ -505,6 +543,9 @@ body { display: grid; place-items: center; }
   fill: none; stroke: #fff; stroke-width: 4; stroke-linecap: round;
   filter: drop-shadow(0 0 5px hsl(var(--h, 330) 80% 75%)) drop-shadow(0 0 2px #fff);
 }
+/* The run drawn (mapScreen.js `glowLine`): the light stays, and breathes. */
+.map-trail.settled path { animation: trail-breathe 3.2s ease-in-out infinite; }
+@keyframes trail-breathe { 50% { opacity: 0.6; } }
 /* A soft ring spreading from a level that has just unlocked. */
 .unlock-ring {
   position: absolute; inset: -2px; border-radius: 20px; pointer-events: none;
@@ -688,7 +729,7 @@ body { display: grid; place-items: center; }
   transition: transform 0.2s cubic-bezier(0.2, 1.6, 0.4, 1);
 }
 .hud-stat b.pop { transform: scale(1.32); }
-.hud-stat b.urgent { color: var(--alert); }
+.hud-stat b.over { color: var(--ink-faint); opacity: 0.6; transition: color 0.6s ease, opacity 0.6s ease; }
 .hud-stat .stars { padding-bottom: 5px; }
 
 .time-track {
@@ -700,7 +741,6 @@ body { display: grid; place-items: center; }
   background: var(--accent);
   transition: width 1s linear, background 0.3s ease;
 }
-.time-track i.urgent { background: var(--alert); }
 
 /* ---------- Plateau ---------- */
 
@@ -1048,23 +1088,6 @@ body { display: grid; place-items: center; }
   border: 2px solid var(--tile);
   transform: translate(-50%, -50%);
   animation: ring 560ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
-}
-
-/* A chained exit, from the third: "×3" rises from the gate and fades. */
-.combo {
-  position: absolute; transform: translate(-50%, -50%);
-  padding: 2px 8px; border-radius: 999px;
-  background: var(--tile); color: #fff;
-  font: 600 calc(var(--cell) * 0.3) var(--font-ui); font-variant-numeric: tabular-nums;
-  box-shadow: 0 3px 10px rgba(94, 72, 102, 0.18);
-  white-space: nowrap; pointer-events: none;
-  animation: combo-float 0.95s cubic-bezier(0.2, 0.7, 0.3, 1) both;
-}
-@keyframes combo-float {
-  0% { transform: translate(-50%, -30%) scale(0.5); opacity: 0; }
-  20% { transform: translate(-50%, -60%) scale(1.12); opacity: 1; }
-  65% { opacity: 1; }
-  100% { transform: translate(-50%, calc(-50% - var(--cell) * 1.1)) scale(0.95); opacity: 0; }
 }
 
 /* The grid is empty (boardView.finale): a wave of light sweeps across it. */
@@ -1578,6 +1601,125 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
 @keyframes soft-pulse {
   0%, 100% { scale: 1; box-shadow: 0 0 0 0 hsl(var(--h) 60% 65% / 0); }
   50% { scale: 1.035; box-shadow: 0 0 0 6px hsl(var(--h) 60% 65% / 0.16); }
+}
+
+/* The purse (resultScreen.js `flyShards`), in the middle of the card, with
+   "Double" beside it. The card sits above the flying shards' first leg, so
+   they come out from behind it. */
+.result-card { position: relative; z-index: 1; }
+.result-gain {
+  display: flex; justify-content: center; align-items: center; gap: 8px;
+  margin: -8px 0 18px;
+}
+.result-gain[hidden] { display: none; }
+.result-purse {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 14px; font-size: 15px;
+  color: var(--ink); font-weight: 500;
+}
+/* "Double", in the shards' amber, breathing a soft glow like "Next". */
+.btn-double {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 999px; cursor: pointer;
+  font: 600 12px var(--font-ui); color: #fff;
+  background: linear-gradient(135deg, hsl(44 88% 66%) 0%, hsl(38 78% 55%) 100%);
+  border: 1px solid hsl(40 70% 58%);
+  text-shadow: 0 1px 1px hsl(34 60% 38% / 0.35);
+  animation: double-glow 2.2s ease-in-out infinite;
+}
+@keyframes double-glow {
+  0%, 100% { scale: 1; box-shadow: 0 2px 6px hsl(40 80% 50% / 0.25), 0 0 0 0 hsl(42 90% 62% / 0); }
+  50% { scale: 1.04; box-shadow: 0 2px 8px hsl(40 80% 50% / 0.3), 0 0 0 6px hsl(42 90% 62% / 0.2); }
+}
+.btn-double span:first-child { font-size: 9px; }
+.btn-double[hidden] { display: none; }
+.btn-double[disabled] { opacity: 0.5; pointer-events: none; }
+.result-purse.bump { animation: purse-bump 0.32s cubic-bezier(.3,1.6,.5,1); }
+@keyframes purse-bump { 40% { scale: 1.12; } }
+.result-purse.bump .shard { animation: shard-glint 0.32s ease-out; }
+@keyframes shard-glint { 40% { filter: brightness(1.35) drop-shadow(0 0 4px hsl(42 90% 70%)); } }
+
+/* A shard: a small faceted gem in the award's amber. */
+.shard {
+  display: inline-block; width: 13px; height: 15px; flex: none;
+  background:
+    linear-gradient(115deg, hsl(45 95% 82%) 0 38%, transparent 38%),
+    linear-gradient(245deg, hsl(36 75% 52%) 0 40%, transparent 40%),
+    var(--award);
+  clip-path: polygon(50% 0, 100% 32%, 82% 100%, 18% 100%, 0 32%);
+}
+.shard-flying {
+  position: absolute; z-index: 0; pointer-events: none;
+  width: 12px; height: 14px;
+  filter: drop-shadow(0 0 4px hsl(42 90% 72% / 0.8));
+}
+.shard-flying.over { z-index: 30; }
+
+/* A replay's new best, or the 3-star target when the player fell short. */
+.result-goal {
+  margin: 6px 0 0; font-size: 12px; color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+.result-goal[hidden] { display: none; }
+.result-goal.best { color: var(--award); font-weight: 500; }
+
+/* The flower (meta/bloom.js): a petal per new level won, a gift at five.
+   A small pill, no wider than the purse and "Double" above it. */
+.result-bloom {
+  display: flex; align-items: center; gap: 8px;
+  width: fit-content; max-width: 100%; margin: -8px auto 14px; padding: 4px 13px 4px 5px;
+  border-radius: 999px; background: var(--ground); border: 1px solid var(--line-soft);
+  text-align: left;
+}
+.result-bloom[hidden] { display: none; }
+/* Still growing, a tap explains it (main.js `explainBloom`); opened, it is a gift, not a question. */
+.result-bloom.explains { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.result-bloom.explains:active { scale: 0.98; }
+.info-icon .bloom-flower { flex-basis: 42px; width: 42px; height: 42px; }
+/* Opened and not yet picked: it calls for the finger with a little sway. */
+.result-bloom.ready { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.result-bloom.ready:active { scale: 0.97; }
+.result-bloom.ready .bloom-flower { animation: bloom-call 1.6s ease-in-out infinite; }
+@keyframes bloom-call {
+  0%, 55%, 100% { transform: rotate(0); }
+  65% { transform: rotate(-12deg); } 75% { transform: rotate(10deg); } 85% { transform: rotate(-5deg); }
+}
+/* A hint or a hammer the flower gave: it rises out of it and floats away. */
+.bloom-present {
+  position: absolute; z-index: 30; pointer-events: none;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 7px 11px 7px 8px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--accent);
+  color: var(--accent-deep); font: 600 14px var(--font-ui);
+  box-shadow: 0 6px 18px hsl(var(--h) 50% 50% / 0.22), 0 0 0 6px hsl(var(--h) 70% 80% / 0.25);
+}
+.bloom-present svg { width: 22px; height: 22px; }
+.bloom-flower { flex: 0 0 26px; height: 26px; }
+.bloom-flower svg { width: 100%; height: 100%; overflow: visible; }
+.bloom-flower .petal, .bloom-flower .lit, .bloom-flower .spark {
+  transform-box: view-box; transform-origin: 20px 20px;
+}
+.bloom-flower .spark { transform-origin: 20px 3.2px; fill: #fff; opacity: 0; }
+.bloom-flower .bed { fill: var(--line-soft); }
+.bloom-flower .lit { fill: url(#bloom-petal); opacity: 0; }
+.bloom-flower .gloss { fill: #fff; opacity: 0; }
+.bloom-flower .on .lit { opacity: 1; }
+.bloom-flower .on .gloss { opacity: 0.55; }
+.bloom-flower .stop-base { stop-color: hsl(var(--h) 90% 93%); }
+.bloom-flower .stop-mid { stop-color: hsl(var(--h) 70% 78%); }
+.bloom-flower .stop-tip { stop-color: hsl(var(--h) 58% 62%); }
+.bloom-flower .heart { fill: url(#bloom-heart); }
+.bloom-body { min-width: 0; line-height: 1.25; }
+.bloom-text { font: 500 12px var(--font-ui); color: var(--ink-soft); }
+.bloom-gift { font-size: 12px; color: var(--award); font-weight: 500; }
+.bloom-gift[hidden] { display: none; }
+/* Opened: the row warms up, the flower breathes. */
+.result-bloom.open { border-color: var(--accent); background: var(--accent-wash); }
+.result-bloom.open .bloom-text { color: var(--accent-deep); }
+.result-bloom.open .bloom-flower svg { animation: bloom-breathe 2.4s ease-in-out infinite; }
+@keyframes bloom-breathe {
+  0%, 100% { filter: drop-shadow(0 0 2px hsl(var(--h) 80% 75% / 0.4)); }
+  50% { scale: 1.1; filter: drop-shadow(0 0 6px hsl(var(--h) 85% 72% / 0.8)) brightness(1.06); }
 }
 
 /* "Next novelty in N levels" */

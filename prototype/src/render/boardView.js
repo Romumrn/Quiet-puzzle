@@ -485,7 +485,7 @@ export class BoardView {
    * grid, every gate lit at once, a soft firework in the realm's colours.
    *
    * `e.chain` (set by main.js from the audio's run of chained exits) adds
-   * sparks and, from the third, floats a "×3" over the gate.
+   * sparks: the run is felt in the burst, never spelled out as a number.
    */
   async _exit(e) {
     const node = this.nodes.get(e.id);
@@ -506,8 +506,7 @@ export class BoardView {
     await wait(TIMING.POP);
 
     this._flashGate(e.gate);
-    const tint = this._burst(e.gate, node, { last, chain });
-    if (chain >= 3) this._combo(e.gate, chain, tint);
+    this._burst(e.gate, node, { last, chain });
 
     // Sucked in: longer along the exit axis, thinner across it, then gone.
     const k = (along, across) => (e.dx ? `scale(${along}, ${across})` : `scale(${across}, ${along})`);
@@ -602,21 +601,6 @@ export class BoardView {
     p.style.width = p.style.height = `${size}px`;
     this.fxLayer.appendChild(p);
     setTimeout(() => p.remove(), 720 + delay);
-  }
-
-  /** "×3", "×4"… rising from the gate and fading: the chime's run, made visible. */
-  _combo(gate, chain, tint) {
-    const { x, y } = this._gateCenter(gate);
-    const tag = document.createElement('div');
-    tag.className = 'combo';
-    tag.textContent = `×${chain}`;
-    tag.style.setProperty('--tile', tint);
-    // Just inside the board, so a top gate's tag is not pushed off the screen.
-    const inset = this.cell * 0.55;
-    tag.style.left = `${x + (gate.side === 'left' ? inset : gate.side === 'right' ? -inset : 0)}px`;
-    tag.style.top = `${y + (gate.side === 'top' ? inset : gate.side === 'bottom' ? -inset : 0)}px`;
-    this.fxLayer.appendChild(tag);
-    setTimeout(() => tag.remove(), 1000);
   }
 
   _flashGate(gate) {

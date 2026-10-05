@@ -54,11 +54,11 @@ export function update(board) {
 
   const share = board.timeRemaining / level.timeLimit;
   el('hud-time-fill').style.width = `${Math.max(0, Math.min(1, share)) * 100}%`;
-  el('hud-time-fill').classList.toggle('urgent', board.timeRemaining <= 15);
-  el('hud-time').classList.toggle('urgent', board.timeRemaining <= 15);
+  // No red, no alarm as it runs low: the clock only holds the third star, and
+  // once stopped it simply fades — the level goes on, at the player's pace.
+  el('hud-time').classList.toggle('over', !board.inTime());
 
-  // Preview: the stars still reachable with the drags already spent.
-  const [for3, for2] = level.starDrags;
-  const used = board.dragsUsed();
-  renderStars(el('hud-stars'), used <= for3 ? 3 : used <= for2 ? 2 : used <= level.moveLimit ? 1 : 0);
+  // Preview: the stars still reachable with the drags spent and the clock.
+  const reachable = board.dragStars();
+  renderStars(el('hud-stars'), board.inTime() ? reachable : Math.min(2, reachable));
 }

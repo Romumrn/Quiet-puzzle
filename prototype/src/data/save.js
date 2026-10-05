@@ -61,6 +61,7 @@ const EMPTY = () => ({
   badges: [],        // badges earned
   hints: 0,          // free hints, spent before coins
   hammers: 0,        // free hammers, spent before an ad
+  bloom: 0,          // petals on the flower, one per new level won (meta/bloom.js)
   boostersIntro: false, // the booster bar's one-time explanation was shown
   dailyRewardOn: null,  // 'YYYY-MM-DD' of the last daily puzzle bonus paid
   lastPlayDay: null, // 'YYYY-MM-DD'

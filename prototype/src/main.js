@@ -22,6 +22,7 @@ import * as store from './data/save.js';
 import * as screens from './ui/screens.js';
 import * as mapScreen from './ui/mapScreen.js';
 import * as theme from './ui/theme.js';
+import * as bloom from './meta/bloom.js';
 import * as editor from './ui/editor.js';
 import { solve } from './core/solver.js';
 import * as hud from './ui/gameplayUI.js';
@@ -109,6 +110,9 @@ const ads = new AdBroker({
 async function showMenu() {
   stopClock();
   const p = await api.getProfile();
+  // The colour first, before the calls below that may wait on the network.
+  theme.apply(p.currentLevel, { remember: true }); // the menu takes the colour of where the player is
+  paintPlayLevel(p.currentLevel);
   el('menu-stars').textContent = p.totalStars;
   el('menu-coins').textContent = p.coins;
   await updateDailyPuzzleButton();
@@ -116,9 +120,9 @@ async function showMenu() {
   updateStreakBadge();
   updateMuteDot();
   await updateGreeting();
-  theme.apply(p.currentLevel); // the menu takes the colour of where the player is
   livesUI.refresh();
   screens.show('menu');
+  theme.endBoot();
   audio.startMusic();
   updateBanner('menu');
 }
@@ -208,16 +212,19 @@ function updateBanner(screen) {
 }
 
 /**
- * The level just won for the first time, while the player has not moved on:
- * the next `showMap()` plays its stars, the path and the unlock, then forgets
- * it — reopening the map later does not replay anything.
+ * The levels won for the first time since the map was last shown — one, or a
+ * whole run of "Next". The next `showMap()` plays them all (stars, a line of
+ * light through the run, each unlock), then forgets them: reopening the map
+ * later does not replay anything.
  */
-let mapReveal = null;
+let mapRun = [];
 
 /** Sounds and buzzes for the map's unlock (mapScreen.js). */
 const MAP_FX = {
   star: (i) => { audio.chime(1 + i, 0.55); haptics.tick(); },
-  unlock: () => { audio.chime(5, 0.8); haptics.tick(); },
+  // Unlock i of n: a long run climbs the scale and lands on the top note,
+  // which a single unlock plays straight away.
+  unlock: (i = 0, n = 1) => { audio.chime(5 - Math.min(3, n - 1 - i), 0.8); haptics.tick(); },
 };
 
 /**
@@ -234,8 +241,8 @@ function showMap() {
   stopClock();
   result.hide();
   realmComplete.hide();
-  const reveal = mapReveal && { ...mapReveal, fx: MAP_FX };
-  mapReveal = null;
+  const reveal = mapRun.length ? { run: mapRun, fx: MAP_FX } : null;
+  mapRun = [];
   mapScreen.render(showBrief, reveal);
   livesUI.refresh();
   screens.show('map');
@@ -261,7 +268,6 @@ function applyScenery(host, n) {
 
 async function showBrief(n) {
   stopClock();
-  mapReveal = null; // moved on: the map will not replay the last win
   // Every map level comes through here. A daily puzzle or an editor trial the
   // player walked out of (back arrow) used to leave its flag set, since only
   // `finishLevel` cleared it: the next map level won was then scored as the
@@ -279,7 +285,10 @@ async function showBrief(n) {
   screens.renderStars(el('brief-stars'), rec.stars);
   el('brief-objective').textContent = hud.labelFor(level);
   // No move limit any more: what the briefing shows is the 3-star target.
-  el('brief-moves').textContent = level.starDrags?.[0] ?? '—';
+  // …and before the clock stops: the third star asks for both.
+  const limit = Math.max(level.timeLimit || 0, MIN_TIME_S);
+  el('brief-moves').textContent = level.starDrags?.[0]
+    ? `${level.starDrags[0]} · ${Math.floor(limit / 60)}:${String(limit % 60).padStart(2, '0')}` : '—';
   el('brief-difficulty').textContent = i18n.realmText(levels.realmOf(n), 'difficulty');
   // The realm's novelty, announced at its first level only. A block kind never
   // seen must be named once; repeating it across the next nineteen levels would
@@ -376,7 +385,6 @@ async function startLevel() {
   openPanel(false);
   result.hide();
   realmComplete.hide();
-  mapReveal = null; // replaying or moving on: the map will not replay the win
   await adBeforeLevel();
   theme.apply(level.number);
   audio.resetRun();
@@ -616,7 +624,7 @@ function onDrag(id, x, y) {
 
 /**
  * Each exit rings the rising chime and carries the run it belongs to, which
- * the board shows as "×3", "×4"… (boardView `_combo`).
+ * the board turns into a fuller burst of sparks (boardView `_burst`).
  */
 function chimeExits(events) {
   for (const e of events) if (e.type === 'exit') { audio.exit(); e.chain = audio.chain; haptics.tick(); }
@@ -664,8 +672,11 @@ function startClock() {
   stopClock();
   clock = setInterval(async () => {
     if (!board || board.gameState !== GameState.PLAYING) return;
+    const wasInTime = board.inTime();
     board.tick(1);
     hud.update(board);
+    // The clock has just stopped: said once, gently — the level goes on.
+    if (wasInTime && !board.inTime()) screens.toast(t('toast.timeup'));
     if (board.gameState !== GameState.PLAYING) await finishLevel();
   }, 1000);
 }
@@ -796,7 +807,11 @@ async function finishLevel() {
   if (!won && usesLives()) lives.spend(lives.COST.FAIL, 'fail');
   // Read before `completeLevel` records it: a FIRST win gets its unlock played
   // on the map (mapScreen.js) if the player goes back there next.
-  const firstWin = won && !(store.levelRecord(level.number).stars > 0);
+  const prevRecord = store.levelRecord(level.number);
+  const firstWin = won && !(prevRecord.stars > 0);
+  // A replay that beats the player's own best says so: it is what a replay is for.
+  const newBest = won && !firstWin && prevRecord.bestScore > 0 && board.dragsUsed() < prevRecord.bestScore;
+  const petal = firstWin ? bloom.addPetal() : null;
   const res = await api.completeLevel(level.number, { score: board.dragsUsed(), stars, failed: !won, timeMs: duration * 1000 });
   if (won) announceQuests(quests.onLevelWon({
     stars, ...exitCounts(), tier: levels.tierOf(level.number), streak: res.levelStreak || 0,
@@ -806,7 +821,7 @@ async function finishLevel() {
   // `startLevel`). We just advance the policy's counter: a level ending is
   // indeed what makes an ad eligible.
   ads.policy.noteLevelEnding();
-  mapReveal = firstWin ? { level: level.number, stars } : null;
+  if (firstWin) mapRun.push({ level: level.number, stars });
 
   // A win on the last level of a realm gets the celebration screen instead of
   // the plain result screen — it carries the same stars/reward, plus the next
@@ -815,6 +830,8 @@ async function finishLevel() {
     track(EV.REALM_COMPLETED, levelContext(level, { attempt: levelFailures + 1, board, duration }));
     const finishedRealm = levels.realmOf(level.number);
     const isGameOver = level.number >= levels.totalLevels();
+    // The realm screen has no room for the flower: its gift, if it opens here, is told in a toast.
+    if (petal?.gift) screens.toast(`${t('bloom.open')} ${bloomGiftText(petal.gift)}`);
     realmComplete.show({
       realm: finishedRealm,
       next: isGameOver ? null : levels.realmOf(level.number + 1),
@@ -839,7 +856,16 @@ async function finishLevel() {
     duration,
     level: level.number,
     coinsEarned: res.coinsEarned,
+    // The purse AFTER this level (and the flower's shards, if it opened).
+    balance: currency.balance(),
     levelStreak: res.levelStreak,
+    // Short of three stars: what was missing — the moves, the clock or both —
+    // so "Replay" has something to aim at.
+    starGoal: won && board.dragStars() < 3 ? level.starDrags?.[0] : null,
+    timeGoal: won && !board.inTime() && board.dragStars() >= 2,
+    newBest,
+    bloom: petal && { ...petal, total: bloom.PETALS, giftText: petal.gift && bloomGiftText(petal.gift) },
+    onBloomInfo: explainBloom,
     reason: board.failReason,
     remaining: board.remaining(),
     noAds: currency.hasRemovedAds(),
@@ -848,7 +874,7 @@ async function finishLevel() {
       const watched = await ads.showRewarded(PLACEMENT.REWARDED_DOUBLE);
       if (!watched) return false;
       currency.credit(res.coinsEarned, 'double_reward');
-      return true;
+      return currency.balance();
     },
     onMap: showMap,
     onRetry: startLevel,
@@ -864,7 +890,17 @@ async function finishLevel() {
 // Wiring
 // ---------------------------------------------------------------------------
 
-el('btn-play').onclick = showMap;
+/**
+ * "Play" opens the level the player is on, not the map: one tap from the home
+ * screen to the next grid, as in every puzzle game that keeps its players
+ * playing. The map stays one tap back, from the brief. Everything finished:
+ * the map, to pick a level to replay.
+ */
+el('btn-play').onclick = () => {
+  const n = store.load().unlockedLevel || 1;
+  const done = n >= levels.totalLevels() && store.levelRecord(n).stars > 0;
+  return done ? showMap() : showBrief(n);
+};
 
 /**
  * A tap on the home screen AROUND the buttons shakes a few petals loose from
@@ -1472,9 +1508,15 @@ function updateShop() {
 
 /** The home screen's counters from the save alone — no database, no network. */
 function paintMenuFromSave() {
+  paintPlayLevel(store.load().unlockedLevel || 1);
   el('menu-stars').textContent = store.totalStars();
   el('menu-coins').textContent = currency.balance();
   updateStreakBadge();
+}
+
+/** "Niveau 37" under "Play": where the button leads. */
+function paintPlayLevel(n) {
+  el('menu-play-level').textContent = t('menu.play.level', { n });
 }
 
 /** Refreshes the menu counters without rebuilding it entirely. */
@@ -1510,6 +1552,32 @@ el('btn-shop-ad').onclick = async () => {
  * Replaying the puzzle to better a score pays nothing more.
  * @returns {string|null} what was won, as a line for the ranking card.
  */
+/**
+ * What the flower is, on a tap on its row: a petal per new level, a surprise
+ * at five. Shown with the flower as it stands, in the same card as the blocks'
+ * explanations.
+ */
+function explainBloom() {
+  if (!el('overlay-info').hidden) return;
+  el('info-icon').replaceChildren(el('bloom-flower').cloneNode(true));
+  el('info-title').textContent = t('bloom.info.title');
+  el('info-text').textContent = t('bloom.info.text', { n: bloom.PETALS });
+  el('overlay-info').hidden = false;
+  track('bloom_info_shown', {});
+  const close = () => { el('overlay-info').hidden = true; };
+  const openedAt = performance.now();
+  el('btn-info-ok').onclick = close;
+  el('overlay-info').onclick = (ev) => {
+    if (performance.now() - openedAt < 300 || el('info-card').contains(ev.target)) return;
+    close();
+  };
+}
+
+/** "+50 éclats", "Un indice offert"… — what the flower held. */
+function bloomGiftText(gift) {
+  return t(`bloom.gift.${gift.kind}`, { n: gift.amount });
+}
+
 const DAILY_REWARDS = [
   { kind: 'coins', amount: 50 },
   { kind: 'hammer', amount: 1 },
@@ -2017,6 +2085,7 @@ function refreshDebug() {
     document.getElementById('app').innerHTML =
       `<div class="boot-error"><h1>${t('boot.missing')}</h1>`
       + `<p>${t('boot.hint')}</p></div>`;
+    theme.endBoot();
     console.error(e);
     return;
   }
@@ -2041,6 +2110,7 @@ function refreshDebug() {
 
     if (!session) {
       document.body.appendChild(createLoginScreen(() => startGameLoop()));
+      theme.endBoot();
     } else {
       // A session already open at cold start (the common case after the first
       // sign-in): pull whatever progress the account holds before the menu

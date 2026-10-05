@@ -21,6 +21,7 @@
  */
 
 import { Board, SIDES } from '../src/core/board.js';
+import { GameState } from '../src/core/gameState.js';
 import { KIND, colorsOf } from '../src/core/block.js';
 import * as base from './base.mjs';
 
@@ -46,9 +47,10 @@ const check = (nom, cond, detail = '') => {
 };
 
 /** Rejoue la solution de référence, sans limite de coups ni de temps. */
-function rejouer(n) {
+function rejouer(n, { avant = null } = {}) {
   const level = getLevel(n);
   const b = new Board({ ...level, moveLimit: 9999, timeLimit: 9999 });
+  avant?.(b);
 
   for (const step of level.solution) {
     const path = Array.isArray(step.path) ? step.path : Array.isArray(step.chemin) ? step.chemin : null;
@@ -267,6 +269,19 @@ console.log('\n== Compte des coups ==');
   v.endGesture(true, last);
   check("l'horloge ne déclare pas la victoire, la fin du geste si", stillPlaying && v.gameState === 'WON' && v.dragsUsed() === 1,
     `${v.gameState}, ${v.dragsUsed()} coup(s)`);
+}
+
+console.log('\n== Le chrono ne fait pas perdre ==');
+{
+  // Le chrono tombe à zéro avant le premier geste : la partie continue, la
+  // grille se vide quand même, et la troisième étoile n'est plus possible.
+  const r = rejouer(1, { avant: (b) => { b.timeRemaining = 3; b.tick(10); } });
+  check('chrono à zéro : le niveau reste en cours puis se gagne', r.ok && r.board.gameState === GameState.WON,
+    r.raison || r.board.gameState);
+  check('chrono à zéro : 2★ au plus', r.board.stars() <= 2 && r.board.dragStars() === 3,
+    `${r.board.stars()}★ (coups seuls : ${r.board.dragStars()}★)`);
+  const dansLesTemps = rejouer(1);
+  check('dans les temps : les 3★ restent possibles', dansLesTemps.board.stars() === 3, `${dansLesTemps.board.stars()}★`);
 }
 
 console.log('\n== Intégrité de la grille ==');

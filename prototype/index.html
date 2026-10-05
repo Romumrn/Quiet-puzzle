@@ -3,15 +3,39 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#141033">
+  <meta name="theme-color" content="#f1ecf0">
   <title>Quiet Puzzle — Prototype</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Outfit:wght@300;400;500&display=swap">
   <link rel="stylesheet" href="styles/main.css">
+  <script>
+    // Before the first paint, so the menu never flashes another colour: the
+    // skin of the player's level and the night mode, both from the last
+    // launch (theme.js `apply(…, { remember })`, save.js). No skin kept yet
+    // means a first launch or a reinstall: a calm loading veil covers the menu
+    // until main.js has painted it (theme.js `endBoot`).
+    (function () {
+      var root = document.documentElement;
+      try {
+        var skin = JSON.parse(localStorage.getItem('quietpuzzle.skin'));
+        if (skin) {
+          root.style.setProperty('--h', skin.h);
+          skin.palette.forEach(function (c, i) { root.style.setProperty('--c' + i, c); });
+        } else {
+          root.classList.add('booting');
+        }
+        var save = JSON.parse(localStorage.getItem('puzzlequest.save.v1'));
+        if (save && save.night === true) root.classList.add('night');
+      } catch (e) { /* no storage: the default skin, as before */ }
+    })();
+  </script>
 </head>
 <body>
 <div class="device">
+  <!-- First launch only (html.booting): covers the menu while the level
+       database, the session and the sync answer. -->
+  <div class="boot-veil" aria-hidden="true"><span class="boot-veil-bar"></span></div>
   <main class="app" id="app">
 
     <!-- ============ MENU ============ -->
@@ -40,7 +64,9 @@
         <div class="stat"><b id="menu-stars">0</b><small data-i18n="menu.stars">stars</small></div>
         <button class="stat stat-action" id="btn-shop" data-i18n-aria="shop.title"><b id="menu-coins">0</b><small data-i18n="menu.coins">coins</small></button>
       </div>
-      <button class="btn btn-primary btn-lg" id="btn-play" data-i18n="menu.play">Play</button>
+      <!-- Straight to the level the player is on (its brief); the map is one
+           tap back from there. -->
+      <button class="btn btn-primary btn-lg" id="btn-play"><span data-i18n="menu.play">Play</span><small id="menu-play-level"></small></button>
       <!-- Secondary: two small buttons side by side under "Play". -->
       <div class="menu-secondary">
         <button class="btn btn-ghost btn-mini btn-quests" id="btn-quests">
@@ -262,9 +288,27 @@
         <div class="stars stars-lg" id="result-stars"></div>
         <p class="result-score"><span id="result-score">0</span><small data-i18n="result.drags">drags</small></p>
         <p class="result-time" id="result-time" hidden></p>
+        <!-- A replay's new best, or — short of three stars — the 3-star target. -->
+        <p class="result-goal" id="result-goal" hidden></p>
         <p class="result-near" id="result-near" hidden></p>
         <p class="result-reward" id="result-reward"></p>
+        <!-- The purse, in the middle of the card: the level's shards come out
+             from behind the card and fly into it. "Double" sits right beside
+             it, where the shards have just landed. -->
+        <div class="result-gain" id="result-gain" hidden>
+          <span class="pill result-purse" id="result-purse"><i class="shard" aria-hidden="true"></i><b id="result-purse-n">0</b></span>
+          <button class="btn-double" id="btn-double" hidden><span aria-hidden="true">▶</span> <span data-i18n="result.double">Double the shards</span></button>
+        </div>
         <p class="result-streak" id="result-streak" hidden></p>
+        <!-- The flower: a petal per new level won, a surprise gift at five
+             (meta/bloom.js). -->
+        <div class="result-bloom" id="result-bloom" hidden>
+          <span class="bloom-flower" id="bloom-flower" aria-hidden="true"></span>
+          <div class="bloom-body">
+            <p class="bloom-text" id="bloom-text"></p>
+            <p class="bloom-gift" id="bloom-gift" hidden></p>
+          </div>
+        </div>
         <!-- "Next novelty in N levels": the block or mechanic the next realm
              brings, and a bar that fills a notch with every win. -->
         <div class="result-novelty" id="result-novelty" hidden>
@@ -275,9 +319,6 @@
             <div class="novelty-track"><i id="novelty-fill"></i></div>
           </div>
         </div>
-        <button class="btn btn-reward" id="btn-double" hidden>
-          <span>▶</span> <span data-i18n="result.double">Double the coins</span>
-        </button>
         <div class="result-actions">
           <button class="btn btn-ghost" id="btn-result-map" data-i18n="result.map">Map</button>
           <button class="btn btn-ghost" id="btn-result-retry" data-i18n="result.retry">Retry</button>

@@ -48,7 +48,28 @@ export function applyTo(element, level) {
   paletteFor(level).forEach((color, i) => element.style.setProperty(`--c${i}`, color));
 }
 
-/** Applies a level's skin to the whole application. */
-export function apply(level) {
+/**
+ * Where the menu's skin is kept between launches. index.html reads it in an
+ * inline script, before the first paint: the menu opens straight in the
+ * player's colour instead of `:root`'s default pink, which used to show until
+ * the level database, the session and the sync had all answered. No skin kept
+ * (first launch, reinstall) puts up the loading veil instead (`html.booting`).
+ */
+const SKIN_KEY = 'quietpuzzle.skin';
+
+/**
+ * Applies a level's skin to the whole application. `remember` keeps it for
+ * the next cold start — the menu passes it, a replayed old level does not.
+ */
+export function apply(level, { remember = false } = {}) {
   applyTo(document.getElementById('app'), level);
+  if (!remember) return;
+  try {
+    localStorage.setItem(SKIN_KEY, JSON.stringify({ h: hueFor(level), palette: paletteFor(level) }));
+  } catch { /* private mode, full storage: the next launch shows the veil */ }
+}
+
+/** Lifts the loading veil, if the launch had one. Idempotent. */
+export function endBoot() {
+  document.documentElement.classList.remove('booting');
 }
