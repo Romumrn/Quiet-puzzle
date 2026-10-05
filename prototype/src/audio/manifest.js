@@ -7,7 +7,12 @@
  * version embeds everything, without a single line of the player changing.
  */
 
-export const MUSIC = 'audio/3-verriere.mp3';
+/**
+ * « Jardin » — real instruments (piano, harp, hang, kalimba, water glasses),
+ * rendered by tools/music_organic.py. « Verrière », the numpy-synthesised
+ * piece it replaces, stays in audio/ (tools/music.py).
+ */
+export const MUSIC = 'audio/4-jardin.mp3';
 
 /** Exit chimes, from low to high. See AudioManager.exit(). */
 export const EXIT_SOUNDS = [

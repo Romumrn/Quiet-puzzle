@@ -10,8 +10,6 @@ Document_Technique_Developpeurs.md
 # WAV files are intermediate artifacts and can be regenerated with:
 # `python3 tools/music.py`
 prototype/audio/*.wav
-prototype/audio/1-aube.mp3
-prototype/audio/2-derive.mp3
 
 .DS_Store
 node_modules/
@@ -44,3 +42,4 @@ keystore.properties
 # Playtest material for the parking mechanic — regenerate, do not commit.
 prototype/park-test.html
 prototype/park-levels.json
+prototype/tools/soundfonts/

@@ -2,7 +2,7 @@
 """
 Générateur de musique d'ambiance — `python3 tools/music.py [morceau...]`
 
-Trois morceaux ORIGINAUX dans l'esprit ambient-piano des jeux bac à sable :
+Un morceau ORIGINAL (« Verrière », remplacé en jeu par « Jardin » de music_organic.py) dans l'esprit ambient-piano des jeux bac à sable :
 lent, clairsemé, harmonie diatonique, longues résonances. Rien n'est repris
 d'une œuvre existante ; la variation vient d'un tirage seedé, donc un même seed
 redonne exactement le même morceau.
@@ -339,88 +339,6 @@ def respiration(m, mesures):
 # Les morceaux
 # --------------------------------------------------------------------------
 
-def morceau_aube():
-    """« Aube » — Fa majeur lydien, 72 BPM. Arpèges qui montent, lumineux."""
-    rng = np.random.default_rng(20260904)
-    bpm, mesures, transp = 72, 24, 0.0
-    temps = 60 / bpm
-    duree = mesures * 4 * temps
-
-    accords = [
-        (["F2", "F3", "A3", "C4", "E4"], ["F4", "A4", "C5", "E5"]),
-        (["C2", "C3", "G3", "D4", "E4"], ["G4", "C5", "D5", "E5"]),
-        (["D2", "D3", "A3", "C4", "F4"], ["F4", "A4", "C5", "D5"]),
-        (["Bb1", "Bb2", "F3", "A3", "D4"], ["F4", "A4", "D5", "F5"]),
-    ]
-    p = Piste(duree + 7, rng)
-
-    for m in range(mesures):
-        t0 = m * 4 * temps
-        graves, aigus = accords[m % 4]
-        souffle = respiration(m, mesures)
-
-        for note in graves[:2]:
-            p.jouer(t0, nappe, freq(note, transp), 4 * temps + 2.0, 0.30, gain=0.85 * souffle)
-
-        for pas in range(8):
-            if (m % 4 == 3 and pas >= 6) or rng.random() < 0.22:
-                continue
-            note = aigus[pas % len(aigus)] if pas % 2 == 0 else graves[2 + pas % 3]
-            f = freq(note, transp)
-            force = (0.5 + 0.2 * rng.random() + (0.16 if pas == 0 else 0)) * souffle
-            pan = float(np.clip(np.log2(f / 261.6) * 0.22, -0.4, 0.4))
-            p.jouer(humaniser(t0 + pas * temps / 2, rng, temps, pas % 2 == 1),
-                    piano, f, 3.4, force, pan=pan, gain=0.6)
-
-        if m % 2 == 1:
-            note = aigus[-1] if rng.random() < 0.5 else aigus[-2]
-            p.jouer(humaniser(t0 + 2 * temps, rng, temps), piano,
-                    freq(note, transp), 4.5, 0.42 * souffle, pan=0.15, gain=0.5)
-
-    return boucler(reverbe(p.buf, 3.4, 0.66, rng), duree), duree, rng
-
-
-def morceau_derive():
-    """« Dérive » — La mineur, 60 BPM. Motif descendant, très clairsemé."""
-    rng = np.random.default_rng(77113)
-    bpm, mesures, transp = 60, 20, 0.0
-    temps = 60 / bpm
-    duree = mesures * 4 * temps
-
-    accords = [
-        (["A1", "A2", "E3", "G3"], ["C5", "B4", "A4", "E4"]),
-        (["F1", "F2", "C3", "E3"], ["A4", "G4", "F4", "C4"]),
-        (["C2", "C3", "G3", "B3"], ["E5", "D5", "C5", "G4"]),
-        (["G1", "G2", "D3", "A3"], ["D5", "B4", "A4", "G4"]),
-    ]
-    p = Piste(duree + 9, rng)
-
-    for m in range(mesures):
-        t0 = m * 4 * temps
-        graves, chute = accords[m % 4]
-        souffle = respiration(m, mesures)
-
-        for note in graves[:2]:
-            p.jouer(t0, nappe, freq(note, transp), 4 * temps + 3.0, 0.34, gain=0.9 * souffle)
-
-        instant = t0 + (0.0 if m % 2 == 0 else temps)
-        for k, note in enumerate(chute):
-            if rng.random() < 0.18:
-                instant += temps
-                continue
-            f = freq(note, transp)
-            force = (0.52 - 0.06 * k + 0.12 * rng.random()) * souffle
-            pan = float(np.clip(0.3 - 0.16 * k, -0.4, 0.4))
-            p.jouer(humaniser(instant, rng, temps), piano, f, 5.0, force, pan=pan, gain=0.62)
-            instant += temps * (1.0 if rng.random() < 0.65 else 1.5)
-
-        if m % 4 == 2:
-            p.jouer(humaniser(t0 + 3 * temps, rng, temps), piano,
-                    freq(graves[1], transp), 5.5, 0.3 * souffle, gain=0.45)
-
-    return boucler(reverbe(p.buf, 4.6, 0.74, rng), duree), duree, rng
-
-
 def morceau_verriere():
     """
     « Verrière » — pentatonique, 59 BPM.
@@ -620,8 +538,6 @@ def rendre_sfx(sf_mod, ffmpeg):
 
 
 MORCEAUX = {
-    "1-aube": ("Aube", morceau_aube, "Fa majeur lydien · 72 BPM · lumineux"),
-    "2-derive": ("Dérive", morceau_derive, "La mineur · 60 BPM · contemplatif"),
     "3-verriere": ("Verrière", morceau_verriere, "Sol pentatonique · 59 BPM · aérien"),
 }
 

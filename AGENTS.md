@@ -95,6 +95,8 @@ Supabase first, `prototype/levels/` as a seed.
 | Menu colour at cold start, first-launch loading veil | inline script in `index.html` `<head>` reads the skin `theme.apply(…, { remember: true })` kept in localStorage; no skin → `html.booting` + `.boot-veil`, lifted by `theme.endBoot()`. Native splash, WebView background and veil share one neutral pastel `#f1ecf0`: `mobile/assets-src/splash.svg`, `mobile/capacitor.config.json`, `windowSplashScreenBackground` in `styles.xml`, `.boot-veil` |
 | Realm-complete celebration (confetti, next-realm preview) | `src/ui/realmComplete.js`, `src/render/confetti.js` |
 | Level editor | `src/ui/editor.js` |
+| Music (which track plays) | `src/audio/manifest.js` — `MUSIC`; volume `MUSIC_VOLUME` in `src/audio/audioManager.js` |
+| Make or change the music | `tools/music_organic.py` — composed in code (seeded), played by REAL instruments (FreePats CC0 soundfonts: piano, harp, hang, kalimba, water glasses) through FluidSynth (`brew install fluidsynth`). The soundfonts live in `tools/soundfonts/` (gitignored, ~150 MB, re-download from freepats.zenvoid.org). Never add room noise before normalising: it came out as loud hiss. The old numpy-synth `tools/music.py` still makes the exit chimes |
 | All visible text | `src/ui/i18n.js` (5 languages) + `data-i18n` in `index.html` |
 | Navigation and wiring across screens | `src/main.js` |
 | Styles | `styles/main.css` |
@@ -189,6 +191,7 @@ node tools/build-levels.mjs          # --realm <id> for one world, --index-only 
 node tools/test.mjs
 node tools/balance.mjs
 node tools/check.mjs
+python3 tools/music_organic.py        # re-render the music (needs fluidsynth + tools/soundfonts/)
 node tools/publier.mjs
 node tools/bundle.mjs
 node tools/vendor-supabase.mjs       # regenerate vendor/supabase-js.esm.js
