@@ -429,17 +429,32 @@ async function startLevel() {
 }
 
 /**
- * State of the booster bar. A hint is paid in coins while there are any, and
- * falls back on a rewarded ad when the player is broke — better an ad than a
- * stuck player who uninstalls. The other three boosters are only ever obtained
- * in exchange for a rewarded ad.
+ * State of the booster bar. Hint and undo are paid in coins while the player
+ * can afford them, and fall back on a rewarded ad when they are broke — better
+ * an ad than a stuck player who uninstalls. The hammer, which does the work for
+ * the player, is only ever obtained in exchange for a rewarded ad.
  */
 function updateBoosters() {
-  const broke = !currency.canAfford(currency.PRICES.HINT);
-  badge('hint-cost', freebies.hint + stock('hint'), broke ? t('ad.badge') : currency.PRICES.HINT, broke);
+  priceBadge('hint-cost', freebies.hint + stock('hint'), currency.PRICES.HINT);
   badge('hammer-cost', freebies.hammer + stock('hammer'), t('ad.badge'), true);
-  badge('undo-cost', freebies.undo, t('ad.badge'), true);
+  priceBadge('undo-cost', freebies.undo, currency.PRICES.UNDO);
   el('btn-undo').disabled = !board || !board.canUndo();
+}
+
+/** The price in coins, or the ad badge when the player cannot pay it. */
+function priceBadge(id, free, price) {
+  const broke = !currency.canAfford(price);
+  badge(id, free, broke ? t('ad.badge') : price, broke);
+}
+
+/**
+ * Pays for a booster: a free one first (streak, stock), then coins, then a
+ * rewarded ad when the player is broke. True when it is paid for.
+ */
+async function payBooster(kind, price, reason, placement) {
+  if (useFreebie(kind)) return true;
+  if (currency.canAfford(price)) return currency.debit(price, reason);
+  return boosterByAd(placement);
 }
 
 /** A booster's price tag — or "×n" while the win streak still pays for it. */
@@ -920,14 +935,22 @@ livesUI.init({ ads });
 
 el('streak-badge').onclick = onStreakBadge;
 
+/**
+ * Giving up on a grid in progress — Restart, or walking out of it (back arrow,
+ * phone's back button): the run of wins stops here. Once a move has been
+ * played it also costs half a heart — half, because it is a choice, not a
+ * defeat. Both ways out must cost the same: leaving and coming back used to be
+ * a free restart.
+ */
+function giveUp(reason) {
+  if (screens.current() !== 'game' || board?.gameState !== GameState.PLAYING) return;
+  api.resetLevelStreak();
+  if (usesLives() && board.dragsUsed() > 0) lives.spend(lives.COST.RESTART, reason);
+}
+
 el('btn-restart').onclick = () => {
   if (busy) return;
-  // Restarting a grid in progress gives up on it: the run of wins stops here.
-  // It also costs half a heart — half, because it is a choice, not a defeat.
-  if (board?.gameState === GameState.PLAYING) {
-    api.resetLevelStreak();
-    if (usesLives()) lives.spend(lives.COST.RESTART, 'restart');
-  }
+  giveUp('restart');
   startLevel();
 };
 
@@ -967,18 +990,9 @@ el('btn-hammer').onclick = async () => {
   el('board').addEventListener('pointerdown', aim, true);
 };
 
-el('btn-time').onclick = async () => {
-  if (!board || busy || board.gameState !== GameState.PLAYING) return;
-  if (!await boosterByAd(PLACEMENT.REWARDED_TIME)) return;
-  board.addTime(30);
-  track('powerup_used', { type: 'time', level: level.number });
-  hud.update(board);
-  screens.toast(t('toast.time'));
-};
-
 el('btn-undo').onclick = async () => {
   if (!board || busy || board.gameState !== GameState.PLAYING || !board.canUndo()) return;
-  if (!useFreebie('undo') && !await boosterByAd(PLACEMENT.REWARDED_UNDO)) return;
+  if (!await payBooster('undo', currency.PRICES.UNDO, 'undo', PLACEMENT.REWARDED_UNDO)) return;
   board.undo();
   track('powerup_used', { type: 'undo', level: level.number });
   view.resync();
@@ -1019,16 +1033,7 @@ el('btn-hint').onclick = async () => {
   const { advice } = answer;
   if (!advice) { screens.toast(t('toast.nohint')); return; }
 
-  if (useFreebie('hint')) {
-    // paid by the win streak
-  } else if (currency.canAfford(currency.PRICES.HINT)) {
-    if (!currency.debit(currency.PRICES.HINT, 'hint')) return;
-  } else {
-    stopClock();
-    const watched = await ads.showRewarded(PLACEMENT.REWARDED_HINT);
-    startClock();
-    if (!watched) { screens.toast(t('shop.ad.failed')); return; }
-  }
+  if (!await payBooster('hint', currency.PRICES.HINT, 'hint', PLACEMENT.REWARDED_HINT)) return;
 
   track('hint_used', { level: level.number, blockId: advice.id, park: !advice.gate });
   view.ghost(advice.id, advice.path, advice.gate);
@@ -1293,6 +1298,7 @@ registerBackHandler(() => {
   if (screens.current() === 'brief') { showMap(); return true; }
   if (screens.current() === 'game') {
     stopClock();
+    giveUp('abandon');
     // Testing a level from the editor is a detour, not a move into the
     // normal progression — leaving it should land back where it started
     // (the draft, still there), not on the general map the player never
@@ -1908,7 +1914,7 @@ document.querySelectorAll('[data-nav]').forEach((b) => {
         attempt: levelFailures + 1, board,
         duration: Math.round((Date.now() - levelStartedAt) / 1000),
       }));
-      api.resetLevelStreak();
+      giveUp('abandon');
     }
     // Leaving a grid being tried out from the editor goes back to the editor,
     // draft intact — as the phone's back button already did (registerBackHandler).

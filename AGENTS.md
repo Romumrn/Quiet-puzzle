@@ -216,6 +216,14 @@ cd android && ./gradlew assembleDebug      # or bundleRelease, once signing is c
 
 Newest first. Short enough to skim, detailed enough to know whether a bug you just hit is new or already-known.
 
+### 2026-10-27
+
+- **Leaving a level in progress costs the same as Restart** (user decision). The back arrow and the phone's back button were a free restart: leave, come back, fresh board. All three go through `giveUp()` in `main.js` — streak reset, and half a heart once a move has been played (no move, no charge, Restart included).
+- **No daily gift on the very first launch** (`daily.openSession()` marks it claimed, `canClaim()` is false before any session): the gift rewards coming back. Offered from the next day.
+- **Undo can be bought with shards**, like the hint, and falls back on an ad when the player is broke (`payBooster()`): `PRICES.HINT` 100, `UNDO` 100. The hammer stays rewarded-ad only.
+- **The time booster is gone** (`btn-time`): with no defeat on the clock, +30 s bought nothing.
+- **Level 45: the right yellow gate removed by hand** in `prototype/levels/monde-2.json` — two walls sealed it off, so it led nowhere. The reference solution never used it (replayed: still won in 21 drags). A rebuild of world 2 would bring it back. Not yet published to Supabase.
+
 ### 2026-10-05
 
 - **The bulb never gives a wrong hint, and says when the board is lost** (user decision). Anchors and one-way cells make some gestures irreversible, and `board.hint()` reads the REFERENCE solution: off its path it could point at a block that still moves but no longer leads anywhere — and charge for it. The bulb now calls `askHint()` (`prototype/src/core/rush/live.js`): an exact search from the board as it stands (`findSolution()` in `core/rush/solve.js`, best-first on parks + 0.2 × blocks left), in a module worker (`hintWorker.js`), on the tap only — never after every gesture. Proven lost → toast `toast.nosolution`, free, and nothing else: the player restarts on their own. Solution found → its first gesture is the hint. Out of budget → `toast.nohint`, no guess. Untouched board → the reference hint, proven at build time. Gestures wait while it thinks (`busy`; the bulb fades, `aria-busy`).

@@ -31,6 +31,9 @@ export function openSession() {
     track('session_started', { streak: d.streak, newDay: false });
     return { streak: d.streak, newDay: false };
   }
+  // The very first launch pays no gift: the gift rewards COMING BACK, and a
+  // newcomer has the starting purse already. It is offered from tomorrow on.
+  if (!d.lastPlayDay) d.dailyClaimedOn = today;
   const continues = d.lastPlayDay === day(-1);
   d.streak = continues ? d.streak + 1 : 1;
   // A streak restarted from scratch has paid out nothing: without this reset, a
@@ -50,7 +53,9 @@ export function todaysReward() {
 }
 
 export function canClaim() {
-  return store.load().dailyClaimedOn !== day();
+  const d = store.load();
+  // No session opened yet (first frame of a first launch): nothing to claim.
+  return !!d.lastPlayDay && d.dailyClaimedOn !== day();
 }
 
 /** @returns {number|0} amount credited, 0 if already claimed today. */

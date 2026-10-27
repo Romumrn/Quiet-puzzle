@@ -18,7 +18,9 @@ import { track } from '../data/events.js';
  * has some put by and does not want an ad, not to deter.
  */
 export const PRICES = Object.freeze({
-  HINT: 50,
+  // The hammer has no price: it is only ever earned with a rewarded ad.
+  HINT: 100,
+  UNDO: 100,
   CONTINUE: 75,
   LIFE: 50,      // one heart — see meta/lives.js
 });
@@ -55,8 +57,8 @@ export function canAfford(amount) { return store.load().coins >= amount; }
  *
  * The daily cap is not there to restrain the player but to protect the economy:
  * without it, an infinite supply of free coins makes every booster painless,
- * and a painless booster is no longer a choice. Five views are worth two and a
- * half hints, enough to get by without making the rest pointless.
+ * and a painless booster is no longer a choice. Five views are worth a hint and
+ * a quarter, enough to get by without making the rest pointless.
  */
 export const AD_REWARD = Object.freeze({ COINS: 25, PER_DAY: 5 });
 
