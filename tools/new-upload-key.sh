@@ -56,8 +56,9 @@ EOF
 
 echo
 echo "SHA-1 of the new upload key (Google Cloud Android OAuth client, for builds installed outside the Play Store):"
-keytool -list -v -keystore "$STORE" -alias "$ALIAS" -storepass:env QP_STOREPASS | grep -E 'SHA1|SHA-1'
 unset QP_STOREPASS
+# Read off the certificate, in English: `keytool -list -v` is localised.
+LC_ALL=C keytool -printcert -file "$PEM" | grep -E 'SHA1:' || true
 
 echo
 echo "Done:"
