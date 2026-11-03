@@ -183,7 +183,11 @@ Play App Signing keeps the real app-signing key at Google; ours is only the
    with it is rejected.
 4. Then build: `node tools/build-mobile-www.mjs`, `npx cap sync android` in
    `mobile/`, `./gradlew bundleRelease` in `mobile/android/` →
-   `app/build/outputs/bundle/release/app-release.aab`.
+   `app/build/outputs/bundle/release/app-release.aab`. Gradle needs the SDK:
+   `mobile/android/local.properties` (gitignored) with
+   `sdk.dir=/home/romuald/Android/Sdk`, or `ANDROID_HOME` — without it the
+   build stops on "SDK location not found". Check the signature with
+   `keytool -printcert -jarfile <the .aab>`: its SHA-1 must be the upload key's.
 
 Google Sign-In does not change for installs from the Play Store: the Android
 OAuth client is matched on the APP-SIGNING key's SHA-1, which is Google's and
