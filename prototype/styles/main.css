@@ -543,9 +543,11 @@ html.night .boot-veil-bar::after { background: rgba(230, 220, 235, 0.45); }
   fill: none; stroke: #fff; stroke-width: 4; stroke-linecap: round;
   filter: drop-shadow(0 0 5px hsl(var(--h, 330) 80% 75%)) drop-shadow(0 0 2px #fff);
 }
-/* The run drawn (mapScreen.js `glowLine`): the light stays, and breathes. */
-.map-trail.settled path { animation: trail-breathe 3.2s ease-in-out infinite; }
+/* The run drawn (mapScreen.js `glowLine`): the light breathes once, then
+   fades away (`TRAIL_HOLD_MS`, `TRAIL_FADE_MS`). */
+.map-trail.settled path { animation: trail-breathe 3.2s ease-in-out; }
 @keyframes trail-breathe { 50% { opacity: 0.6; } }
+.map-trail.fading { opacity: 0; transition: opacity 1.2s ease; }
 /* A soft ring spreading from a level that has just unlocked. */
 .unlock-ring {
   position: absolute; inset: -2px; border-radius: 20px; pointer-events: none;

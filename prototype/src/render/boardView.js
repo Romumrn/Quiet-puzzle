@@ -203,17 +203,7 @@ export class BoardView {
        * broken gate, not as a rule — they drag a block at it, nothing happens,
        * and there is nothing on screen to explain why.
        */
-      if (g.opensAfter) {
-        const left = g.opensAfter - this.board.exited.length;
-        el.classList.toggle('gate-shut', left > 0);
-        if (left > 0) {
-          const wait = document.createElement('b');
-          wait.className = 'gate-wait';
-          wait.textContent = left;
-          wait.title = t('gate.shut', { n: left });
-          el.appendChild(wait);
-        }
-      }
+      if (g.opensAfter) this._shutter(el, g);
 
       // A gate with limited capacity MUST show what it has left: an invisible
       // constraint reads like a bug, not like a rule.
@@ -720,14 +710,39 @@ export class BoardView {
     node.classList.toggle('lock-open', left === 0);
   }
 
-  /** Refreshes the remaining capacities shown on the gates. */
+  /**
+   * A shuttered gate's countdown: the blocks still to leave before it opens,
+   * dimmed while it is closed, the number gone once it is open.
+   */
+  _shutter(el, g) {
+    const left = g.opensAfter - this.board.exited.length;
+    el.classList.toggle('gate-shut', left > 0);
+    let wait = el.querySelector('.gate-wait');
+    if (left <= 0) { wait?.remove(); return; }
+    if (!wait) {
+      wait = document.createElement('b');
+      wait.className = 'gate-wait';
+      el.appendChild(wait);
+    }
+    wait.textContent = left;
+    wait.title = t('gate.shut', { n: left });
+  }
+
+  /**
+   * Refreshes what the gates show after a move: remaining capacities, and the
+   * countdown of shuttered gates — which used to be drawn once and never
+   * updated, so a late gate stayed dim on its first number all level long.
+   */
   refreshGates() {
-    const gauges = this.gateLayer.querySelectorAll('.gate');
+    const nodes = this.gateLayer.querySelectorAll('.gate');
     this.board.gates.forEach((g, i) => {
-      const gauge = gauges[i]?.querySelector('.gate-cap');
+      const el = nodes[i];
+      if (!el) return;
+      if (g.opensAfter) this._shutter(el, g);
+      const gauge = el.querySelector('.gate-cap');
       if (!gauge) return;
       gauge.textContent = g.capacity;
-      gauges[i].classList.toggle('gate-full', g.capacity <= 0);
+      el.classList.toggle('gate-full', g.capacity <= 0);
     });
   }
 

@@ -48,6 +48,10 @@ const LOOKAHEAD = 10;
  */
 const MAX_RUN = 20;
 
+/** How long the drawn run stays lit, then how long it takes to fade (ms). */
+const TRAIL_HOLD_MS = 3200;
+const TRAIL_FADE_MS = 1200;
+
 /**
  * @param onSelect called with a level number
  * @param reveal `{ run: [{ level, stars }], fx }` when the player comes back
@@ -175,7 +179,8 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
  * floods back, a bounce, a chime a step higher than the last — and the dusk
  * recedes a notch. The pace quickens along a long run, and a tap on the map
  * hurries the rest. The line stays lit once drawn: the whole run shows as one
- * glowing path. The new "Next" then keeps pulsing (CSS, `.map-node.current`).
+ * glowing path for a few seconds (`TRAIL_HOLD_MS`), then fades away. The new
+ * "Next" keeps pulsing (CSS, `.map-node.current`).
  */
 async function playRun(scroll, dusk, run, fx, unlocked) {
   const node = (n) => scroll.querySelector(`.map-node[data-level="${n}"]`);
@@ -217,7 +222,7 @@ async function playRun(scroll, dusk, run, fx, unlocked) {
     const next = stops[i + 1];
     if (!next || !line) continue;
 
-    // 2. The line of light runs on to the next level — and stays.
+    // 2. The line of light runs on to the next level — and stays, for now.
     await wait(80 * pace);
     await line.drawTo(i + 1, Math.max(260, 520 * pace * speed));
 
@@ -256,7 +261,8 @@ async function playRun(scroll, dusk, run, fx, unlocked) {
 /**
  * A glowing line through `stops` (map nodes), a gentle S between each pair
  * like the branch between them. Hidden at first; `drawTo(i)` extends it to the
- * i-th stop, `settle()` lets it breathe once the run is drawn.
+ * i-th stop, `settle()` lets it breathe once the run is drawn, then fades it out
+ * and takes it off the map.
  */
 function glowLine(scroll, stops) {
   const NS = 'http://www.w3.org/2000/svg';
@@ -293,6 +299,12 @@ function glowLine(scroll, stops) {
         { duration: ms, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' });
       path.style.strokeDashoffset = `${to}`;
     },
-    settle() { svg.classList.add('settled'); },
+    settle() {
+      svg.classList.add('settled');
+      setTimeout(() => {
+        svg.classList.add('fading');
+        setTimeout(() => svg.remove(), TRAIL_FADE_MS);
+      }, TRAIL_HOLD_MS);
+    },
   };
 }

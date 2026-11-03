@@ -166,7 +166,7 @@ export async function getDailyLeaderboard(puzzleId) {
  * Fails silently if the network is down, the level is not in the database yet,
  * or the user is not authenticated.
  */
-async function _syncCompleteLevel(n, { score, failed, timeMs }) {
+async function _syncCompleteLevel(n, { score, stars, failed, timeMs }) {
   // Dynamic import: fails silently under Node (tests), transparent in the
   // browser where the CDN is reachable.
   let sb;
@@ -186,7 +186,27 @@ async function _syncCompleteLevel(n, { score, failed, timeMs }) {
     p_time_ms:           timeMs ?? 0,
     p_completed:         !failed,
     p_client_attempt_id: crypto.randomUUID(),
+    // The grade the player saw: only the device knows the clock. The server
+    // never takes it above what the drags alone are worth.
+    p_stars:             failed ? null : stars,
   });
+}
+
+/**
+ * Pushes the whole local level table up (`sync_progress`, migration
+ * 20261103120000): wins made offline, or whose `complete_level` call was lost,
+ * never reached the server otherwise — and the leaderboard, which counts the
+ * server, showed fewer stars than the home screen, which counts this device.
+ * @returns {Promise<boolean>} whether the server took it
+ */
+async function _pushProgress(sb, d) {
+  const entries = Object.entries(d.levels)
+    .filter(([, l]) => l.bestScore > 0)
+    .map(([n, l]) => ({ n: Number(n), stars: l.stars, moves: l.bestScore }));
+  if (!entries.length) return true;
+  const { error } = await sb.supabase.rpc('sync_progress', { p_levels: entries, p_unlocked: d.unlockedLevel });
+  if (error) console.error('syncFromCloud: sync_progress failed', error);
+  return !error;
 }
 
 /**
@@ -213,6 +233,10 @@ export async function syncFromCloud() {
   const { data: { session } } = await sb.supabase.auth.getSession();
   if (!session) return;
   const userId = session.user.id;
+
+  // Up first, then down: the server's per-level grade then becomes this
+  // device's, so both screens count the same stars.
+  const pushed = await _pushProgress(sb, store.load()).catch(() => false);
 
   const CLASSIC_MODE_ID = 1;
   const [profileRes, progressRes, modeRes] = await Promise.all([
@@ -243,7 +267,10 @@ export async function syncFromCloud() {
     if (!n) continue;
     const prev = d.levels[n] || { stars: 0, bestScore: 0 };
     d.levels[n] = {
-      stars: Math.max(prev.stars, row.stars || 0),
+      // Once the push went through, the server holds the max of both sides,
+      // capped at what the drags are worth — a star it refuses was never
+      // earned (the old inverted thresholds handed out such stars).
+      stars: pushed ? (row.stars || 0) : Math.max(prev.stars, row.stars || 0),
       bestScore: row.best_moves ? (prev.bestScore ? Math.min(prev.bestScore, row.best_moves) : row.best_moves) : prev.bestScore,
     };
   }
@@ -298,6 +325,6 @@ export async function completeLevel(n, { score, stars, failed, timeMs }) {
   d.levelStreak = (d.levelStreak || 0) + 1;
 
   store.save(d);
-  _syncCompleteLevel(n, { score, failed, timeMs }).catch(() => {});
+  _syncCompleteLevel(n, { score, stars, failed, timeMs }).catch(() => {});
   return { stars, coinsEarned, xpEarned, nextLevelUnlocked, rewardItems: [], levelStreak: d.levelStreak };
 }

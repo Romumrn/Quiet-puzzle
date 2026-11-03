@@ -78,6 +78,14 @@ let levelFailures = 0;    // used so the very first defeat is never cut by an ad
 let levelStartedAt = 0;
 let lastContact = null; // the wall the dragged block last squashed against (feelContact)
 let freebies = streakBonus.bonusFor(0); // boosters the win streak brought into this level
+/**
+ * Set while the PLAYER asks to sign out. Any other `SIGNED_OUT` is the SDK
+ * dropping a session it could not refresh — typically the moment the network
+ * comes back after playing offline — and must not pull them out of a level.
+ */
+let signOutRequested = false;
+/** An involuntary sign-out kept for later: run by `showMenu()`, between levels. */
+let deferredSignOut = null;
 
 /**
  * Breathing room between the last block cleared and the success screen.
@@ -109,6 +117,11 @@ const ads = new AdBroker({
 // ---------------------------------------------------------------------------
 
 async function showMenu() {
+  if (deferredSignOut) {
+    const run = deferredSignOut;
+    deferredSignOut = null;
+    run();
+  }
   stopClock();
   const p = await api.getProfile();
   // The colour first, before the calls below that may wait on the network.
@@ -634,6 +647,8 @@ function onDrag(id, x, y) {
   chimeExits(events);
   if (!gestureRemembered) { board.remember(before); gestureRemembered = true; }
   view.apply(events);
+  // A block out opens shuttered gates mid-drag: their countdown follows now.
+  if (events.some((e) => e.type === 'exit')) view.refreshGates();
   feelContact(id, x, y, true);
   hud.update(board);
   return true;
@@ -1787,11 +1802,13 @@ el('btn-board-close').onclick = () => { el('overlay-board').hidden = true; };
 el('btn-logout').onclick = async () => {
   if (!confirm(t('user.logout.confirm'))) return;
   try {
+    signOutRequested = true;
     await supabase.auth.signOut();
     admin.forget();
     openPanel(false);
     // The onAuthStateChange listener handles the rest.
   } catch (err) {
+    signOutRequested = false;
     console.error('Sign-out failed:', err);
     screens.toast(t('user.logout.failed'));
   }
@@ -1995,6 +2012,7 @@ el('debug-solve').onclick = async () => {
       if (r.ok) await view.apply(chimeExits([r.event]));
     }
     await view.apply(board.endGesture(true));
+    view.refreshGates();
     hud.update(board);
     // A pause between gestures, so a solution can be followed by eye.
     if (!fastAnimations) await new Promise((r) => setTimeout(r, 700));
@@ -2164,15 +2182,29 @@ function refreshDebug() {
     // one case `startGameLoop()`'s own call would otherwise miss.
     updateAdminSection();
     if (event === 'SIGNED_IN' && authSession) {
+      deferredSignOut = null;
       document.getElementById('login-container')?.remove();
       startGameLoop();
     } else if (event === 'SIGNED_OUT') {
-      if (!document.getElementById('login-container')) {
-        document.body.appendChild(createLoginScreen(() => startGameLoop()));
-      }
-      stopGameLoop();
+      const signOut = () => {
+        if (!document.getElementById('login-container')) {
+          document.body.appendChild(createLoginScreen(() => startGameLoop()));
+        }
+        stopGameLoop();
+      };
+      // Asked for: now. Not asked for (a session the SDK could not refresh,
+      // usually right as the network returns): the game is playable without an
+      // account, so the level in progress carries on and the login screen
+      // waits for the next visit to the menu.
+      if (signOutRequested || screens.current() === 'menu') signOut();
+      else deferredSignOut = signOut;
+      signOutRequested = false;
     }
   });
+
+  // Back online after playing without network: the wins made meanwhile go up
+  // now, in the background — nothing on screen changes until the next menu.
+  window.addEventListener('online', () => { api.syncFromCloud().catch(() => {}); });
 
   /**
    * Starts the game once authentication has been settled, one way or another.
