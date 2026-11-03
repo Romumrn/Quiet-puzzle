@@ -38,6 +38,7 @@ mobile/android/app/src/main/assets/public/
 *.keystore
 *.jks
 keystore.properties
+upload_certificate.pem
 
 # Playtest material for the parking mechanic — regenerate, do not commit.
 prototype/park-test.html

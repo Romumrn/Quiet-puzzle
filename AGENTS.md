@@ -161,7 +161,35 @@ native Google Sign-In) all live in `prototype/src/`, gated by
 | Ad consent (UMP/GDPR) | `src/monetization/admob.js` — `ensureInitialized()`, `manageConsent()` | reachable from Settings → Ads → "Manage ad consent" (hidden on web) |
 | Native Google Sign-In | `src/ui/loginScreen.js` — `signInGoogleNative()` | needs `serverClientId` (the Google Cloud **Web** OAuth client) set in `mobile/capacitor.config.json`, plus an **Android** OAuth client (package name + release/debug SHA-1) — the web build keeps the old `signInWithOAuth` redirect flow |
 | App icon / splash source | `mobile/assets-src/*.svg` → rasterized to `mobile/assets/*.png` (`rsvg-convert`) → `npx @capacitor/assets generate --android` | regenerate after any visual change to the source SVGs |
-| Signing / release `.aab` | `mobile/android/app/build.gradle`, a **local, gitignored** `keystore.properties` | the keystore itself is never committed — losing it means losing the ability to update the app on the Play Store |
+| Signing / release `.aab` | `mobile/android/app/build.gradle`, a **local, gitignored** `keystore.properties` | the keystore itself is never committed — losing it means losing the ability to update the app on the Play Store; a lost upload key can be replaced, see below |
+
+### Play Store upload key — creating or replacing it
+
+Play App Signing keeps the real app-signing key at Google; ours is only the
+**upload key**, and Google replaces it on request. Lost on 2026-11-03 (no
+`.jks` on the machine any more), replaced this way:
+
+1. `tools/new-upload-key.sh` (from the repository root) — asks for a password
+   (6+ characters), then writes `mobile/android/app/upload-keystore.jks`
+   (alias `upload`, PKCS12, same password for store and key),
+   `mobile/android/app/keystore.properties` and `upload_certificate.pem` at the
+   root — all three gitignored — and prints the key's SHA-1. It refuses to run
+   over an existing keystore.
+2. **Back up** the `.jks` and `keystore.properties` outside this computer
+   (password manager, USB stick). Losing them again means doing all this again.
+3. Play Console → the app → *Test and release* → *Setup* → *App signing* →
+   *Request upload key reset*, reason "lost", upload `upload_certificate.pem`.
+   Google takes one to two days; until the new key is active a bundle signed
+   with it is rejected.
+4. Then build: `node tools/build-mobile-www.mjs`, `npx cap sync android` in
+   `mobile/`, `./gradlew bundleRelease` in `mobile/android/` →
+   `app/build/outputs/bundle/release/app-release.aab`.
+
+Google Sign-In does not change for installs from the Play Store: the Android
+OAuth client is matched on the APP-SIGNING key's SHA-1, which is Google's and
+did not move. Only an APK installed directly (adb, sideload) is signed with the
+upload key — add the SHA-1 the script printed to the Android OAuth client in
+Google Cloud Console if that build must sign in.
 
 ### Before the first Play Store release — ads checklist
 
@@ -218,6 +246,7 @@ Newest first. Short enough to skim, detailed enough to know whether a bug you ju
 
 ### 2026-11-03
 
+- **Upload key lost and replaced**: `tools/new-upload-key.sh`, procedure in "Play Store upload key" above.
 - **The network coming back no longer throws the player out of a level.** When the SDK cannot refresh a session (typically right as the network returns after playing offline) it emits `SIGNED_OUT`, and `stopGameLoop()` sent the player to the menu and the login screen mid-level — it looked like the app reloading. Only a sign-out the player asked for (`signOutRequested`, `btn-logout`) acts now; an involuntary one waits for the next `showMenu()` (`deferredSignOut` in `main.js`).
 - **Leaderboard and home screen count the same stars.** The home screen counts the device, the leaderboard `profiles.total_stars`. Three gaps: `complete_level` read `star_thresholds` (`[3★, 2★]`) backwards — 3★ up to the 2★ line, never 2★; it refused wins past `move_limit` (0★ wins on the device); and offline wins never reached the server. Migration `20261103120000_star_sync.sql`: `grade_drags()`, `complete_level` takes the client's grade `p_stars` (capped at what the drags are worth — only the device knows the clock), new `sync_progress()` that `syncFromCloud()` calls first (also on the `online` event) to push the local table up, then the server's per-level grade becomes the device's; repairs inflated rows and recounts every total. **Apply it in the SQL editor before shipping the client** — until then `sync_progress` and the 6-argument `complete_level` fail silently and the old behaviour stays.
 - **The map's glowing run fades out** after `TRAIL_HOLD_MS` (3.2 s) instead of staying lit.
