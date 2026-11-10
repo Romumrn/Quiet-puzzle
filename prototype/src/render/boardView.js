@@ -70,6 +70,15 @@ export class BoardView {
     this.blockLayer = root.querySelector('.block-layer');
     this.fxLayer = root.querySelector('.fx-layer');
     this.gridLayer = root.querySelector('.grid-layer');
+    /**
+     * Above the blocks: the one-way cells a block hides, shown again as a
+     * breathing white chevron (see `refreshOneWay`). Made here rather than in
+     * the HTML, so the editor's board gets one too.
+     */
+    this.glowLayer = document.createElement('div');
+    this.glowLayer.className = 'one-way-glow-layer';
+    this.glowLayer.setAttribute('aria-hidden', 'true');
+    this.blockLayer.after(this.glowLayer);
     /** Set by the game: `(gate) => void`, a tap on a gate that shows a number. */
     this.onGateTap = null;
     this.gateLayer.addEventListener('click', (ev) => {
@@ -115,8 +124,7 @@ export class BoardView {
       // Grid cells come first in their layer, row by row (see `mount`).
       [...this.gridLayer.querySelectorAll('.grid-cell')].forEach((c, i) => this._place(c, i % W, Math.floor(i / W)));
       for (const a of this.board.level.oneWay || []) {
-        const c = this.gridLayer.querySelector(`.one-way[data-at="${a.x},${a.y}"]`);
-        if (c) this._place(c, a.x, a.y);
+        for (const c of this.root.querySelectorAll(`[data-at="${a.x},${a.y}"]`)) this._place(c, a.x, a.y);
       }
       this.refreshGlyphs();   // rebuilds blocks and gates at the new size
       this.refreshLocks();
@@ -143,6 +151,7 @@ export class BoardView {
     this.gateLayer.replaceChildren();
     this.gridLayer.replaceChildren();
     this.fxLayer.replaceChildren();
+    this.glowLayer.replaceChildren();
 
     this.layout();
 
@@ -172,10 +181,37 @@ export class BoardView {
       cell.setAttribute('aria-hidden', 'true');
       this.gridLayer.appendChild(cell);
       this._place(cell, a.x, a.y);
+
+      // Its double above the blocks, lit only while a block hides the cell.
+      const glow = document.createElement('div');
+      glow.className = 'one-way-glow';
+      glow.dataset.dir = cell.dataset.dir;
+      glow.dataset.at = cell.dataset.at;
+      glow.innerHTML = '<i></i><b></b>';
+      this.glowLayer.appendChild(glow);
+      this._place(glow, a.x, a.y);
     }
 
     for (const b of board.blocks.values()) this._createBlock(b);
     this._drawGates();
+    this.refreshOneWay();
+  }
+
+  /**
+   * A block standing on a one-way cell hides its arrow — and the rule with it:
+   * the block refuses three directions and nothing on screen says why. So the
+   * hidden arrow comes back ABOVE the block, as a white see-through chevron
+   * that breathes, lit now and then by a spark crossing the cell the way it
+   * points (`.one-way-glow.covered` in main.css). A light rather than a mark:
+   * a white arrow drawn flat would read as a rail block's own arrows.
+   */
+  refreshOneWay() {
+    for (const glow of this.glowLayer.children) {
+      const [x, y] = glow.dataset.at.split(',').map(Number);
+      const b = this.board.blockAt(x, y);
+      // A sealed block never moves: an arrow lit on it would promise a way out.
+      glow.classList.toggle('covered', !!b && b.kind !== KIND.WALL);
+    }
   }
 
   _drawGates() {
@@ -474,6 +510,7 @@ export class BoardView {
         this._unlock(e.id);
       }
     }
+    this.refreshOneWay();
   }
 
   /**
@@ -763,6 +800,7 @@ export class BoardView {
     if (!node) return;
     node.classList.add('smashed');
     this.nodes.delete(id);
+    this.refreshOneWay();
     await wait(TIMING.EXIT);
     node.remove();
   }
@@ -779,6 +817,7 @@ export class BoardView {
       else this._place(this.nodes.get(b.id), b.x, b.y);
     }
     this.refreshLocks();
+    this.refreshOneWay();
   }
 
   /**
