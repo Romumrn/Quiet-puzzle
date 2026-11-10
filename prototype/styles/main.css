@@ -2243,16 +2243,14 @@ html.night .user-action { border-color: hsl(var(--h) 34% 36%); }
 .one-way[data-dir="up"]::after    { transform: rotate(-135deg) translate(-6%, -6%); }
 
 /* La flèche qu'un bloc recouvre revient PAR-DESSUS lui : un chevron blanc,
-   transparent, qui respire, et qu'une étincelle traverse de temps en temps
-   dans le sens permis — en passant sur lui, elle l'allume. Une lumière plutôt
-   qu'un dessin : un chevron blanc plat se confondait avec les flèches des
-   blocs sur rail. Invisible tant que la case est libre (sa flèche se lit
-   alors sur la grille). */
+   transparent, qui respire. Une lumière plutôt qu'un dessin : un chevron
+   blanc fixe se confondait avec les flèches des blocs sur rail. Invisible
+   tant que la case est libre (sa flèche se lit alors sur la grille). */
 .one-way-glow-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
 .one-way-glow {
   position: absolute; top: 0; left: 0;
   width: var(--cell); height: var(--cell);
-  overflow: hidden; border-radius: calc(var(--cell) * .3);
+  display: grid; place-items: center;
   opacity: 0; transition: opacity .35s ease;
 }
 .one-way-glow.covered { opacity: 1; }
@@ -2262,45 +2260,18 @@ html.night .user-action { border-color: hsl(var(--h) 34% 36%); }
 .one-way-glow[data-dir="up"]    { --rot: 270deg; }
 /* Le chevron, dessiné pointe à droite puis tourné. */
 .one-way-glow i {
-  position: absolute; inset: 0; display: grid; place-items: center;
-  transform: rotate(var(--rot));
-}
-.one-way-glow i::after {
-  content: ''; width: 32%; height: 32%;
+  width: 32%; height: 32%;
   border-right: 3px solid #fff; border-bottom: 3px solid #fff; border-radius: 0 0 3px 0;
-  transform: translateX(-12%) rotate(-45deg);
+  transform: rotate(var(--rot)) translateX(-12%) rotate(-45deg);
   filter: drop-shadow(0 0 3px rgba(255, 255, 255, .9));
   opacity: .5;
 }
-.one-way-glow.covered i::after { animation: oneway-breathe 3.2s ease-in-out infinite; }
-/* L'étincelle : un trait de lumière et sa traînée, de bord à bord. */
-.one-way-glow b { position: absolute; inset: 0; transform: rotate(var(--rot)); }
-.one-way-glow b::before {
-  content: ''; position: absolute; top: 50%; left: -45%;
-  width: 45%; height: 12%; margin-top: -6%; border-radius: 999px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .85) 75%, #fff);
-  box-shadow: 0 0 8px 2px rgba(255, 255, 255, .8);
-  opacity: 0;
-}
-.one-way-glow.covered b::before { animation: oneway-spark 3.2s ease-in infinite; }
-/* Même cycle pour les deux : l'étincelle passe sur le chevron vers 20 %, et
-   c'est là qu'il s'allume ; le reste du temps il respire doucement. */
+.one-way-glow.covered i { animation: oneway-breathe 2.6s ease-in-out infinite; }
 @keyframes oneway-breathe {
-  0%, 10% { opacity: .5; }
-  20%     { opacity: 1; filter: drop-shadow(0 0 6px #fff); }
-  32%     { opacity: .5; }
-  65%     { opacity: .8; }
-  100%    { opacity: .5; }
-}
-@keyframes oneway-spark {
-  0%   { transform: translateX(0); opacity: 0; }
-  6%   { opacity: 1; }
-  34%  { transform: translateX(330%); opacity: 0; }
-  100% { transform: translateX(330%); opacity: 0; }
+  50% { opacity: .95; filter: drop-shadow(0 0 6px #fff); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .one-way-glow.covered i::after { animation: none; opacity: .75; }
-  .one-way-glow.covered b::before { animation: none; }
+  .one-way-glow.covered i { animation: none; opacity: .75; }
 }
 
 /* Porte fermée : elle s'ouvrira après N sorties. Elle reste lisible (couleur,

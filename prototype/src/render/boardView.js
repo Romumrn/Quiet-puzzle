@@ -187,7 +187,7 @@ export class BoardView {
       glow.className = 'one-way-glow';
       glow.dataset.dir = cell.dataset.dir;
       glow.dataset.at = cell.dataset.at;
-      glow.innerHTML = '<i></i><b></b>';
+      glow.innerHTML = '<i></i>';
       this.glowLayer.appendChild(glow);
       this._place(glow, a.x, a.y);
     }
@@ -201,8 +201,7 @@ export class BoardView {
    * A block standing on a one-way cell hides its arrow — and the rule with it:
    * the block refuses three directions and nothing on screen says why. So the
    * hidden arrow comes back ABOVE the block, as a white see-through chevron
-   * that breathes, lit now and then by a spark crossing the cell the way it
-   * points (`.one-way-glow.covered` in main.css). A light rather than a mark:
+   * that breathes (`.one-way-glow.covered` in main.css). A light rather than a mark:
    * a white arrow drawn flat would read as a rail block's own arrows.
    */
   refreshOneWay() {
