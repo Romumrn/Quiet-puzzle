@@ -1804,18 +1804,34 @@ el('btn-quests-close').onclick = () => { el('overlay-quests').hidden = true; };
  * players by stars, and the player's own place. Opens at once on a "loading"
  * line — the list arrives from the server.
  */
-el('btn-leaderboard').onclick = async () => {
+let boardOrder = 'stars';
+
+el('btn-leaderboard').onclick = () => {
   openPanel(false);
   track('leaderboard_opened', {});
+  el('overlay-board').hidden = false;
+  showPlayersBoard(boardOrder);
+};
+
+/** By stars or by level reached: the two tabs at the top of the board. */
+for (const b of el('board-order').children) b.onclick = () => showPlayersBoard(b.dataset.by);
+
+async function showPlayersBoard(by) {
+  boardOrder = by;
+  for (const b of el('board-order').children) {
+    b.classList.toggle('sel', b.dataset.by === by);
+    b.setAttribute('aria-selected', String(b.dataset.by === by));
+  }
   el('board-mine').textContent = t('board.loading');
   el('board-list').replaceChildren();
   el('board-note').hidden = true;
-  el('overlay-board').hidden = false;
 
-  const board = await leaderboard.fetchBoard(50);
+  const board = await leaderboard.fetchBoard(50, by);
+  if (boardOrder !== by) return; // the other tab was picked meanwhile
   if (!board) { el('board-mine').textContent = t('board.offline'); return; }
   const me = board.rows.find((r) => r.me);
   el('board-mine').textContent = me ? t('board.mine', { rank: me.rank }) : '';
+  // Both figures on every row; the one the board is sorted on comes last, in bold.
   el('board-list').replaceChildren(...board.rows.map((r) => {
     const li = document.createElement('li');
     if (r.me) li.className = 'me';
@@ -1823,16 +1839,19 @@ el('btn-leaderboard').onclick = async () => {
     rank.textContent = r.rank;
     const who = document.createElement('span');
     who.textContent = r.me ? t('daily.rank.me') : r.username;
-    const stars = document.createElement('b');
-    stars.textContent = `★ ${r.stars}`;
-    li.append(rank, who, stars);
+    const side = document.createElement('small');
+    const main = document.createElement('b');
+    const stars = `★ ${r.stars}`, level = t('board.level', { n: r.level });
+    side.textContent = by === 'level' ? stars : level;
+    main.textContent = by === 'level' ? level : stars;
+    li.append(rank, who, side, main);
     return li;
   }));
   if (!board.rows.length) el('board-list').textContent = t('board.empty');
   // An anonymous player sees the board but is not on it: say why, and how.
   el('board-note').hidden = board.signedIn;
   if (!board.signedIn) el('board-note').textContent = t('board.signin');
-};
+}
 el('btn-board-close').onclick = () => { el('overlay-board').hidden = true; };
 
 // ---------------------------------------------------------------------------

@@ -21,13 +21,16 @@
  * joker, two-colour, heavy, locks (countdown, colour seal, key), key, sealed
  * wall; plain, capacity, late and shared gates; one-way cells.
  *
- * Check runs the solver (src/core/solver.js); Test plays the grid; a grid the
- * solver has cleared can be proposed as the daily puzzle.
+ * Check runs the exact search (`checkGrid`, core/rush/live.js, in a worker);
+ * Test plays the grid; a grid the search has cleared in at least
+ * MIN_MOVES gestures can be proposed as the daily puzzle.
  */
 
 import { SHAPES, KIND, colorsOf } from '../core/block.js';
 import { Board } from '../core/board.js';
 import { solve } from '../core/solver.js';
+import { checkGrid } from '../core/rush/live.js';
+import { starThresholds } from '../core/stars.js';
 import { BoardView } from '../render/boardView.js';
 import { t, colorName } from './i18n.js';
 import * as myLevels from '../meta/myLevels.js';
@@ -53,7 +56,16 @@ const TYPES = [
   { id: 'key', kind: KIND.NORMAL, mark: '◈', isKey: true },
   { id: 'slide', kind: KIND.SLIDE, mark: '≋' },
 ];
-const W_MIN = 4, W_MAX = 8, H_MIN = 4, H_MAX = 9;
+// 8 × 8 at most: the exact search packs a board into 64 bits (core/rush/engine.js).
+const W_MIN = 4, W_MAX = 8, H_MIN = 4, H_MAX = 8;
+
+/**
+ * Gestures the shortest solution must take for a grid to be proposed. Grids
+ * that reach it go straight into the daily rotation, with no moderator (user
+ * decision, 2026-11-10: the game must live without the admin's approval) —
+ * so this is the bar that keeps the trivial ones out.
+ */
+export const MIN_MOVES = 6;
 const UNDO_DEPTH = 60;
 
 const el = (id) => document.getElementById(id);
@@ -74,7 +86,8 @@ let onTest = null;
 let onSubmit = null;
 let onCreated = null;      // a grid proven solvable: the "create a level" quest
 let draftId = null;
-let lastCheck = null;      // the grid the solver last cleared, as JSON
+let lastCheck = null;      // the grid the search last cleared, as JSON, and its gestures
+let checking = 0;          // the check in flight: an edit makes its answer stale
 
 const empty = (W, H) => ({
   W, H,
@@ -205,6 +218,7 @@ function undo() {
 
 function render() {
   lastCheck = null;
+  checking++; // a check still running speaks of the old grid
   const board = new Board(toLevel());
   view.mount(board);
   drawSlots();
@@ -626,36 +640,58 @@ function problem(level) {
   return null;
 }
 
-function check() {
+async function check() {
   const level = toLevel();
   const issue = problem(level);
   if (issue) { setStatus(issue, 'ko'); return null; }
   setStatus(t('editor.checking'));
-  const r = solve(new Board({ ...level, moveLimit: 9999, timeLimit: 9999 }));
-  if (r.solvable) {
-    lastCheck = { json: JSON.stringify(level), exits: r.order.length };
-    onCreated?.();
-    setStatus(t('editor.solvable', { n: r.order.length }), 'ok',
-      { label: t('editor.submit.short'), run: propose });
-  } else {
-    setStatus(t(r.gaveUp ? 'editor.status.aborted' : 'editor.status.unsolved'), 'ko');
+  const job = ++checking;
+  const board = new Board({ ...level, moveLimit: 9999, timeLimit: 9999 });
+  let r;
+  try {
+    r = await checkGrid(board);
+  } catch {
+    // A grid drawn before the 8 × 8 cap: past 64 cells the exact search cannot
+    // hold it, and the old solver tries, with a few parks allowed.
+    const old = solve(board, 40000, 3);
+    r = old.solvable ? { status: 'ok', proven: false, gestures: old.moves.length, parks: old.parks }
+      : { status: old.gaveUp ? 'unknown' : 'dead' };
   }
+  if (job !== checking) return null; // the grid changed while it searched
+  if (r.status !== 'ok') {
+    lastCheck = null;
+    setStatus(t(r.status === 'unknown' ? 'editor.status.aborted' : 'editor.status.unsolved'), 'ko');
+    return r;
+  }
+  lastCheck = { json: JSON.stringify(level), gestures: r.gestures };
+  onCreated?.();
+  const text = t(r.proven ? 'editor.solvable' : 'editor.solvable.about', { n: r.gestures });
+  if (r.gestures < MIN_MOVES) setStatus(`${text} — ${t('editor.tooeasy', { n: MIN_MOVES })}`, 'ko');
+  else setStatus(text, 'ok', { label: t('editor.submit.short'), run: propose });
   return r;
 }
 
 function propose() {
   const level = toLevel();
-  // The grid must be the very one the solver just cleared: an unsolvable grid
+  // The grid must be the very one the search just cleared: an unsolvable grid
   // sent to everybody is the one flaw this queue must never let through.
   if (!lastCheck || lastCheck.json !== JSON.stringify(level)) {
     setStatus(t('editor.submit.unsolved'), 'ko');
     return;
   }
+  if (lastCheck.gestures < MIN_MOVES) {
+    setStatus(t('editor.tooeasy', { n: MIN_MOVES }), 'ko');
+    return;
+  }
   const title = prompt(t('editor.submit.ask'), '');
   if (title === null) return;
-  // The number of exits in the solution found stands in as a gesture
-  // reference: with no reference solution, it is the only honest measure.
-  const full = { ...level, minDrags: Math.max(1, lastCheck.exits) };
+  // The solution's gestures are the reference the stars are counted on, as
+  // for the map's levels.
+  const n = lastCheck.gestures;
+  const full = {
+    ...level, minDrags: n, starDrags: starThresholds(n),
+    moveLimit: Math.max(starThresholds(n)[1] + 2, Math.round(n * 1.8)),
+  };
   keep(full, { title: title.trim(), submitted: true });
   onSubmit?.(full, title.trim());
   setStatus(t('editor.submit.ok'), 'ok');

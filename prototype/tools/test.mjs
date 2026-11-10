@@ -844,6 +844,33 @@ console.log('\n== Coin shop ==');
   store.reset();
 }
 
+console.log("\n== Vérification de l'éditeur ==");
+{
+  // L'ancienne vérification ne connaissait que les sorties : une grille où il
+  // faut d'abord pousser un bloc de côté était déclarée sans solution.
+  const { engineOf, gridVerdict, gesturesOf } = await import('../src/core/rush/live.js');
+  const verdict = (n) => {
+    const { ctx, state } = engineOf(new Board({ ...getLevel(n), moveLimit: 9999, timeLimit: 9999 }));
+    return gridVerdict(ctx, state);
+  };
+  const v1 = verdict(1), v50 = verdict(50);
+  check('une grille qui demande de garer des blocs est résolue', v1.status === 'ok' && v1.parks > 0 && v50.status === 'ok' && v50.parks > 0,
+    `niv. 1 : ${v1.parks} garages, niv. 50 : ${v50.parks}`);
+  check('le compte de coups est celui de la solution de référence', v1.gestures === getLevel(1).minDrags && v50.gestures === getLevel(50).minDrags,
+    `${v1.gestures}/${getLevel(1).minDrags}, ${v50.gestures}/${getLevel(50).minDrags}`);
+  check('deux gestes de suite sur le même bloc ne font qu\'un coup',
+    gesturesOf([{ i: 0 }, { i: 0 }, { i: 1 }, { i: 0 }]) === 3);
+  // Une grille sans issue : un bloc muré dans son coin, sa porte de l'autre côté.
+  const cell = (id, kind, x, y) => ({ id, kind, color: 0, x, y, cells: [[0, 0]] });
+  const sansIssue = {
+    ...getLevel(1), width: 4, height: 4, oneWay: [], solution: [],
+    blocks: [cell(1, 'normal', 0, 0), cell(2, 'wall', 1, 0), cell(3, 'wall', 0, 1)],
+    gates: [{ side: 'right', start: 3, length: 1, color: 0 }],
+  };
+  const { ctx, state } = engineOf(new Board({ ...sansIssue, moveLimit: 9999, timeLimit: 9999 }));
+  check('une grille impossible est déclarée sans solution', gridVerdict(ctx, state).status === 'dead');
+}
+
 console.log('\n== Indices ==');
 {
   let fiables = 0, absents = 0;

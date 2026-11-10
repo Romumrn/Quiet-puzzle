@@ -76,13 +76,14 @@ export async function stats() {
       return null;
     }
   };
-  const [levels, players, submitted, flagged] = await Promise.all([
+  const [levels, players, submitted, approved, flagged] = await Promise.all([
     count('levels', (q) => q.eq('status', 'published')),
     count('profiles'),
     count('community_levels', (q) => q.eq('status', 'submitted')),
+    count('community_levels', (q) => q.eq('status', 'approved')),
     count('level_attempts', (q) => q.eq('is_flagged', true)),
   ]);
-  return { levels, players, submitted, flagged };
+  return { levels, players, submitted, approved, flagged };
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +106,30 @@ export async function moderationQueue(limit = 25) {
       .order('created_at', { ascending: true })
       .limit(limit);
     return error ? [] : (data ?? []);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Every grid players have sent, newest first, whatever its status — since
+ * 2026-11-10 a grid needing 6 moves or more is approved on arrival
+ * (`submit_community_level`), so the admin's job is no longer to let grids in
+ * but to take the odd bad one out. With its creator's pseudonym when the
+ * profile join is allowed; without it otherwise, rather than nothing.
+ */
+export async function communityLevels(limit = 60) {
+  const cols = 'id, title, status, created_at, moderated_at, moderation_notes, grid, play_count, creator_id';
+  const query = (select) => supabase
+    .from('community_levels')
+    .select(select)
+    .neq('status', 'draft')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  try {
+    let r = await query(`${cols}, creator:profiles!community_levels_creator_id_fkey(username)`);
+    if (r.error) r = await query(cols);
+    return r.error ? [] : (r.data ?? []);
   } catch {
     return [];
   }

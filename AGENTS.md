@@ -127,12 +127,14 @@ Supabase first, `prototype/levels/` as a seed.
 | Daily streaks, tiers, badges | `src/meta/daily.js` — `STREAK_TIERS` |
 | Level-streak reward (consecutive wins) | `src/data/api.js` — `completeLevel()`; shown on `src/ui/resultScreen.js` |
 | Daily puzzle, score, leaderboard | `src/meta/dailyPuzzle.js`; `api.getDailyPuzzle()`: the community grid on its days (RPC `daily_community_level`), else the official one (`levels/daily.json`), else this device's queue |
-| Community grids (editor → daily puzzle) | `api.submitDailyPuzzle()` → RPC `submit_community_level` (status `submitted`); approve in the admin panel; rotation and creator name in migration `20261110120000_community_daily.sql` |
+| Community grids (editor → daily puzzle) | `api.submitDailyPuzzle()` → RPC `submit_community_level`: approved on arrival from `MIN_MOVES` (6, `editor.js`) — migration `20261110130000`; rotation and creator name in `20261110120000_community_daily.sql`; take one out from the admin panel |
+| Editor's Check (is the grid solvable, in how many moves) | `checkGrid()` / `gridVerdict()` in `src/core/rush/live.js`, run in `hintWorker.js`; `EDITOR_BUDGET`; editor grids capped at 8 × 8 (64-cell engine) |
+| Admin panel (in the app) | `src/ui/adminPanel.js` (Community / Daily puzzle / Suspicious tabs), data in `src/data/admin.js`, styles `.admin-*` at the end of `main.css` |
 | Daily quests (3 a day + chest) | `src/meta/quests.js` — `POOL`, `DAILY`, `CHEST`; UI in `main.js` (`renderQuests`) |
 | Flower (a petal per NEW level won, surprise gift at 5) | `src/meta/bloom.js` — `PETALS`, `GIFTS`; played on `src/ui/resultScreen.js` (`fillBloom`, `settleBloom`); opened, it waits for a tap (`collectBloom`: the gift comes out — shards into the purse, `givePresent` for a hint/hammer — then the petals fold back); while it grows a tap explains it (`explainBloom` in `main.js`). The gift is in the save from the win, tapped or not; `bloom` in the save |
 | Home "Play" goes straight to the current level's brief (map one tap back) | `src/main.js` — `btn-play` handler, `paintPlayLevel()` |
 | Win-streak bonus boosters | `src/meta/streakBonus.js` — `TIERS`; spent via `useFreebie()` in `main.js`. The streak still resets when the app reopens (user decision) |
-| Players' leaderboard (signed-in accounts) | `src/meta/leaderboard.js` → RPC `public.leaderboard` (migration `20260927120000_leaderboard.sql`) |
+| Players' leaderboard (signed-in accounts) | `src/meta/leaderboard.js` → RPC `public.leaderboard(p_limit, p_by)` — by stars or by level reached (migration `20261110140000_leaderboard_by_level.sql`); tabs `#board-order`, `showPlayersBoard()` in `main.js` |
 | Editor drafts | `src/meta/myLevels.js` |
 | Bug reporting | `src/meta/feedback.js` |
 | Event names and parameters | `src/data/analytics.js` — `EVENTS` |
@@ -251,6 +253,14 @@ cd android && ./gradlew assembleDebug      # or bundleRelease, once signing is c
 ## Changelog
 
 Newest first. Short enough to skim, detailed enough to know whether a bug you just hit is new or already-known.
+
+### 2026-11-10 (afternoon)
+
+- **The editor's Check was wrong about any grid needing a block moved aside.** It called `solve()` with no park allowed, so a block that had to be shifted out of another's way first read as "no solution". It now runs the exact search the generator uses (`solveParks`, fewest parks, 30 000 states; best-first `findSolution` past that), in the bulb's worker: `checkGrid()` in `core/rush/live.js`. It also gives the true move count (`gesturesOf()`: consecutive steps of one block are one move) — level 1 → 10, level 50 → 21, as the reference. Editor grids are capped at 8 × 8 (the engine's 64 cells); an older bigger draft falls back on `solve()` with 3 parks. Tests "Vérification de l'éditeur". A large impossible grid can still come back "too vast to decide" — proving impossibility means exhausting every position.
+- **Community grids go live without moderation from 6 moves** (user decision: the game must live without the admin). The editor refuses to submit under `MIN_MOVES`; migration `20261110130000_community_autoapprove.sql` (**apply it in the SQL editor**) approves on arrival when `minDrags ≥ 6` and backfills pending ones. The server trusts the client's count, as it trusts the star grade. Stars and move limit of a submitted grid now come from its real move count (`starThresholds`).
+- **Admin panel rebuilt** — it had no CSS at all. Full-screen sheet on a phone, stat tiles, segmented tabs; the Community tab lists every grid (filters: all / in rotation / featured / pending / removed) with a thumbnail, creator, size, moves, status chip, and Remove / Approve / Schedule; the calendar names community grids and marks today. Data: `admin.communityLevels()`.
+- **Leaderboard by level**: Stars / Level tabs; migration `20261110140000_leaderboard_by_level.sql` (**apply it**) adds `p_by` to `public.leaderboard` (the one-argument version is dropped so old clients still resolve). Before it is applied, the Level tab re-sorts the stars' top 50.
+- **Boosters card**: the stopwatch line is gone (the time booster was removed on 2026-10-27), and the dead `toast.time` key with it.
 
 ### 2026-11-10
 

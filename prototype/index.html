@@ -458,6 +458,10 @@
     <div class="overlay" id="overlay-board" hidden>
       <div class="result-card board-card">
         <h2 data-i18n="board.title">Leaderboard</h2>
+        <nav class="board-order" id="board-order" role="tablist">
+          <button class="sel" role="tab" data-by="stars" data-i18n="board.by.stars">Stars</button>
+          <button role="tab" data-by="level" data-i18n="board.by.level">Level</button>
+        </nav>
         <p class="rank-mine" id="board-mine"></p>
         <ol class="rank-list board-list" id="board-list"></ol>
         <p class="user-note" id="board-note" hidden></p>
@@ -570,20 +574,20 @@
     <!-- ============ DEBUG ============ -->
     <!-- ============ ADMIN PANEL ============ -->
     <div class="overlay" id="overlay-admin" hidden>
-      <div class="admin-card">
+      <div class="admin-sheet" role="dialog" aria-labelledby="admin-title">
         <header class="admin-head">
           <div>
-            <b data-i18n="admin.title">Admin</b>
+            <h2 id="admin-title" data-i18n="admin.title">Admin</h2>
             <small id="admin-who"></small>
           </div>
           <button class="icon-btn" id="admin-close"
                  data-i18n-aria="user.close" aria-label="Close">&times;</button>
         </header>
-        <p class="admin-stats" id="admin-stats"></p>
-        <nav class="admin-tabs" id="admin-tabs">
-          <button class="admin-tab sel" data-tab="moderation" data-i18n="admin.tab.moderation">Moderation</button>
-          <button class="admin-tab" data-tab="daily" data-i18n="admin.tab.daily">Daily level</button>
-          <button class="admin-tab" data-tab="flagged" data-i18n="admin.tab.flagged">Suspicious runs</button>
+        <div class="admin-stats" id="admin-stats"></div>
+        <nav class="admin-tabs" id="admin-tabs" role="tablist">
+          <button class="admin-tab sel" role="tab" data-tab="community" data-i18n="admin.tab.community">Community</button>
+          <button class="admin-tab" role="tab" data-tab="daily" data-i18n="admin.tab.daily">Daily level</button>
+          <button class="admin-tab" role="tab" data-tab="flagged" data-i18n="admin.tab.flagged">Suspicious runs</button>
         </nav>
         <div class="admin-body" id="admin-body"></div>
       </div>

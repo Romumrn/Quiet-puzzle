@@ -15,7 +15,7 @@
  */
 
 import { newState, sideOf } from './engine.js';
-import { findSolution, replay } from './solve.js';
+import { findSolution, solveParks, replay } from './solve.js';
 import { pathTo } from '../solver.js';
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -78,15 +78,70 @@ export function stillSolvable(board, budget = LIVE_BUDGET) {
   return r.status === 'unknown' ? null : r.status === 'ok';
 }
 
+/**
+ * Budget of the editor's check, in states. Twice the bulb's: the player asked
+ * and waits for a verdict, but it still has to fit a 1 GB phone (the search
+ * keeps every state it has seen — about 2 KB each, see LIVE_BUDGET).
+ */
+export const EDITOR_BUDGET = 30000;
+
+/** Gestures as the game counts them: consecutive steps of the same block are one. */
+export function gesturesOf(steps) {
+  let n = 0;
+  steps.forEach((s, k) => { if (!k || steps[k - 1].i !== s.i) n++; });
+  return n;
+}
+
+/**
+ * The editor's check: can this grid be cleared, and in how few gestures?
+ *
+ * The exact search first (`solveParks`, the fewest parks — a park being a block
+ * moved aside without leaving): its answer is the true minimum, `proven`. Out
+ * of budget, the best-first search (`findSolution`) can still prove the grid
+ * solvable, with a solution that may not be the shortest. The old check asked
+ * the exits-only solver, and called unsolvable any grid where one block had to
+ * be moved out of another's way first.
+ *
+ * @returns {{status:'dead'} | {status:'unknown'}
+ *          | {status:'ok', proven:boolean, gestures:number, parks:number}}
+ */
+export function gridVerdict(ctx, state, budget = EDITOR_BUDGET) {
+  let moves;
+  const exact = solveParks(ctx, state.pos, budget, state);
+  if (exact) {
+    if (exact.parks === Infinity) return { status: 'dead' };
+    moves = exact.moves;
+  } else {
+    const r = findSolution(ctx, state, LIVE_BUDGET);
+    if (!r) return { status: 'unknown' };
+    if (r.dead) return { status: 'dead' };
+    moves = r.moves;
+  }
+  const { steps } = replay(ctx, state.pos, moves);
+  return {
+    status: 'ok', proven: !!exact,
+    gestures: gesturesOf(steps), parks: steps.filter((s) => s.type === 'park').length,
+  };
+}
+
+/** The verdict on a board the editor drew — in the worker, like the bulb. */
+export function checkGrid(board) {
+  const { ctx, state } = engineOf(board);
+  return run(ctx, state, 'grid');
+}
+
+const TASKS = { hint: searchFrom, grid: gridVerdict };
+
 let worker = null;
 let jobs = 0;
 
-/** Runs `searchFrom` in a worker when the platform has one, inline otherwise (Node, tests). */
-function run(ctx, state) {
+/** Runs a search in a worker when the platform has one, inline otherwise (Node, tests). */
+function run(ctx, state, task = 'hint') {
+  const inline = () => TASKS[task](ctx, state);
   if (worker === null && typeof Worker !== 'undefined') {
     try { worker = new Worker(new URL('./hintWorker.js', import.meta.url), { type: 'module' }); } catch { worker = false; }
   }
-  if (!worker) return Promise.resolve(searchFrom(ctx, state));
+  if (!worker) return Promise.resolve(inline());
   const job = ++jobs;
   return new Promise((resolve) => {
     const done = (result) => {
@@ -96,10 +151,10 @@ function run(ctx, state) {
     };
     const onMessage = ({ data }) => { if (data.job === job) done(data.result); };
     // A worker that fails to load proves nothing: inline, this once and after.
-    const onError = () => { worker.terminate(); worker = false; done(searchFrom(ctx, state)); };
+    const onError = () => { worker.terminate(); worker = false; done(inline()); };
     worker.addEventListener('message', onMessage);
     worker.addEventListener('error', onError);
-    worker.postMessage({ job, ctx, state });
+    worker.postMessage({ job, task, ctx, state });
   });
 }
 
