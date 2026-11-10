@@ -50,6 +50,8 @@ const EMPTY = () => ({
   /** Rewarded "coin" ad views: the current day and how many. */
   coinAdsDay: null,
   coinAdsCount: 0,
+  hintBuysDay: null,  // hints bought with shards today: their price climbs (currency.hintPrice)
+  hintBuysCount: 0,
   streak: 0,         // consecutive days played
   streakTiers: [],   // streak tiers already rewarded
   levelStreak: 0,    // consecutive levels won in a row, reset on any loss

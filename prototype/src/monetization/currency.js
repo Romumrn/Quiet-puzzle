@@ -18,12 +18,46 @@ import { track } from '../data/events.js';
  * has some put by and does not want an ad, not to deter.
  */
 export const PRICES = Object.freeze({
-  // The hammer has no price: it is only ever earned with a rewarded ad.
-  HINT: 100,
+  // The hammer has no price: it is only ever earned with a rewarded ad. The
+  // hint's price climbs with use: see `hintPrice()`.
   UNDO: 100,
   CONTINUE: 75,
   LIFE: 50,      // one heart — see meta/lives.js
 });
+
+/**
+ * The hint's price, hint after hint bought with shards the same day: 50 the
+ * first, then 100, 150, 200, and 200 from then on (user decision, 2026-11-10 —
+ * shards are there to be spent, and spent soon).
+ *
+ * The count starts over EACH DAY rather than each level. Per level, a player
+ * who takes one hint a level would pay 50 every time — cheaper than the old
+ * flat 100, the opposite of the aim. Per day, the second hint of the day costs
+ * 100 wherever it is taken, the climb carries from level to level, and the
+ * first hint of the morning stays cheap: a reason to come back. Free hints
+ * (streak, stock) and hints paid with an ad do not count.
+ */
+export const HINT_LADDER = Object.freeze([50, 100, 150, 200]);
+
+export function hintsBoughtToday() {
+  const d = store.load();
+  return d.hintBuysDay === today() ? (d.hintBuysCount || 0) : 0;
+}
+
+export function hintPrice() {
+  return HINT_LADDER[Math.min(hintsBoughtToday(), HINT_LADDER.length - 1)];
+}
+
+/** Charges the hint at today's price and moves the ladder up a rung. */
+export function buyHint() {
+  const price = hintPrice();
+  if (!debit(price, 'hint')) return false;
+  const d = store.load();
+  d.hintBuysCount = hintsBoughtToday() + 1;
+  d.hintBuysDay = today();
+  store.save(d);
+  return true;
+}
 
 export function balance() { return store.load().coins; }
 

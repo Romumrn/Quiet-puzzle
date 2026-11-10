@@ -808,6 +808,12 @@ html.night .boot-veil-bar::after { background: rgba(230, 220, 235, 0.45); }
 .gate-left .gate-cap   { left: calc(var(--wall) * -1 - 6px); }
 .gate-right .gate-cap  { right: calc(var(--wall) * -1 - 6px); }
 .gate-full { opacity: 0.4; filter: grayscale(0.7); }
+/* Une porte chiffrée se touche pour qu'on lui demande ce que veut dire son
+   chiffre. La zone déborde vers l'extérieur — un mur fait quelques pixels ;
+   vers l’intérieur, la couche des blocs passe devant et garde ses touchers.
+   Le plateau de jeu seulement : dans l’éditeur, les portes se posent. */
+#board .gate.gate-info { pointer-events: auto; cursor: help; }
+#board .gate.gate-info::after { content: ''; position: absolute; inset: -12px; }
 
 @keyframes gate-flash {
   40% { filter: brightness(1.35) saturate(1.2); box-shadow: 0 0 16px 3px var(--tile); }
@@ -1418,6 +1424,13 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
 .info-close:hover { background: var(--line); color: var(--ink); }
 .info-icon:has(.info-preview) { width: fit-content; height: auto; min-width: 64px; padding: 12px; border-radius: 16px; background: var(--ground); }
 .info-preview { position: relative; pointer-events: none; }
+.hud-stat-stars { cursor: pointer; }
+.info-icon:has(.info-gate) { background: var(--ground); }
+.info-gate {
+  width: 40px; height: 14px; border-radius: 7px; background: var(--tile);
+  display: grid; place-items: center;
+  color: #fff; font: 600 11px/1 var(--font-ui); font-variant-numeric: tabular-nums;
+}
 .info-text { margin: 6px 0 4px; color: var(--ink-soft); font: 400 15px/1.5 var(--font-ui);; white-space: pre-line; }
 .info-icon .action-icon { width: 30px; height: 30px; }
 /* Quêtes du jour : icône, intitulé + barre, bouton de récolte. */

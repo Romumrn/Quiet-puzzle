@@ -299,7 +299,7 @@ async function showBrief(n) {
   screens.renderStars(el('brief-stars'), rec.stars);
   el('brief-objective').textContent = hud.labelFor(level);
   // No move limit any more: what the briefing shows is the 3-star target.
-  // …and before the clock stops: the third star asks for both.
+  // …and before the clock stops: past it, no star at all.
   const limit = Math.max(level.timeLimit || 0, MIN_TIME_S);
   el('brief-moves').textContent = level.starDrags?.[0]
     ? `${level.starDrags[0]} · ${Math.floor(limit / 60)}:${String(limit % 60).padStart(2, '0')}` : '—';
@@ -428,6 +428,7 @@ async function startLevel() {
   if (!view) {
     view = new BoardView(el('board'));
     input = new InputHandler(view, { onDrag, onEnd, canGrab, onRefused });
+    view.onGateTap = showGateInfo;
   }
   view.mount(board);
   hud.update(board);
@@ -448,7 +449,7 @@ async function startLevel() {
  * the player, is only ever obtained in exchange for a rewarded ad.
  */
 function updateBoosters() {
-  priceBadge('hint-cost', freebies.hint + stock('hint'), currency.PRICES.HINT);
+  priceBadge('hint-cost', freebies.hint + stock('hint'), currency.hintPrice());
   badge('hammer-cost', freebies.hammer + stock('hammer'), t('ad.badge'), true);
   priceBadge('undo-cost', freebies.undo, currency.PRICES.UNDO);
   el('btn-undo').disabled = !board || !board.canUndo();
@@ -466,7 +467,7 @@ function priceBadge(id, free, price) {
  */
 async function payBooster(kind, price, reason, placement) {
   if (useFreebie(kind)) return true;
-  if (currency.canAfford(price)) return currency.debit(price, reason);
+  if (currency.canAfford(price)) return kind === 'hint' ? currency.buyHint() : currency.debit(price, reason);
   return boosterByAd(placement);
 }
 
@@ -590,20 +591,44 @@ function blockPreview(id) {
 }
 
 /**
- * What a special block does (ui/blockInfo.js), on a tap. The clock stops while
- * the card is open: reading the rules is not playing.
+ * What a special block does (ui/blockInfo.js), on a tap — or what the one-way
+ * cell it hides does to it.
  */
 function showBlockInfo(id) {
   const b = board?.blocks.get(id);
   const info = b && blockInfo.describe(b, board);
-  if (!info || !el('overlay-info').hidden) return;
-  el('info-icon').replaceChildren(blockPreview(id) || document.createTextNode(info.icon));
+  if (!info) return;
+  if (openInfoCard(blockPreview(id) || document.createTextNode(info.icon), info)) {
+    track('block_info_shown', { kind: b.kind, level: level?.number });
+  }
+}
+
+/** A tap on a gate that shows a number: its capacity, its countdown. */
+function showGateInfo(gate) {
+  if (!board || board.gameState !== GameState.PLAYING) return;
+  const info = blockInfo.describeGate(gate, board);
+  if (!info) return;
+  // The gate as a short bar of its colour, carrying the number it shows.
+  const icon = document.createElement('div');
+  icon.className = `info-gate c${gate.color}`;
+  const shut = gate.opensAfter ? gate.opensAfter - board.exited.length : 0;
+  icon.textContent = shut > 0 ? shut : gate.capacity ?? '';
+  if (openInfoCard(icon, info)) track('block_info_shown', { kind: 'gate', level: level?.number });
+}
+
+/**
+ * The card that answers "what is this?". The clock stops while it is open:
+ * reading the rules is not playing.
+ * @returns whether it opened (one card at a time)
+ */
+function openInfoCard(icon, info) {
+  if (!el('overlay-info').hidden) return false;
+  el('info-icon').replaceChildren(icon);
   el('info-title').textContent = info.title;
   el('info-text').textContent = info.text;
-  const running = board.gameState === GameState.PLAYING;
+  const running = board?.gameState === GameState.PLAYING;
   if (running) stopClock();
   el('overlay-info').hidden = false;
-  track('block_info_shown', { kind: b.kind, level: level?.number });
   const close = () => {
     el('overlay-info').hidden = true;
     if (running && board?.gameState === GameState.PLAYING) startClock();
@@ -616,6 +641,7 @@ function showBlockInfo(id) {
     if (performance.now() - openedAt < 300 || el('info-card').contains(ev.target)) return;
     close();
   };
+  return true;
 }
 
 /**
@@ -894,7 +920,7 @@ async function finishLevel() {
     // Short of three stars: what was missing — the moves, the clock or both —
     // so "Replay" has something to aim at.
     starGoal: won && board.dragStars() < 3 ? level.starDrags?.[0] : null,
-    timeGoal: won && !board.inTime() && board.dragStars() >= 2,
+    timeGoal: won && !board.inTime(),
     newBest,
     bloom: petal && { ...petal, total: bloom.PETALS, giftText: petal.gift && bloomGiftText(petal.gift) },
     onBloomInfo: explainBloom,
@@ -1048,7 +1074,7 @@ el('btn-hint').onclick = async () => {
   const { advice } = answer;
   if (!advice) { screens.toast(t('toast.nohint')); return; }
 
-  if (!await payBooster('hint', currency.PRICES.HINT, 'hint', PLACEMENT.REWARDED_HINT)) return;
+  if (!await payBooster('hint', currency.hintPrice(), 'hint', PLACEMENT.REWARDED_HINT)) return;
 
   track('hint_used', { level: level.number, blockId: advice.id, park: !advice.gate });
   view.ghost(advice.id, advice.path, advice.gate);
@@ -1063,6 +1089,16 @@ el('btn-hint').onclick = async () => {
 };
 
 el('btn-start').onclick = startLevel;
+
+/** The HUD's stars, tapped: how many moves each star asks, and the clock. */
+el('hud-stars').parentElement.onclick = () => {
+  if (!board || board.gameState !== GameState.PLAYING) return;
+  const info = hud.starInfo(board);
+  if (!info) return;
+  const icon = document.createElement('span');
+  icon.textContent = '★';
+  openInfoCard(icon, info);
+};
 
 // ---------------------------------------------------------------------------
 // User menu — profile and settings, reachable from EVERY screen, mid-game
@@ -1508,9 +1544,12 @@ async function updateDailyPuzzleButton() {
   button.hidden = !entry;
   if (!entry) return;
   const mine = dailyPuzzle.leaderboard().find((e) => e.me);
+  // A grid from the community carries its creator's name: drawing one and
+  // seeing it played by everyone is the whole reward for the creator. The
+  // button is too narrow for title AND name; the title shows in the HUD.
   el('daily-puzzle-sub').textContent = mine
     ? t('daily.done', { score: mine.score })
-    : (entry.title || t('daily.play'));
+    : entry.author ? t('daily.by', { author: entry.author }) : (entry.title || t('daily.play'));
   // Not played yet today: the button glows, like a quest reward waiting.
   button.classList.toggle('ready', !mine);
 }
@@ -1524,7 +1563,8 @@ el('btn-daily-puzzle').onclick = async () => {
   level = { ...entry.level, levelId: `daily_${entry.id}`, number: 0,
             realm: entry.title || t('daily.title'), difficulty: '' };
   startLevel();
-  track('daily_puzzle_started', { id: entry.id });
+  if (entry.author) screens.toast(t('daily.madeby', { author: entry.author }), 2600);
+  track('daily_puzzle_started', { id: entry.id, community: !!entry.community });
 };
 
 el('btn-rank-close').onclick = () => { el('overlay-rank').hidden = true; };

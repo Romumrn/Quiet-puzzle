@@ -590,7 +590,7 @@ export class Board {
 
   /**
    * The clock no longer ends a level: it runs down to zero and stays there, and
-   * a win after it is worth two stars at most (see `stars`). A level is only
+   * a win after it is worth no star (see `stars`). A level is only
    * ever WON — the clock was the one defeat, and a defeat has no place in a
    * game meant to calm (user decision, 2026-10-05).
    */
@@ -598,7 +598,7 @@ export class Board {
     if (this.isSolved()) this.gameState = GameState.WON;
   }
 
-  /** Whether the clock is still running: the third star is won before it stops. */
+  /** Whether the clock is still running: every star is won before it stops. */
   inTime() { return this.timeRemaining > 0; }
 
   /** Drags actually spent since the start of the level. */
@@ -607,14 +607,14 @@ export class Board {
   /**
    * 0 to 3 stars, for a solved level. 2★ and 3★ measure how economical the
    * player was compared to the reference solution (`starDrags`); 1★ is any
-   * win within `moveLimit`; past it the level is still WON, with no star. The
-   * third star also asks to finish before the clock stops. Neither the moves
+   * win within `moveLimit`; past it the level is still WON, with no star. Every
+   * star also asks to finish before the clock stops: past it, a win is worth
+   * 0★ (user decision, 2026-11-10 — it used to keep 2★). Neither the moves
    * nor the clock is ever a defeat.
    */
   stars() {
     if (!this.isSolved()) return 0;
-    const earned = this.dragStars();
-    return this.inTime() ? earned : Math.min(2, earned);
+    return this.inTime() ? this.dragStars() : 0;
   }
 
   /** The stars the moves alone are worth, clock aside — also the HUD's preview. */

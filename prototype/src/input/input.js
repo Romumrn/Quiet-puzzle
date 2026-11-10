@@ -51,6 +51,9 @@ export class InputHandler {
 
   _onDown(ev) {
     if (this.locked) return;
+    // A numbered gate is a question, answered by its own tap (BoardView
+    // `onGateTap`) — not a grab of the edge block next to it.
+    if (ev.target.closest?.('.gate-info')) return;
     const id = this.view.blockIdFromPoint(ev.clientX, ev.clientY);
     if (id === null) return;
 

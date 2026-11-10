@@ -70,6 +70,13 @@ export class BoardView {
     this.blockLayer = root.querySelector('.block-layer');
     this.fxLayer = root.querySelector('.fx-layer');
     this.gridLayer = root.querySelector('.grid-layer');
+    /** Set by the game: `(gate) => void`, a tap on a gate that shows a number. */
+    this.onGateTap = null;
+    this.gateLayer.addEventListener('click', (ev) => {
+      const node = ev.target.closest?.('.gate-info');
+      const gate = node && this.board?.gates[Number(node.dataset.i)];
+      if (gate && this.onGateTap) this.onGateTap(gate);
+    });
     this.nodes = new Map(); // id -> element
     this.board = null;
     this.cell = 0;
@@ -174,10 +181,14 @@ export class BoardView {
   _drawGates() {
     if (!this.board) return;
     this.gateLayer.replaceChildren();
-    for (const g of this.board.gates) {
+    this.board.gates.forEach((g, i) => {
       const el = document.createElement('div');
       const shared = colorsOf(g).length > 1;
       el.className = `gate gate-${g.side} c${g.color}` + (shared ? ' gate-shared' : '');
+      el.dataset.i = i;
+      // A gate that carries a number answers a tap with what it means (see
+      // `onGateTap`): the only gates the pointer reaches.
+      el.classList.toggle('gate-info', g.capacity !== undefined || !!g.opensAfter);
       // Shared gate: the second colour goes into a variable, and the CSS
       // gradient shows both families it accepts.
       if (shared) el.style.setProperty('--c-alt', `var(--c${colorsOf(g)[1]})`);
@@ -214,7 +225,7 @@ export class BoardView {
         el.appendChild(gauge);
       }
       this.gateLayer.appendChild(el);
-    }
+    });
   }
 
   _createBlock(b) {

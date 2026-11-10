@@ -82,12 +82,69 @@ export async function getLevel(n) {
  * the grid holds up.
  */
 export async function submitDailyPuzzle(level, title) {
-  return dailyPuzzle.submit(level, title);
+  const local = dailyPuzzle.submit(level, title);
+  // Then to the server, where it waits for moderation before it can come up
+  // as anyone's daily puzzle (`submit_community_level`, migration
+  // 20261110120000). Best effort: the local queue keeps it either way.
+  try {
+    const { supabase } = await import('./supabaseClient.js');
+    const { error } = await supabase.rpc('submit_community_level', { p_title: title || '', p_grid: level });
+    if (error) throw error;
+  } catch (e) {
+    console.warn('community level not sent:', e?.message || e);
+  }
+  return local;
 }
 
-/** GET /api/daily-puzzle — today's grid, or null if the queue is empty. */
+/**
+ * GET /api/daily-puzzle — today's grid, or null if there is none: a grid from
+ * the community on its days, the official one otherwise, this device's own
+ * queue as a last resort.
+ */
 export async function getDailyPuzzle() {
-  return (await officialDaily()) || dailyPuzzle.ofTheDay();
+  return (await communityDaily()) || (await officialDaily()) || dailyPuzzle.ofTheDay();
+}
+
+/**
+ * Today's community grid (`daily_community_level`, migration 20261110120000):
+ * one day in two, the oldest approved grid never featured, the same for
+ * everyone, with its creator's first name. Null on the other days, offline, or
+ * when none waits.
+ *
+ * Kept for the day in localStorage: the menu, the button and the end of the
+ * level all ask, and a player who goes offline mid-day must keep the grid they
+ * were shown — the score is filed under its id.
+ */
+const COMMUNITY_KEY = 'quietpuzzle.communityDaily';
+let communityAsk = null;
+async function communityDaily() {
+  const date = new Date().toISOString().slice(0, 10);
+  try {
+    const kept = JSON.parse(localStorage.getItem(COMMUNITY_KEY) || 'null');
+    if (kept?.date === date) return kept.entry;
+  } catch { /* storage blocked: ask the server */ }
+  if (communityAsk?.date !== date) {
+    communityAsk = { date, answer: askCommunityDaily(date) };
+  }
+  return communityAsk.answer;
+}
+
+async function askCommunityDaily(date) {
+  try {
+    const { supabase } = await import('./supabaseClient.js');
+    const { data, error } = await supabase.rpc('daily_community_level');
+    if (error) throw error;
+    const row = data?.[0];
+    const entry = row?.grid?.blocks
+      ? { id: `community-${row.id}`, title: row.title || '', author: row.author || '', community: true, level: row.grid }
+      : null;
+    try { localStorage.setItem(COMMUNITY_KEY, JSON.stringify({ date, entry })); } catch { /* fine */ }
+    return entry;
+  } catch (e) {
+    // Offline or not migrated yet: ask again next time rather than keep "none".
+    communityAsk = null;
+    return null;
+  }
 }
 
 /**

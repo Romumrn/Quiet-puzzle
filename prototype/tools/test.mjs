@@ -274,11 +274,12 @@ console.log('\n== Compte des coups ==');
 console.log('\n== Le chrono ne fait pas perdre ==');
 {
   // Le chrono tombe à zéro avant le premier geste : la partie continue, la
-  // grille se vide quand même, et la troisième étoile n'est plus possible.
+  // grille se vide quand même, mais la victoire ne vaut plus aucune étoile
+  // (décision du 2026-11-10 : elle en gardait deux).
   const r = rejouer(1, { avant: (b) => { b.timeRemaining = 3; b.tick(10); } });
   check('chrono à zéro : le niveau reste en cours puis se gagne', r.ok && r.board.gameState === GameState.WON,
     r.raison || r.board.gameState);
-  check('chrono à zéro : 2★ au plus', r.board.stars() <= 2 && r.board.dragStars() === 3,
+  check('chrono à zéro : 0★, même avec des coups parfaits', r.board.stars() === 0 && r.board.dragStars() === 3,
     `${r.board.stars()}★ (coups seuls : ${r.board.dragStars()}★)`);
   const dansLesTemps = rejouer(1);
   check('dans les temps : les 3★ restent possibles', dansLesTemps.board.stars() === 3, `${dansLesTemps.board.stars()}★`);
@@ -821,6 +822,24 @@ console.log('\n== Coin shop ==');
   const refused = currency.creditAdReward();
   check('once the quota is spent, it pays nothing',
     refused === 0 && currency.balance() === before);
+
+  // The hint climbs 50, 100, 150, 200, then stays at 200 — counted per day.
+  store.reset();
+  currency.credit(10_000, 'test');
+  const paid = [];
+  for (let i = 0; i < 6; i++) {
+    const price = currency.hintPrice(), was = currency.balance();
+    currency.buyHint();
+    paid.push(was - currency.balance() === price ? price : `?${price}`);
+  }
+  check('the hint costs 50, 100, 150, 200, then 200', paid.join() === '50,100,150,200,200,200', paid.join());
+  const d = store.load();
+  d.hintBuysDay = '2000-01-01';
+  store.save(d);
+  check('the next day, it starts at 50 again', currency.hintPrice() === 50, currency.hintPrice());
+  store.reset();
+  currency.debit(currency.balance(), 'test');
+  check('a broke player buys no hint', !currency.buyHint() && currency.hintsBoughtToday() === 0);
 
   store.reset();
 }

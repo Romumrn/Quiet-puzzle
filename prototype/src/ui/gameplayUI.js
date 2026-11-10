@@ -54,11 +54,30 @@ export function update(board) {
 
   const share = board.timeRemaining / level.timeLimit;
   el('hud-time-fill').style.width = `${Math.max(0, Math.min(1, share)) * 100}%`;
-  // No red, no alarm as it runs low: the clock only holds the third star, and
+  // No red, no alarm as it runs low: the clock only holds the stars, and
   // once stopped it simply fades — the level goes on, at the player's pace.
   el('hud-time').classList.toggle('over', !board.inTime());
 
   // Preview: the stars still reachable with the drags spent and the clock.
-  const reachable = board.dragStars();
-  renderStars(el('hud-stars'), board.inTime() ? reachable : Math.min(2, reachable));
+  renderStars(el('hud-stars'), board.inTime() ? board.dragStars() : 0);
+}
+
+/**
+ * What the stars ask, for the card a tap on the HUD's stars opens: the moves
+ * for 3★, 2★ and 1★ (`starDrags`, `moveLimit`), and the clock that holds them
+ * all — the thresholds were only ever shown for 3★, on the brief.
+ */
+export function starInfo(board) {
+  const { starDrags, moveLimit, timeLimit } = board.level;
+  if (!starDrags) return null;
+  const lines = [
+    t('info.stars.line', { stars: '★★★', n: starDrags[0] }),
+    t('info.stars.line', { stars: '★★', n: starDrags[1] }),
+  ];
+  if (moveLimit > starDrags[1]) lines.push(t('info.stars.line', { stars: '★', n: moveLimit }));
+  lines.push(t('info.stars.over', { n: Math.max(moveLimit || 0, starDrags[1]) }));
+  return {
+    title: t('hud.stars'),
+    text: `${lines.join('\n')}\n\n${t('info.stars.time', { time: mmss(timeLimit) })}\n${t('info.stars.now', { n: board.dragsUsed() })}`,
+  };
 }
