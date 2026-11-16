@@ -162,7 +162,9 @@ native Google Sign-In) all live in `prototype/src/`, gated by
 | Rebuild the app's web content and push it into the native project | `tools/build-mobile-www.mjs` then `mobile/` → `npx cap sync android` | full level set embedded (unlike `docs/`, which ships only the seed) |
 | Android hardware back button, pause/resume | `src/native/lifecycle.js` | `registerBackHandler()` — resolves per current screen, see the call site in `main.js` |
 | Vibration | `src/audio/haptics.js` | mirrors `audioManager.js`'s call sites; toggle is `vibration` in `save.js` |
-| Fullscreen / immersive, orientation lock | `mobile/android/app/src/main/java/.../MainActivity.java`, `AndroidManifest.xml` | native-only, no JS involved |
+| Edge to edge, immersive, orientation lock | `mobile/android/app/src/main/java/.../MainActivity.java` | `EdgeToEdge.enable()` (Android 15+ edge to edge, Play Console asks for it); system bars hidden; portrait locked IN CODE on phones only (smallest width < 600dp) — never `screenOrientation` in the manifest, the Play Console flags it for large screens |
+| Safe-area insets in the page | Capacitor 8's built-in `SystemBars` (`capacitor.config.json` → `SystemBars`) | feeds `env(safe-area-inset-*)` (needs `viewport-fit=cover`, in `index.html`) and `--safe-area-inset-*`. Do NOT add `@capacitor/status-bar` back: it calls `setStatusBarColor`, deprecated in Android 15 and flagged by the Play Console |
+| Tablets, landscape, foldables | `styles/main.css` — `@media (min-aspect-ratio: 3/4)` after `.native-app .device` | a portrait screen fills the display; anything wider gets the web's 9:16 column |
 | Real rewarded/interstitial ads | `src/monetization/admob.js`, `src/monetization/admobConfig.js` | swapped in by `brokerManager.js` when `isNative()`; `admobConfig.js` holds the REAL ad unit IDs — no ads are served until the app is live on the Play Store (see the checklist below) |
 | Ad consent (UMP/GDPR) | `src/monetization/admob.js` — `ensureInitialized()`, `manageConsent()` | reachable from Settings → Ads → "Manage ad consent" (hidden on web) |
 | Native Google Sign-In | `src/ui/loginScreen.js` — `signInGoogleNative()` | needs `serverClientId` (the Google Cloud **Web** OAuth client) set in `mobile/capacitor.config.json`, plus an **Android** OAuth client (package name + release/debug SHA-1) — the web build keeps the old `signInWithOAuth` redirect flow |
@@ -189,7 +191,7 @@ Play App Signing keeps the real app-signing key at Google; ours is only the
    with it is rejected.
 4. Then build: `node tools/build-mobile-www.mjs`, `npx cap sync android` in
    `mobile/`, `./gradlew bundleRelease` in `mobile/android/` →
-   `app/build/outputs/bundle/release/app-release.aab`. Gradle needs the SDK:
+   `app/build/outputs/bundle/release/app-release.aab`. Gradle needs Java 21 (`JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64`: the system's Java 25 fails with "Unsupported class file major version 69") and the SDK:
    `mobile/android/local.properties` (gitignored) with
    `sdk.dir=/home/romuald/Android/Sdk`, or `ANDROID_HOME` — without it the
    build stops on "SDK location not found". Check the signature with

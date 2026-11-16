@@ -12,10 +12,9 @@
       "launchShowDuration": 0,
       "backgroundColor": "#f1ecf0"
     },
-    "StatusBar": {
-      "overlaysWebView": true,
-      "style": "DARK",
-      "backgroundColor": "#f1ecf0"
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "LIGHT"
     },
     "GoogleAuth": {
       "scopes": ["profile", "email"],

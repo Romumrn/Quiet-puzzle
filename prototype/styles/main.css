@@ -124,6 +124,20 @@ body { display: grid; place-items: center; }
   box-shadow: none;
 }
 
+/* …but only on a portrait screen. Landscape, an unfolded foldable or a tablet
+   lying flat get the web's 9:16 column again: the screens are drawn for a
+   portrait phone, and stretched wide the cards and the board lose their
+   shape. The orientation is locked on phones only (MainActivity), so these
+   shapes are real on large screens. */
+@media (min-aspect-ratio: 3/4) {
+  .native-app .device {
+    width: min(100vw, calc(100vh * 9 / 16));
+    height: auto;
+    aspect-ratio: 9 / 16;
+    max-height: 100vh;
+  }
+}
+
 .app {
   position: absolute;
   inset: 0;
