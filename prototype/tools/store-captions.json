@@ -1,0 +1,42 @@
+{
+  "en": {
+    "drag":      { "title": "Slide. Breathe. Clear.", "sub": "Drag each block to the door of its colour" },
+    "chime":     { "title": "Every exit rings a note", "sub": "Chain your moves into a little melody" },
+    "worlds":    { "title": "50 worlds, 1000 levels", "sub": "Petals, leaves and pastel skies" },
+    "mechanics": { "title": "A new idea in every world", "sub": "Rails, locks, keys, anchors, two-colour blocks…" },
+    "daily":     { "title": "A new puzzle every day", "sub": "The same grid for everyone" },
+    "editor":    { "title": "Build your own puzzles", "sub": "Share them with the community" }
+  },
+  "fr": {
+    "drag":      { "title": "Glissez. Respirez. Libérez.", "sub": "Amenez chaque bloc jusqu'à la porte de sa couleur" },
+    "chime":     { "title": "Chaque sortie sonne une note", "sub": "Vos coups composent une petite mélodie" },
+    "worlds":    { "title": "50 mondes, 1000 niveaux", "sub": "Pétales, feuillages et ciels pastel" },
+    "mechanics": { "title": "Une idée neuve à chaque monde", "sub": "Glissières, verrous, clés, ancres, blocs bicolores…" },
+    "daily":     { "title": "Un nouveau puzzle chaque jour", "sub": "La même grille pour tout le monde" },
+    "editor":    { "title": "Créez vos propres puzzles", "sub": "Partagez-les avec la communauté" }
+  },
+  "es": {
+    "drag":      { "title": "Desliza. Respira. Despeja.", "sub": "Lleva cada bloque a la puerta de su color" },
+    "chime":     { "title": "Cada salida suena una nota", "sub": "Tus jugadas forman una pequeña melodía" },
+    "worlds":    { "title": "50 mundos, 1000 niveles", "sub": "Pétalos, hojas y cielos pastel" },
+    "mechanics": { "title": "Una idea nueva en cada mundo", "sub": "Raíles, candados, llaves, anclas, bloques bicolores…" },
+    "daily":     { "title": "Un puzle nuevo cada día", "sub": "La misma cuadrícula para todos" },
+    "editor":    { "title": "Crea tus propios puzles", "sub": "Compártelos con la comunidad" }
+  },
+  "it": {
+    "drag":      { "title": "Scorri. Respira. Libera.", "sub": "Porta ogni blocco alla porta del suo colore" },
+    "chime":     { "title": "Ogni uscita suona una nota", "sub": "Le tue mosse compongono una piccola melodia" },
+    "worlds":    { "title": "50 mondi, 1000 livelli", "sub": "Petali, foglie e cieli pastello" },
+    "mechanics": { "title": "Un'idea nuova in ogni mondo", "sub": "Binari, lucchetti, chiavi, ancore, blocchi bicolori…" },
+    "daily":     { "title": "Un nuovo puzzle ogni giorno", "sub": "La stessa griglia per tutti" },
+    "editor":    { "title": "Crea i tuoi puzzle", "sub": "Condividili con la community" }
+  },
+  "zh": {
+    "drag":      { "title": "滑动 · 呼吸 · 清空", "sub": "把每个方块拖到同色的门" },
+    "chime":     { "title": "每次出门，奏响一个音符", "sub": "连贯的操作汇成一段小旋律" },
+    "worlds":    { "title": "50 个世界，1000 个关卡", "sub": "花瓣、枝叶与粉彩天空" },
+    "mechanics": { "title": "每个世界都有新玩法", "sub": "滑轨、锁、钥匙、锚点、双色方块……" },
+    "daily":     { "title": "每天一道新谜题", "sub": "所有人同一张棋盘" },
+    "editor":    { "title": "创作你自己的谜题", "sub": "与社区玩家分享" }
+  }
+}

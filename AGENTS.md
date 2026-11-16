@@ -12,7 +12,7 @@ prototype/docs/     docs: level creation, map decoration
 prototype/vendor/   third-party JS, pre-bundled — see "Vendored dependencies" below
 docs/               published site — modular sources produced by tools/publier.mjs
 mobile/             Capacitor Android wrapper — see "Android app" below
-media/              screenshots for the README
+media/              README screenshots and animations, Play Store screenshots per language (`prototype/tools/captures.mjs`)
 ```
 
 ---

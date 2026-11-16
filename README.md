@@ -1,92 +1,105 @@
+<div align="center">
+
 # Quiet Puzzle
 
-A relaxing block-puzzle game.
+**A calm block puzzle. Slide each block to the door of its colour — and breathe.**
 
-No score to beat, no opponent waiting, no pressure to perform. Just a grid, colored blocks, and doors on the walls. You grab a block, drag it, and it leaves the board when it fits. The move is simple and repeatable—exactly what you want after a long day: something that occupies your hands while letting your mind settle.
+[**▶ Play in the browser**](https://romumrn.github.io/Quiet-puzzle/) · [**Get it on Google Play**](https://play.google.com/store/apps/details?id=com.romumrn.quietpuzzle)
 
-Everything is tuned around that intent. The pastel palette slowly transitions from pink to teal as you progress through levels. The ambient music is played on piano and music box sounds and shifts character every twenty seconds so it never becomes repetitive. Each block that exits through its door rings a chime, one note higher than the previous one, creating a little melody as you chain moves.
+<img src="media/gameplay.webp" width="300" alt="A whole level played: blocks slide to their doors and leave the grid, one chime each">
 
-There is still a timer—puzzles need a constraint—but it is generous, and a rewarded ad can extend it when it becomes too tight.
+</div>
 
-**▶ Play: https://romumrn.github.io/Quiet-puzzle/**
+No opponent, no countdown to panic over, no pressure. Just a grid, soft pastel blocks and coloured doors on the walls. Grab a block, drag it, and it glides out when it reaches a door of its colour that it fits through. The gesture is simple and repeatable — exactly what you want after a long day: something for your hands while your mind settles.
 
-<img src="media/gameplay.gif" width="360" alt="A block slides to its door and exits the grid">
+Every exit rings a note, one step higher than the last, so a good run of moves turns into a little melody. The music is played on real recorded instruments — piano, harp, hang drum, kalimba, water glasses — and the palette drifts from cherry blossom pink through wisteria, eucalyptus and autumn leaves as you travel.
+
+## What's inside
+
+- **1000 levels across 50 worlds**, each one proven solvable, each world bringing its own colours, its own branch on the map and a new idea.
+- **A new mechanic every world** — blocks on rails, sealed blocks, locks that count down, jokers, anchors, gates with a capacity, heavy blocks, two-colour blocks, a key that opens every lock, one-way cells, blocks that slide until something stops them…
+- **A daily puzzle**, the same grid for everyone, with a leaderboard — and on one day in two, a grid drawn by a player.
+- **A level editor** with an exact solver: it tells you whether your grid can be solved and in how many moves, then lets you submit it to the community.
+- **Gentle progression**: stars, daily quests, a flower that blooms one petal per level won, streak rewards.
+- **A bulb that never guesses**: the hint runs an exact search on the board in play and shows the next move as a ghost.
+- **Five languages** — English, French, Spanish, Italian, Chinese — and a colour-blind mode that gives each colour its own pattern.
+- **Plays offline**, no account needed; sign in with Google to keep your progress across devices.
+
+<table>
+<tr>
+<td align="center"><img src="media/rails.webp" width="240" alt="Blocks on rails, in the second world"><br><sub>Blocks on rails, world 2</sub></td>
+<td align="center"><img src="media/worlds.webp" width="240" alt="The map scrolling through the worlds"><br><sub>Fifty worlds, one branch each</sub></td>
+</tr>
+</table>
+
+| Play | Clear | Explore |
+|:---:|:---:|:---:|
+| <img src="media/board.png" width="230" alt="A board in the second world"> | <img src="media/result.png" width="230" alt="Grid cleared, three stars"> | <img src="media/map.png" width="230" alt="The level map"> |
+| **Discover** | **Every day** | **Create** |
+| <img src="media/brief.png" width="230" alt="A level brief announcing a new mechanic"> | <img src="media/daily.png" width="230" alt="The daily puzzle"> | <img src="media/editor.png" width="230" alt="The level editor, solvable in 13 moves"> |
 
 ## How to play
 
-A block follows your finger one square at a time and stops at the first obstacle. If it is pressed against a door of its own color and fits the width, it exits the grid; a 3-cell shape cannot pass through a 2-cell door. Objective: clear the board.
+A block follows your finger one square at a time and stops at the first obstacle. Pressed against a door of its own colour and narrow enough to fit, it leaves the grid — a 3-cell piece will not go through a 2-cell door. Clear the board.
 
-In the way: sliding blocks that move on only one axis, anchors that only advance toward their door, sealed blocks you have to route around, locks that open after a certain number of exits, bulky blocks that cost double at the door, bicolor blocks that hesitate between two exits, a key that opens every lock at once, and doors with limited capacity—sending the wrong block there wastes space.
+Fewer moves earn more stars. There is a clock, generous by design: a win past it still counts, it just earns no star.
 
-Fifty worlds with twenty levels each—1000 boards. Each world changes colors, introduces something new, and tightens the puzzle.
+## The repository
 
-The game supports French, English, Spanish, Italian, and Chinese, and an option restores the original color symbols for players who cannot rely on color alone.
+**[AGENTS.md](AGENTS.md)** is the project map: "I want to change X — what do I touch?", the invariants not to break, and the pitfalls already met. Read it before opening files.
 
-| Board | Map | Profile |
-|---|---|---|
-| <img src="media/board.png" width="230"> | <img src="media/map.png" width="230"> | <img src="media/profile.png" width="230"> |
-
-| Cleared board | Menu | Level editor |
-|---|---|---|
-| <img src="media/result.png" width="230"> | <img src="media/menu.png" width="230"> | <img src="media/editor.png" width="230"> |
-
-## Repository
-
-**[AGENTS.md](AGENTS.md)** is the project map: "I want to change X, what do I touch?", the invariants not to break, and the pitfalls already encountered.
-
-It is designed to avoid reading the full codebase just to know where to go.
-
-Prototype web app with no dependencies or build step: plain HTML, CSS, and JavaScript.
+The game is a no-build web app — plain HTML, CSS and native ES modules — wrapped unmodified into an Android app with Capacitor. Levels are generated offline, stored in Supabase, and read by the game.
 
 | Folder | Purpose |
 |---|---|
-| `prototype/` | Source files; this is where we work |
-| `prototype/levels/` | JSON level base; this is what the game actually reads |
-| `docs/` | The published site bundle generated by the bundler |
-| `media/` | README captures and animation assets |
+| `prototype/` | The game's source — where the work happens |
+| `prototype/levels/` | The JSON level base, seed copy of what Supabase serves |
+| `generator/` | The level generator (Node only): worlds, difficulty curve, search |
+| `supabase/` | Database migrations: levels, progress, daily puzzle, leaderboards, community grids |
+| `mobile/` | The Capacitor Android project and the Play Store listing |
+| `docs/` | The published web site (GitHub Pages), built from `prototype/` |
+| `media/` | README and Play Store images, all regenerated by a script |
 
 ## Development
+
+Serve the game locally:
 
 ```bash
 cd prototype && python3 -m http.server 8123
 ```
 
-```bash
-node tools/build-levels.mjs
-```
-
-Builds the level base under `prototype/levels/`—an index and one file per world. The game does not generate anything at runtime; it reads these files. A level can therefore be manually adjusted, and `--garder` protects existing data.
+Run the tests (under a second; add `--solveur` to re-run the solver passes, several minutes, only after touching the solver, the generator or the levels):
 
 ```bash
-node tools/test.mjs
+node prototype/tools/test.mjs
 ```
 
-The tests prove that each shipped level is solvable: they replay, on the real engine, the reference solution for each level in the base, then an independent solver verifies the grids without reading that solution.
+Rebuild the levels after changing a world (`generator/realms.js`) or the generator, then publish them — the game reads the database, not the generator:
 
 ```bash
-node tools/balance.mjs
+node prototype/tools/build-levels.mjs
 ```
-
-Displays each level's density, average block-to-door distance, limits, and explored states from the solver—the difficulty metric.
 
 ```bash
-python3 tools/music.py
+node tools/publish-levels.mjs
 ```
 
-Regenerates music and chimes. The generation is seeded, so the result is identical every time.
+See the whole difficulty curve on one page before tuning a world:
 
 ```bash
-node tools/captures.mjs
+node generator/difficulty-map.mjs
 ```
 
-Updates the images in this README by driving Chrome in headless mode over a throwaway local server. Every capture starts from a fabricated save and a specific level, never from a manually played session, so the screenshots stay current after UI changes.
-
-## Publish
+Regenerate every image in this README and the Play Store screenshots in five languages (headless Chrome over a throwaway local server, from fabricated saves — never a hand-played session):
 
 ```bash
-cd prototype && node tools/publier.mjs   # writes docs/ : sources + level base + audio
+node prototype/tools/captures.mjs
 ```
 
-The published site serves the modular source files rather than a single bundled file. The reason is arithmetic: with 600 levels, the base weighs around four megabytes, and the single-file bundle is around six megabytes—fifteen seconds of waiting on 4G before anything loads. Served as modules, it opens at about 388 KB and only fetches a world when the player begins it.
+`--only board,gameplay,store` limits the run; `--langs en,fr` the store languages.
 
-`node tools/bundle.mjs` always builds the single-file bundle for offline sharing and double-click launching.
+## Publishing
+
+The web site: `node prototype/tools/publier.mjs` writes `docs/` — modular sources, the level seed and the audio. Served as modules, it opens at about 400 KB and only fetches a world when the player begins it.
+
+The Android app: `node tools/build-mobile-www.mjs`, then `npx cap sync android` in `mobile/`, then `./gradlew bundleRelease` in `mobile/android/`. Signing and the Play Store checklist are in [AGENTS.md](AGENTS.md#android-app).

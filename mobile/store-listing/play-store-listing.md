@@ -19,6 +19,8 @@ Document de préparation pour remplir la fiche store dans la Play Console. Les t
 
 ## 2. Description longue (proposition, FR)
 
+> Remplacée par **[descriptions.md](descriptions.md)** : nom, description courte et longue prêtes à coller, en 5 langues.
+
 > Quiet Puzzle est un jeu de réflexion apaisant : pas de score à battre, pas d'adversaire, pas de pression de performance. Une grille, des blocs colorés, des portes sur les bords. Vous attrapez un bloc, vous le faites glisser, il sort du plateau quand il correspond à sa porte.
 >
 > La palette pastel évolue du rose au bleu-vert au fil de la progression. La musique d'ambiance, au piano et à la boîte à musique, change de caractère toutes les vingt secondes pour ne jamais devenir répétitive. Chaque bloc qui sort par sa porte fait sonner une note, un ton au-dessus de la précédente — une petite mélodie se construit à mesure que vous enchaînez les coups.
@@ -37,7 +39,7 @@ Document de préparation pour remplir la fiche store dans la Play Console. Les t
 |---|---|---|
 | Icône haute résolution | 512×512 PNG, 32 bits | à générer depuis `assets-src/*.svg` (ce dossier, voir AGENTS.md § App icon) |
 | Image de présentation (feature graphic) | 1024×500 PNG/JPEG | **manquant** — rien dans `media/` à ce format, à créer |
-| Captures d'écran téléphone | min. 2, max. 8, 320–3840px | `media/board.png`, `media/map.png`, `media/profile.png`, `media/editor.png`, `media/result.png`, `media/menu.png` (racine du repo, régénérées le 2026-09-15 par `node tools/captures.mjs`, état actuel de l'app) — 786×1704, ratio d'un téléphone courant ; vérifier dans la Play Console au moment de l'upload si un recadrage du bandeau gris haut/bas (safe-area non stylée en capture navigateur) est nécessaire |
+| Captures d'écran téléphone | min. 2, max. 8, 320–3840px | `media/store/<langue>/1-board.png … 6-editor.png` — 1080×1920, une légende au-dessus du téléphone, en en/fr/es/it/zh ; régénérées par `node prototype/tools/captures.mjs --only store` |
 | Vidéo promo (optionnel) | lien YouTube | `media/gameplay.gif` existe en local mais Play Console veut un lien YouTube, pas un fichier — à héberger si vous voulez l'utiliser |
 
 ## 4. Classification du contenu
