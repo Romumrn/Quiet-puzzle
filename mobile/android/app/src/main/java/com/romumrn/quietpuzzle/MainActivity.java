@@ -33,11 +33,17 @@ public class MainActivity extends BridgeActivity {
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
-    EdgeToEdge.enable(this);
     if (getResources().getConfiguration().smallestScreenWidthDp < LARGE_SCREEN_DP) {
       setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
     }
     super.onCreate(savedInstanceState);
+    // After super.onCreate, never before: EdgeToEdge touches the decor view,
+    // which freezes the window's features under the theme current at that
+    // moment. Before super, that is the launch theme (Theme.SplashScreen,
+    // which has a title bar) — BridgeActivity only switches to
+    // AppTheme.NoActionBar inside super.onCreate, too late: a title bar with
+    // the app's label and icon stayed over the page.
+    EdgeToEdge.enable(this);
     hideSystemBars();
   }
 
