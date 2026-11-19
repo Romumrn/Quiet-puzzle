@@ -212,7 +212,7 @@ lives' ad button grants the heart anyway. When the app goes live:
 - [ ] **Consent**: publish the GDPR message (Privacy & messaging) — without it nothing is served in Europe, and `ensureInitialized()` in `admob.js` never gets to `AdMob.initialize()` if the consent request errors.
 - [ ] **`app-ads.txt`**: host it at the root of the developer website shown on the Play Store listing.
 - [ ] **Test device**: register your own phone in AdMob — clicking your own real ads can get the account suspended.
-- [ ] **Code**: set `GRANT_WITHOUT_AD` to `false` in `prototype/src/ui/livesUI.js`, so a heart is earned by the ad again.
+- [x] **Code**: set `GRANT_WITHOUT_AD` to `false` in `prototype/src/ui/livesUI.js`, so a heart is earned by the ad again.
 
 ### Vendored dependencies
 

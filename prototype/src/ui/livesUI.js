@@ -22,11 +22,10 @@ import { t } from './i18n.js';
 import { toast } from './screens.js';
 
 /**
- * Ads do not work yet: the button grants the heart whether or not one played.
- * Switch to false once the rewarded unit fills, so the heart is earned by the
- * ad again.
+ * When true, the button grants the heart whether or not an ad played — the
+ * fallback for while the rewarded unit does not fill.
  */
-const GRANT_WITHOUT_AD = true;
+const GRANT_WITHOUT_AD = false;
 
 const HEART = '<svg class="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.2 0 3.7 1.3 5.3 3.2 1.6-1.9 3.1-3.2 5.3-3.2 3.7 0 5.8 3.8 4.3 7.2C19.5 16.4 12 21 12 21z"/></svg>';
 
