@@ -13,6 +13,13 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8123", "--directory", "prototype"],
       "port": 8123
+    },
+    {
+      "// ": "The public landing page (site/), the one GitHub Pages serves.",
+      "name": "landing",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8124", "--directory", "site"],
+      "port": 8124
     }
   ]
 }

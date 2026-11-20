@@ -1,13 +1,9 @@
 /**
  * Prépare le contenu web de l'app mobile — `node tools/build-mobile-www.mjs`
  *
- * Calqué sur `prototype/tools/publier.mjs` (même liste de contenu, même
- * copie telle quelle sans fusion), à une différence près : ici on embarque
- * la base de niveaux complète, pas seulement l'amorce.
- *
- * Le site web se contente de l'amorce parce qu'il peut compléter depuis
- * Supabase à la demande. L'app packagée ne doit pas dépendre du réseau au
- * premier lancement — un joueur qui installe le jeu dans le métro doit
+ * Copie les sources telles quelles, sans fusion, et embarque la base de
+ * niveaux complète, pas seulement l'amorce. L'app packagée ne doit pas
+ * dépendre du réseau au premier lancement — un joueur qui installe le jeu dans le métro doit
  * pouvoir jouer aux trente mondes tout de suite.
  *
  * `npx cap sync android` lit ensuite ce dossier via `webDir` dans

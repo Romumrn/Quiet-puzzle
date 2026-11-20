@@ -1,16 +1,11 @@
 # Déploiement GitHub Pages.
 #
-# Publie les sources MODULAIRES, et non le fichier unique. La raison est
-# arithmétique : à six cents niveaux, la base pèse quatre méga-octets et le
-# fichier unique six — quinze secondes d'attente en 4G avant de voir quoi que ce
-# soit. Servi en modules, le jeu ouvre sur 388 Ko et ne charge un monde qu'au
-# moment de le jouer.
+# Le jeu ne se joue plus dans le navigateur : on y joue par l'app Android.
+# Le site publié est la page d'accueil de `site/` — une présentation et un
+# bouton vers Google Play — avec la politique de confidentialité et la page de
+# suppression de compte, que la fiche Play Store et l'app pointent.
 #
-# Le fichier unique reste fabriqué par `tools/bundle.mjs`, pour le partage hors
-# ligne et l'ouverture par double-clic.
-#
-# Actif seulement si la source Pages du dépôt est réglée sur « GitHub Actions » ;
-# avec la source « branche main /docs », c'est le contenu committé qui est servi.
+# Jamais `prototype/` ici : ce serait remettre le jeu en ligne.
 name: Déployer sur GitHub Pages
 
 on:
@@ -40,13 +35,9 @@ jobs:
         working-directory: prototype
         run: node tools/test.mjs
 
-      - name: Préparer le site
-        working-directory: prototype
-        run: node tools/publier.mjs ../_site
-
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: site
 
   deploy:
     needs: build

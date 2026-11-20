@@ -10,7 +10,7 @@ prototype/levels/   JSON level database — what the game actually reads
 prototype/images/   map decorations, one branch per world
 prototype/docs/     docs: level creation, map decoration
 prototype/vendor/   third-party JS, pre-bundled — see "Vendored dependencies" below
-docs/               published site — modular sources produced by tools/publier.mjs
+site/               published site (GitHub Pages): landing page → Google Play, privacy.html, delete-account.html. The game is NOT online — never publish prototype/ there
 mobile/             Capacitor Android wrapper — see "Android app" below
 media/              README screenshots and animations, Play Store screenshots per language (`prototype/tools/captures.mjs`)
 ```
@@ -152,14 +152,14 @@ Supabase first, `prototype/levels/` as a seed.
 ### Android app
 
 `prototype/` is wrapped, unmodified, into a Capacitor Android project under
-`mobile/` — same source, one more publish target alongside `docs/`. Native
+`mobile/` — same source, and since the web version was taken offline, the only way to play. Native
 behavior (back button, haptics, fullscreen, orientation, real AdMob ads,
 native Google Sign-In) all live in `prototype/src/`, gated by
 `isNative()` (`src/native/capacitor.js`) so the web build never runs them.
 
 | Need | File | Reference |
 |---|---|---|
-| Rebuild the app's web content and push it into the native project | `tools/build-mobile-www.mjs` then `mobile/` → `npx cap sync android` | full level set embedded (unlike `docs/`, which ships only the seed) |
+| Rebuild the app's web content and push it into the native project | `tools/build-mobile-www.mjs` then `mobile/` → `npx cap sync android` | full level set embedded |
 | Android hardware back button, pause/resume | `src/native/lifecycle.js` | `registerBackHandler()` — resolves per current screen, see the call site in `main.js` |
 | Vibration | `src/audio/haptics.js` | mirrors `audioManager.js`'s call sites; toggle is `vibration` in `save.js` |
 | Edge to edge, immersive, orientation lock | `mobile/android/app/src/main/java/.../MainActivity.java` | `EdgeToEdge.enable()` (Android 15+ edge to edge, Play Console asks for it) — AFTER `super.onCreate`, never before: before, the window is built under the splash theme and keeps a title bar over the page (1.10 shipped with it); system bars hidden; portrait locked IN CODE on phones only (smallest width < 600dp) — never `screenOrientation` in the manifest, the Play Console flags it for large screens |
@@ -236,7 +236,6 @@ node tools/test.mjs
 node tools/balance.mjs
 node tools/check.mjs
 python3 tools/music_organic.py        # re-render the music (needs fluidsynth + tools/soundfonts/)
-node tools/publier.mjs
 node tools/bundle.mjs
 node tools/vendor-supabase.mjs       # regenerate vendor/supabase-js.esm.js
 node tools/vendor-native.mjs         # regenerate vendor/capacitor-*.esm.js (needs mobile/node_modules)
