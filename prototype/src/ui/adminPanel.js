@@ -64,6 +64,7 @@ async function show(tab) {
   body.replaceChildren(emptyLine('admin.loading'));
   if (tab === 'community') await renderCommunity(body);
   else if (tab === 'daily') await renderDaily(body);
+  else if (tab === 'stats') await renderStats(body);
   else await renderFlagged(body);
 }
 
@@ -273,6 +274,64 @@ async function renderDaily(body) {
 // ---------------------------------------------------------------------------
 // Flagged attempts
 // ---------------------------------------------------------------------------
+
+/** Players, activity, ads: everything `admin_dashboard()` returns. */
+async function renderStats(body) {
+  const d = await admin.dashboard();
+  body.replaceChildren();
+  if (!d || d.error) {
+    body.append(node('p', 'admin-empty', `${t('admin.stats.error')} ${d?.error || ''}`));
+    return;
+  }
+  const n = (v) => (v === null || v === undefined ? '—' : String(v));
+  const pct = (a, b) => (b ? `${Math.round((100 * a) / b)} %` : '—');
+  const mmss = (s) => (s == null ? '—' : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`);
+  const section = (key, tiles) => {
+    body.append(node('h3', 'admin-note', t(key)));
+    const row = node('div', 'admin-stats');
+    for (const [label, value] of tiles) {
+      const tile = node('div', 'admin-stat');
+      tile.append(node('b', '', n(value)), node('small', '', t(label)));
+      row.append(tile);
+    }
+    body.append(row);
+  };
+  const bars = (key, rows) => {
+    body.append(node('p', 'admin-note', t(key)));
+    const max = Math.max(1, ...rows.map((r) => r.n));
+    const list = node('ol', 'admin-days');
+    for (const r of rows.slice(-14)) {
+      const li = node('li');
+      li.append(node('b', 'admin-day-date', shortDate(r.day)),
+        node('span', 'admin-day-what', `${'▇'.repeat(Math.round((10 * r.n) / max))} ${r.n}`));
+      list.append(li);
+    }
+    body.append(list);
+  };
+
+  section('admin.stats.players', [
+    ['admin.stats.total', d.players], ['admin.stats.anon', d.anonymous],
+    ['admin.stats.new1', d.new_today], ['admin.stats.new7', d.new_7d],
+  ]);
+  section('admin.stats.activity', [
+    ['admin.stats.act1', d.active_1d], ['admin.stats.act7', d.active_7d],
+    ['admin.stats.act30', d.active_30d], ['admin.stats.won1', pct(d.played_once, d.players)],
+  ]);
+  section('admin.stats.play', [
+    ['admin.stats.wins', d.wins], ['admin.stats.avgtime', mmss(d.avg_win_s)],
+    ['admin.stats.avgmoves', d.avg_win_moves], ['admin.stats.avgstars', d.avg_stars],
+  ]);
+  const a = d.ads || {};
+  const kind = (k) => (a.by_kind || []).find((x) => x.kind === k) || {};
+  section('admin.stats.ads', [
+    ['admin.stats.adshown', a.shown], ['admin.stats.ads7', a.shown_7d],
+    ['admin.stats.adrewarded', n(kind('rewarded').shown)],
+    ['admin.stats.adfill', pct(a.shown, a.total)],
+  ]);
+  if (!a.total) body.append(node('p', 'admin-note', t('admin.stats.adnote')));
+  bars('admin.stats.signups', d.signups_14d || []);
+  bars('admin.stats.winsday', d.wins_14d || []);
+}
 
 async function renderFlagged(body) {
   const rows = await admin.flaggedAttempts();

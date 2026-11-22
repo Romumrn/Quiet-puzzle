@@ -86,6 +86,16 @@ export async function stats() {
   return { levels, players, submitted, approved, flagged };
 }
 
+/** Every figure of the Stats tab, from one admin-only RPC. null when refused. */
+export async function dashboard() {
+  try {
+    const { data, error } = await supabase.rpc('admin_dashboard');
+    return error ? { error: error.message } : data;
+  } catch (e) {
+    return { error: String(e?.message || e) };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Community level moderation
 // ---------------------------------------------------------------------------

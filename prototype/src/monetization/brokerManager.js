@@ -24,6 +24,7 @@ import { t } from '../ui/i18n.js';
 import * as currency from './currency.js';
 import { isNative } from '../native/capacitor.js';
 import * as admob from './admob.js';
+import { logAd } from '../data/adLog.js';
 
 /** Placements, as they will appear in the network's reports. */
 export const PLACEMENT = Object.freeze({
@@ -78,6 +79,7 @@ export class AdBroker {
     const shown = isNative()
       ? await admob.showInterstitial()
       : await this._play({ type: 'interstitial', seconds: INTERSTITIAL_SECONDS, title: t('ad.title') }).then(() => true);
+    if (isNative()) logAd('interstitial', PLACEMENT.INTERSTITIAL_LEVEL_END, shown);
     if (shown) track('ad_watched', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIAL_LEVEL_END, revenue: 0.012 });
     else track('ad_no_fill', { adType: 'interstitial' });
     return { shown, reason: shown ? 'ok' : 'no-fill' };
@@ -104,6 +106,7 @@ export class AdBroker {
       ? await admob.showRewarded().finally(() => { this.busy = false; })
       : await this._play({ type: 'rewarded', seconds: REWARDED_SECONDS, title: t('ad.title.rewarded') });
     this.policy.noteRewarded();
+    if (isNative()) logAd('rewarded', placement, completed);
     if (completed) track(EV.REWARDED_COMPLETED, { placement, revenue: 0.015 });
     else track('ad_abandoned', { adType: 'rewarded', placement });
     return completed;
