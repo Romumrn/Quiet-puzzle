@@ -124,6 +124,26 @@ export class AdBroker {
     if (visible) track('ad_impression', { adType: 'banner', placement: PLACEMENT.BANNER, screen });
   }
 
+  /**
+   * The banner under the won level's card ("Map · Replay · Next"). Natively,
+   * the same AdMob view as the menu's, at the bottom of the screen under the
+   * card; the overlay makes room for it (`.with-banner` in main.css).
+   */
+  showResultBanner() {
+    if (currency.hasRemovedAds()) return;
+    if (isNative()) {
+      admob.showBanner();
+      document.getElementById('overlay-result')?.classList.add('with-banner');
+    }
+    track('ad_impression', { adType: 'banner', placement: PLACEMENT.BANNER_RESULT });
+  }
+
+  hideResultBanner() {
+    if (!isNative()) return;
+    document.getElementById('overlay-result')?.classList.remove('with-banner');
+    admob.hideBanner();
+  }
+
   // --- Simulation ----------------------------------------------------------
 
   /**

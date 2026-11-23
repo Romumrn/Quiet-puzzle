@@ -1424,6 +1424,9 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
    à peine flouté, et carte légèrement translucide. */
 #overlay-info { background: hsl(var(--h) 30% 96% / 0.35); backdrop-filter: blur(1.5px); align-items: end; padding-bottom: 110px; }
 #overlay-info .info-card { background: hsl(var(--h) 40% 99% / 0.9); box-shadow: 0 12px 34px hsl(var(--h) 30% 30% / 0.18); }
+/* La nuit, ce blanc portait un texte clair : illisible. Même veil, sombre. */
+html.night #overlay-info { background: hsl(var(--h) 30% 8% / 0.35); }
+html.night #overlay-info .info-card { background: hsl(var(--h) 26% 19% / 0.94); box-shadow: 0 12px 34px hsl(var(--h) 30% 4% / 0.5); }
 .info-card { max-width: 340px; }
 .info-icon {
   width: 56px; height: 56px; margin: 0 auto 10px; display: grid; place-items: center;
@@ -1871,6 +1874,10 @@ button.lives-pill { font-family: inherit; cursor: pointer; }
   position: static; transform: none; width: auto; margin-top: 18px;
   border: 1px solid var(--line); border-radius: 12px;
 }
+/* Natively the result's banner is the AdMob view at the bottom of the screen,
+   under the card: no slot inside the card, room kept below it instead. */
+.native-app .banner-result { display: none; }
+.native-app #overlay-result.with-banner { padding-bottom: 64px; }
 
 /* ---------- Toast ---------- */
 

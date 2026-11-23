@@ -853,7 +853,7 @@ async function finishLevel() {
       await updateDailyPuzzleButton();
       updateStreakBadge();
       await showMenu();
-      showLeaderboard(score, reward, entry.id);
+      showLeaderboard(score, reward, entry.id, () => playDailyPuzzle(entry));
     } else {
       showMenu();
     }
@@ -927,7 +927,8 @@ async function finishLevel() {
     reason: board.failReason,
     remaining: board.remaining(),
     noAds: currency.hasRemovedAds(),
-    onBannerShown: () => track('ad_impression', { adType: 'banner', placement: PLACEMENT.BANNER_RESULT }),
+    onBannerShown: () => ads.showResultBanner(),
+    onBannerHidden: () => ads.hideResultBanner(),
     onDouble: async () => {
       const watched = await ads.showRewarded(PLACEMENT.REWARDED_DOUBLE);
       if (!watched) return false;
@@ -1557,6 +1558,16 @@ async function updateDailyPuzzleButton() {
 el('btn-daily-puzzle').onclick = async () => {
   const entry = await api.getDailyPuzzle();
   if (!entry) return;
+  // Already played today: the button leads to the ranking, which is what the
+  // player came back for. Replaying stays one tap away, from the card.
+  if (dailyPuzzle.alreadyPlayed()) {
+    showLeaderboard(null, null, entry.id, () => playDailyPuzzle(entry));
+    return;
+  }
+  playDailyPuzzle(entry);
+};
+
+function playDailyPuzzle(entry) {
   dailyEntry = entry;
   // The daily puzzle is played against the clock: the limits of the submitted
   // level are the ones the editor gave it, and we do not tighten them.
@@ -1565,7 +1576,7 @@ el('btn-daily-puzzle').onclick = async () => {
   startLevel();
   if (entry.author) screens.toast(t('daily.madeby', { author: entry.author }), 2600);
   track('daily_puzzle_started', { id: entry.id, community: !!entry.community });
-};
+}
 
 el('btn-rank-close').onclick = () => { el('overlay-rank').hidden = true; };
 
@@ -1685,7 +1696,9 @@ function dailyReward() {
  * The daily puzzle's ranking: every player who played it (server), or — offline,
  * or before the server knows it — this device's own, which says so.
  */
-async function showLeaderboard(myScore, reward = null, puzzleId = null) {
+async function showLeaderboard(myScore, reward = null, puzzleId = null, onReplay = null) {
+  el('btn-rank-replay').hidden = !onReplay;
+  el('btn-rank-replay').onclick = onReplay && (() => { el('overlay-rank').hidden = true; onReplay(); });
   el('rank-reward').hidden = !reward;
   el('rank-reward').textContent = reward || '';
   el('rank-mine').textContent = t('board.loading');

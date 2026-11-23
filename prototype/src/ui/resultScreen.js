@@ -165,7 +165,9 @@ export function show(r) {
   const banner = el('result-banner');
   const showBanner = r.won && !r.noAds;
   banner.hidden = !showBanner;
-  if (showBanner) r.onBannerShown?.();
+  bannerDue = showBanner ? r.onBannerShown : null;
+  bannerGone = showBanner ? r.onBannerHidden : null;
+  if (!sequence) bannerInView();
 
   el('overlay-result').hidden = false;
   if (sequence) playSequence(r, card, novelty, bloom);
@@ -175,6 +177,21 @@ export function hide() {
   run?.skip();
   run = null;
   el('overlay-result').hidden = true;
+  bannerDue = null;
+  bannerGone?.();
+  bannerGone = null;
+}
+
+/**
+ * The banner under the buttons counts — and, in the Android app, the real ad
+ * comes up — only once its slot is in view: at the end of the sequence, not
+ * over the stars while they drop.
+ */
+let bannerDue = null;
+let bannerGone = null;
+function bannerInView() {
+  bannerDue?.();
+  bannerDue = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -436,6 +453,7 @@ function playSequence(r, card, novelty, bloom) {
     for (const s of el('overlay-result').querySelectorAll('.shard-flying')) s.remove();
     if (paying) el('result-purse-n').textContent = r.balance - bloomHeld;
     if (!next.hidden) next.classList.add('pulse');
+    bannerInView();
   };
 
   if (reducedMotion()) { finish(); run = null; return; }
@@ -563,6 +581,7 @@ function playSequence(r, card, novelty, bloom) {
         reveal(n);
         play(n, [{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' });
       }
+      bannerInView();
     }
     overlay.removeEventListener('pointerdown', onTap, true);
     if (run === seq) run = null;
