@@ -263,6 +263,12 @@
           <i></i>
         </label>
         <p class="user-note" data-i18n="user.glyphs.note">Every colour gets its own texture, on blocks and gates alike.</p>
+        <label class="switch" id="opt-notifications-row" hidden>
+          <span data-i18n="user.notifications">Reminders</span>
+          <input type="checkbox" id="opt-notifications">
+          <i></i>
+        </label>
+        <p class="user-note" id="opt-notifications-note" data-i18n="user.notifications.note" hidden>Lives refilled, daily puzzle, streak: one reminder a day at most.</p>
         <div class="user-langue">
           <span data-i18n="user.language">Language</span>
           <div class="language-choice" id="opt-language"></div>
@@ -291,6 +297,8 @@
                 data-i18n="user.logout">Log out</button>
         <p class="user-note" id="auth-status-text"></p>
         <button class="btn btn-ghost btn-sm user-large" id="btn-privacy" data-i18n="user.privacy">Privacy policy</button>
+        <button class="btn btn-ghost btn-sm user-large user-danger" id="btn-delete-account" hidden
+                data-i18n="user.delete">Delete my account</button>
       </div>
 
       <button class="btn btn-ghost btn-sm user-danger" id="btn-reset"

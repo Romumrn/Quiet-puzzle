@@ -51,6 +51,7 @@ import { isNative } from './native/capacitor.js';
 import { registerBackHandler, registerLifecycle } from './native/lifecycle.js';
 import * as review from './native/review.js';
 import { checkForUpdate } from './native/update.js';
+import * as reminders from './native/reminders.js';
 import * as confetti from './render/confetti.js';
 import { Browser } from '../vendor/capacitor-browser.esm.js';
 import { Share } from '../vendor/capacitor-share.esm.js';
@@ -882,6 +883,7 @@ async function finishLevel() {
   // indeed what makes an ad eligible.
   ads.policy.noteLevelEnding();
   if (firstWin) mapRun.push({ level: level.number, stars });
+  if (won) reminders.afterWin(level.number);
   if (won) review.afterWin({ level: level.number, stars, firstWin, realmDone: level.number === levels.realmOf(level.number).last });
 
   // A win on the last level of a realm gets the celebration screen instead of
@@ -1141,6 +1143,8 @@ async function updatePanel() {
   el('opt-sfx').checked = d.sfx !== false;
   el('opt-vibration').checked = d.vibration !== false;
   el('opt-glyphs').checked = d.glyphs === true;
+  el('opt-notifications').checked = reminders.enabled();
+  el('opt-notifications-row').hidden = el('opt-notifications-note').hidden = !isNative();
   el('opt-night').checked = d.night === true;
   buildLanguageChoice();
   updateMuteDot();
@@ -1193,6 +1197,14 @@ function applyGlyphs(on) {
   view?.refreshGlyphs?.();
 }
 
+el('opt-notifications').onchange = async (ev) => {
+  const allowed = await reminders.setEnabled(ev.target.checked);
+  if (!allowed) {
+    ev.target.checked = false;
+    reminders.setEnabled(false);
+    screens.toast(t('user.notifications.blocked'), 2800);
+  }
+};
 el('opt-glyphs').onchange = (ev) => {
   const on = ev.target.checked;
   const d = store.load(); d.glyphs = on; store.save(d);
@@ -1378,8 +1390,9 @@ registerBackHandler(() => {
 // some Android WebViews are inconsistent about firing document visibility on
 // backgrounding via the app switcher, `pause`/`resume` are not.
 registerLifecycle({
-  onPause: stopClock,
+  onPause: () => { stopClock(); reminders.plan(); },
   onResume: () => {
+    reminders.cancel();
     checkForUpdate();
     if (board?.gameState === GameState.PLAYING && screens.current() === 'game') startClock();
   },
@@ -1893,6 +1906,32 @@ el('btn-logout').onclick = async () => {
 };
 
 /**
+ * Deleting the account from the game — Google Play requires it of any app that
+ * creates accounts (anonymous ones included: they are real accounts on the
+ * server). RPC `delete_my_account` (migration 20261123130000) erases the user
+ * and everything cascading from it; then this device forgets the save too, and
+ * the app starts over on the login screen. Drafts from the editor stay: they
+ * never left the phone.
+ */
+el('btn-delete-account').onclick = async () => {
+  if (!confirm(t('user.delete.confirm'))) return;
+  const { error } = await supabase.rpc('delete_my_account').catch((e) => ({ error: e }));
+  if (error) {
+    console.error('Account deletion failed:', error);
+    screens.toast(t('user.delete.failed'), 2600, 'alert');
+    return;
+  }
+  signOutRequested = true;
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  store.reset();
+  for (const key of ['puzzlequest.dailypuzzle.v1', 'quietpuzzle.communityDaily']) {
+    try { localStorage.removeItem(key); } catch { /* nothing kept to forget */ }
+  }
+  screens.toast(t('user.delete.done'), 1800);
+  setTimeout(() => location.reload(), 1200);
+};
+
+/**
  * Required by the Play Console's "Data safety" form, and generally good
  * practice. Opens in a system tab (Custom Tab on Android via the Browser
  * plugin, a new browser tab on the web) rather than inside the game's own
@@ -1951,6 +1990,7 @@ async function updateAuthStatus() {
   const logoutBtn = el('btn-logout');
   const statusText = el('auth-status-text');
 
+  el('btn-delete-account').hidden = !session?.user;
   if (session?.user) {
     logoutBtn.hidden = false;
     const email = session.user.email || session.user.user_metadata?.email || t('user.status.anonymous');
@@ -2314,6 +2354,8 @@ function refreshDebug() {
     window.addEventListener('pagehide', () => track('session_ended', {}));
     showMenu();
     checkForUpdate();
+    // Back in the game: whatever was planned for this absence is moot.
+    reminders.cancel();
   }
 
   /** Stops the game cleanly on sign-out. */

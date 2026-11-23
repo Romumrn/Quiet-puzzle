@@ -35,6 +35,7 @@ const PACKAGES = [
   ['@capacitor/haptics', 'dist/esm/index.js', 'capacitor-haptics.esm.js'],
   ['@capacitor/browser', 'dist/esm/index.js', 'capacitor-browser.esm.js'],
   ['@capacitor/share', 'dist/esm/index.js', 'capacitor-share.esm.js'],
+  ['@capacitor/local-notifications', 'dist/esm/index.js', 'capacitor-local-notifications.esm.js'],
   ['@capacitor-community/admob', 'dist/esm/index.js', 'capacitor-admob.esm.js'],
   ['@capacitor-community/in-app-review', 'dist/esm/index.js', 'capacitor-in-app-review.esm.js'],
   ['@capawesome/capacitor-app-update', 'dist/esm/index.js', 'capacitor-app-update.esm.js'],

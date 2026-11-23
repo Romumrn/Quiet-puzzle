@@ -68,6 +68,8 @@ const EMPTY = () => ({
   dailyRewardOn: null,  // 'YYYY-MM-DD' of the last daily puzzle bonus paid
   lastPlayDay: null, // 'YYYY-MM-DD'
   dailyClaimedOn: null,
+  notifications: true,       // reminders on (native/reminders.js); off from Settings
+  notificationsAsked: false, // Android's permission already asked once
   reviewAskedAt: null, // when Google's rating card was last asked for (native/review.js)
   createdAt: new Date().toISOString(),
   lastPlayedAt: null,
