@@ -1911,6 +1911,22 @@ html.night #overlay-info .info-card { background: hsl(var(--h) 26% 19% / 0.94); 
    still soft, never a harsh warning colour. */
 .toast.alert { background: var(--alert); color: var(--ground); }
 
+/* A new version on the Play Store (src/native/update.js): one quiet line at the
+   foot of the menu, never over the game. */
+.update-note {
+  /* Centred by margins: the entrance animation owns `transform`. */
+  position: absolute; left: 16px; right: 16px; bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  margin-inline: auto; width: fit-content;
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 6px 6px 16px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+  box-shadow: 0 6px 18px hsl(var(--h) 30% 20% / 0.12);
+  font-size: 13px; animation: screen-in 0.26s ease both;
+}
+.update-note-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.update-note .btn-sm { border-radius: 999px; flex: none; }
+.update-note-later { position: static; width: 28px; height: 28px; flex: none; font-size: 20px; }
+
 /* ---------- Focus clavier ---------- */
 
 .btn:focus-visible,

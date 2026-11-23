@@ -18,6 +18,7 @@
     "@capacitor/core": "^8.5.1",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/share": "^8.0.1",
+    "@capawesome/capacitor-app-update": "^8.1.1",
     "@southdevs/capacitor-google-auth": "^7.0.0"
   },
   "devDependencies": {

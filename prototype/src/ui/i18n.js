@@ -114,6 +114,7 @@ const STRINGS = {
     'result.drags': 'coups', 'result.double': 'Doubler les éclats',
 
     'ad.tag': 'Emplacement publicitaire', 'ad.banner': 'Emplacement bannière 320×50',
+    'update.available': 'Nouvelle version disponible', 'update.go': 'Mettre à jour', 'update.later': 'Plus tard', 'update.ready': 'Mise à jour prête', 'update.restart': 'Redémarrer', 'update.required.title': 'Mise à jour requise', 'update.required.text': 'Cette version ne peut plus être jouée. La nouvelle vous attend sur Google Play.',
     'ad.loading': 'Chargement…', 'ad.title': 'Publicité', 'ad.title.rewarded': 'Publicité récompensée',
     'ad.note': 'Emplacement simulé — aucun réseau publicitaire n’est branché',
     'ad.note.rewarded': 'Regardez jusqu’au bout pour recevoir la récompense',
@@ -341,6 +342,7 @@ const STRINGS = {
     'result.drags': 'moves', 'result.double': 'Double the shards',
 
     'ad.tag': 'Ad placement', 'ad.banner': '320×50 banner placement',
+    'update.available': 'New version available', 'update.go': 'Update', 'update.later': 'Later', 'update.ready': 'Update ready', 'update.restart': 'Restart', 'update.required.title': 'Update required', 'update.required.text': 'This version can no longer be played. The new one is waiting on Google Play.',
     'ad.loading': 'Loading…', 'ad.title': 'Advertisement', 'ad.title.rewarded': 'Rewarded ad',
     'ad.note': 'Simulated placement — no ad network is wired in',
     'ad.note.rewarded': 'Watch to the end to claim the reward',
@@ -568,6 +570,7 @@ const STRINGS = {
     'result.drags': 'movimientos', 'result.double': 'Duplicar las fragmentos',
 
     'ad.tag': 'Espacio publicitario', 'ad.banner': 'Espacio de banner 320×50',
+    'update.available': 'Nueva versión disponible', 'update.go': 'Actualizar', 'update.later': 'Más tarde', 'update.ready': 'Actualización lista', 'update.restart': 'Reiniciar', 'update.required.title': 'Actualización necesaria', 'update.required.text': 'Esta versión ya no se puede jugar. La nueva te espera en Google Play.',
     'ad.loading': 'Cargando…', 'ad.title': 'Publicidad', 'ad.title.rewarded': 'Anuncio recompensado',
     'ad.note': 'Espacio simulado — no hay ninguna red publicitaria conectada',
     'ad.note.rewarded': 'Míralo hasta el final para recibir la recompensa',
@@ -795,6 +798,7 @@ const STRINGS = {
     'result.drags': 'mosse', 'result.double': 'Raddoppia le schegge',
 
     'ad.tag': 'Spazio pubblicitario', 'ad.banner': 'Spazio banner 320×50',
+    'update.available': 'Nuova versione disponibile', 'update.go': 'Aggiorna', 'update.later': 'Più tardi', 'update.ready': 'Aggiornamento pronto', 'update.restart': 'Riavvia', 'update.required.title': 'Aggiornamento necessario', 'update.required.text': 'Questa versione non si può più giocare. La nuova ti aspetta su Google Play.',
     'ad.loading': 'Caricamento…', 'ad.title': 'Pubblicità', 'ad.title.rewarded': 'Annuncio con premio',
     'ad.note': 'Spazio simulato — nessun circuito pubblicitario è collegato',
     'ad.note.rewarded': 'Guardalo fino in fondo per ricevere il premio',
@@ -1024,6 +1028,7 @@ const STRINGS = {
     'result.drags': '步', 'result.double': '碎片翻倍',
 
     'ad.tag': '广告位', 'ad.banner': '320×50 横幅广告位',
+    'update.available': '有新版本', 'update.go': '更新', 'update.later': '稍后', 'update.ready': '更新已就绪', 'update.restart': '重新启动', 'update.required.title': '需要更新', 'update.required.text': '此版本已无法继续游玩。新版本已在 Google Play 上线。',
     'ad.loading': '加载中…', 'ad.title': '广告', 'ad.title.rewarded': '奖励广告',
     'ad.note': '模拟广告位 — 未接入任何广告平台',
     'ad.note.rewarded': '看完即可领取奖励',

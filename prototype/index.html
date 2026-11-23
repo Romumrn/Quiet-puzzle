@@ -78,6 +78,11 @@
           <small id="daily-puzzle-sub"></small>
         </button>
       </div>
+      <div class="update-note" id="update-note" hidden>
+        <span class="update-note-text" id="update-note-text"></span>
+        <button class="btn btn-primary btn-sm" id="btn-update-go"></button>
+        <button class="info-close update-note-later" id="btn-update-later" data-i18n-aria="update.later" aria-label="Later">×</button>
+      </div>
     </section>
 
     <!-- ============ LEVEL MAP ============ -->
@@ -440,6 +445,16 @@
         <div class="info-icon" id="info-icon"></div>
         <h2 id="info-title"></h2>
         <p class="info-text" id="info-text"></p>
+      </div>
+    </div>
+
+    <!-- Below the minimum version (src/native/update.js): no way past it. -->
+    <div class="overlay" id="overlay-update" hidden>
+      <div class="result-card info-card">
+        <div class="info-icon">↻</div>
+        <h2 data-i18n="update.required.title">Update required</h2>
+        <p class="info-text" data-i18n="update.required.text">This version can no longer be played. The new one is waiting on Google Play.</p>
+        <div class="result-actions"><button class="btn btn-primary" id="btn-update-required" data-i18n="update.go">Update</button></div>
       </div>
     </div>
 

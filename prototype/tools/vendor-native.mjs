@@ -37,6 +37,7 @@ const PACKAGES = [
   ['@capacitor/share', 'dist/esm/index.js', 'capacitor-share.esm.js'],
   ['@capacitor-community/admob', 'dist/esm/index.js', 'capacitor-admob.esm.js'],
   ['@capacitor-community/in-app-review', 'dist/esm/index.js', 'capacitor-in-app-review.esm.js'],
+  ['@capawesome/capacitor-app-update', 'dist/esm/index.js', 'capacitor-app-update.esm.js'],
   ['@southdevs/capacitor-google-auth', 'dist/esm/index.js', 'capacitor-google-auth.esm.js'],
 ];
 

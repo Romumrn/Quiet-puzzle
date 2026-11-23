@@ -50,6 +50,7 @@ import * as adminPanel from './ui/adminPanel.js';
 import { isNative } from './native/capacitor.js';
 import { registerBackHandler, registerLifecycle } from './native/lifecycle.js';
 import * as review from './native/review.js';
+import { checkForUpdate } from './native/update.js';
 import * as confetti from './render/confetti.js';
 import { Browser } from '../vendor/capacitor-browser.esm.js';
 import { Share } from '../vendor/capacitor-share.esm.js';
@@ -1343,6 +1344,8 @@ el('btn-mine-close').onclick = () => { el('overlay-mine').hidden = true; };
 const DISMISSABLE_OVERLAYS = ['overlay-shop', 'overlay-mine', 'overlay-rank', 'overlay-board', 'overlay-quests', 'overlay-feedback'];
 
 registerBackHandler(() => {
+  // Below the minimum version there is nothing behind it: back leaves the app.
+  if (!el('overlay-update').hidden) return false;
   if (!el('user-panel').hidden) { openPanel(false); return true; }
   const openOverlay = DISMISSABLE_OVERLAYS.find((id) => !el(id).hidden);
   if (openOverlay) { el(openOverlay).hidden = true; return true; }
@@ -1377,6 +1380,7 @@ registerBackHandler(() => {
 registerLifecycle({
   onPause: stopClock,
   onResume: () => {
+    checkForUpdate();
     if (board?.gameState === GameState.PLAYING && screens.current() === 'game') startClock();
   },
 });
@@ -2309,6 +2313,7 @@ function refreshDebug() {
 
     window.addEventListener('pagehide', () => track('session_ended', {}));
     showMenu();
+    checkForUpdate();
   }
 
   /** Stops the game cleanly on sign-out. */
