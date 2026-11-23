@@ -49,6 +49,7 @@ import * as admin from './data/admin.js';
 import * as adminPanel from './ui/adminPanel.js';
 import { isNative } from './native/capacitor.js';
 import { registerBackHandler, registerLifecycle } from './native/lifecycle.js';
+import * as review from './native/review.js';
 import * as confetti from './render/confetti.js';
 import { Browser } from '../vendor/capacitor-browser.esm.js';
 import { Share } from '../vendor/capacitor-share.esm.js';
@@ -880,6 +881,7 @@ async function finishLevel() {
   // indeed what makes an ad eligible.
   ads.policy.noteLevelEnding();
   if (firstWin) mapRun.push({ level: level.number, stars });
+  if (won) review.afterWin({ level: level.number, stars, firstWin, realmDone: level.number === levels.realmOf(level.number).last });
 
   // A win on the last level of a realm gets the celebration screen instead of
   // the plain result screen — it carries the same stars/reward, plus the next

@@ -68,6 +68,7 @@ const EMPTY = () => ({
   dailyRewardOn: null,  // 'YYYY-MM-DD' of the last daily puzzle bonus paid
   lastPlayDay: null, // 'YYYY-MM-DD'
   dailyClaimedOn: null,
+  reviewAskedAt: null, // when Google's rating card was last asked for (native/review.js)
   createdAt: new Date().toISOString(),
   lastPlayedAt: null,
   progressEpoch: PROGRESS_EPOCH,
