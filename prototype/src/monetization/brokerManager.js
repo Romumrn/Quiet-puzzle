@@ -21,6 +21,7 @@ import { BrokerPolicy } from './brokerPolicy.js';
 import { track } from '../data/events.js';
 import { EVENTS as EV } from '../data/analytics.js';
 import { t } from '../ui/i18n.js';
+import { toast } from '../ui/screens.js';
 import * as currency from './currency.js';
 import { isNative } from '../native/capacitor.js';
 import * as admob from './admob.js';
@@ -76,7 +77,7 @@ export class AdBroker {
     this.policy.noteInterstitial();
     track(EV.INTERSTITIAL_SHOWN, { placement: PLACEMENT.INTERSTITIAL_LEVEL_END });
     const shown = isNative()
-      ? await admob.showInterstitial()
+      ? await this._loading(() => admob.showInterstitial(() => this._loaded()))
       : await this._play({ type: 'interstitial', seconds: INTERSTITIAL_SECONDS, title: t('ad.title') }).then(() => true);
     if (shown) track('ad_watched', { adType: 'interstitial', placement: PLACEMENT.INTERSTITIAL_LEVEL_END, revenue: 0.012 });
     else track('ad_no_fill', { adType: 'interstitial' });
@@ -100,9 +101,14 @@ export class AdBroker {
     }
     track(EV.REWARDED_STARTED, { placement });
     this.busy = isNative() || this.busy; // the simulated `_play()` already sets/clears it itself
+    let loaded = false;
     const completed = isNative()
-      ? await admob.showRewarded().finally(() => { this.busy = false; })
+      ? await this._loading(() => admob.showRewarded(() => { loaded = true; this._loaded(); }))
+        .finally(() => { this.busy = false; })
       : await this._play({ type: 'rewarded', seconds: REWARDED_SECONDS, title: t('ad.title.rewarded') });
+    // No video came (no fill, no network, consent not settled): say so, or the
+    // tap looks like it did nothing. A video closed early needs no message.
+    if (isNative() && !loaded) toast(t('shop.ad.failed'), 2200);
     this.policy.noteRewarded();
     if (completed) track(EV.REWARDED_COMPLETED, { placement, revenue: 0.015 });
     else track('ad_abandoned', { adType: 'rewarded', placement });
@@ -126,22 +132,44 @@ export class AdBroker {
 
   /**
    * The banner under the won level's card ("Map · Replay · Next"). Natively,
-   * the same AdMob view as the menu's, at the bottom of the screen under the
-   * card; the overlay makes room for it (`.with-banner` in main.css).
+   * an AdMob view drawn over the WebView: it is placed on the card's banner
+   * slot (`#result-banner`, kept invisible and holding the room), measured
+   * once the card has landed.
    */
   showResultBanner() {
     if (currency.hasRemovedAds()) return;
     if (isNative()) {
-      admob.showBanner();
-      document.getElementById('overlay-result')?.classList.add('with-banner');
+      const slot = document.getElementById('result-banner');
+      if (slot) admob.showBanner(slot.getBoundingClientRect().top);
     }
     track('ad_impression', { adType: 'banner', placement: PLACEMENT.BANNER_RESULT });
   }
 
   hideResultBanner() {
-    if (!isNative()) return;
-    document.getElementById('overlay-result')?.classList.remove('with-banner');
-    admob.hideBanner();
+    if (isNative()) admob.hideBanner();
+  }
+
+  // --- Loading veil ---------------------------------------------------------
+
+  /**
+   * A native ad takes a few seconds to load — consent, then the video — and
+   * nothing on screen moved in the meantime: players could not tell a slow
+   * ad from a broken button. The veil (`#ad-loading`) is up from the tap
+   * until the ad covers the screen, or until loading gives up.
+   */
+  async _loading(load) {
+    const veil = document.getElementById('ad-loading');
+    if (veil) veil.hidden = false;
+    try {
+      return await load();
+    } finally {
+      this._loaded();
+    }
+  }
+
+  _loaded() {
+    const veil = document.getElementById('ad-loading');
+    if (veil) veil.hidden = true;
   }
 
   // --- Simulation ----------------------------------------------------------

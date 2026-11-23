@@ -114,7 +114,7 @@ const STRINGS = {
     'result.drags': 'coups', 'result.double': 'Doubler les éclats',
 
     'ad.tag': 'Emplacement publicitaire', 'ad.banner': 'Emplacement bannière 320×50',
-    'ad.title': 'Publicité', 'ad.title.rewarded': 'Publicité récompensée',
+    'ad.loading': 'Chargement…', 'ad.title': 'Publicité', 'ad.title.rewarded': 'Publicité récompensée',
     'ad.note': 'Emplacement simulé — aucun réseau publicitaire n’est branché',
     'ad.note.rewarded': 'Regardez jusqu’au bout pour recevoir la récompense',
     'ad.close': 'Fermer', 'ad.claim': 'Récupérer la récompense',
@@ -341,7 +341,7 @@ const STRINGS = {
     'result.drags': 'moves', 'result.double': 'Double the shards',
 
     'ad.tag': 'Ad placement', 'ad.banner': '320×50 banner placement',
-    'ad.title': 'Advertisement', 'ad.title.rewarded': 'Rewarded ad',
+    'ad.loading': 'Loading…', 'ad.title': 'Advertisement', 'ad.title.rewarded': 'Rewarded ad',
     'ad.note': 'Simulated placement — no ad network is wired in',
     'ad.note.rewarded': 'Watch to the end to claim the reward',
     'ad.close': 'Close', 'ad.claim': 'Claim the reward',
@@ -568,7 +568,7 @@ const STRINGS = {
     'result.drags': 'movimientos', 'result.double': 'Duplicar las fragmentos',
 
     'ad.tag': 'Espacio publicitario', 'ad.banner': 'Espacio de banner 320×50',
-    'ad.title': 'Publicidad', 'ad.title.rewarded': 'Anuncio recompensado',
+    'ad.loading': 'Cargando…', 'ad.title': 'Publicidad', 'ad.title.rewarded': 'Anuncio recompensado',
     'ad.note': 'Espacio simulado — no hay ninguna red publicitaria conectada',
     'ad.note.rewarded': 'Míralo hasta el final para recibir la recompensa',
     'ad.close': 'Cerrar', 'ad.claim': 'Recoger la recompensa',
@@ -795,7 +795,7 @@ const STRINGS = {
     'result.drags': 'mosse', 'result.double': 'Raddoppia le schegge',
 
     'ad.tag': 'Spazio pubblicitario', 'ad.banner': 'Spazio banner 320×50',
-    'ad.title': 'Pubblicità', 'ad.title.rewarded': 'Annuncio con premio',
+    'ad.loading': 'Caricamento…', 'ad.title': 'Pubblicità', 'ad.title.rewarded': 'Annuncio con premio',
     'ad.note': 'Spazio simulato — nessun circuito pubblicitario è collegato',
     'ad.note.rewarded': 'Guardalo fino in fondo per ricevere il premio',
     'ad.close': 'Chiudi', 'ad.claim': 'Ritira il premio',
@@ -1024,7 +1024,7 @@ const STRINGS = {
     'result.drags': '步', 'result.double': '碎片翻倍',
 
     'ad.tag': '广告位', 'ad.banner': '320×50 横幅广告位',
-    'ad.title': '广告', 'ad.title.rewarded': '奖励广告',
+    'ad.loading': '加载中…', 'ad.title': '广告', 'ad.title.rewarded': '奖励广告',
     'ad.note': '模拟广告位 — 未接入任何广告平台',
     'ad.note.rewarded': '看完即可领取奖励',
     'ad.close': '关闭', 'ad.claim': '领取奖励',

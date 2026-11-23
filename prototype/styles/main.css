@@ -1822,6 +1822,19 @@ html.night #overlay-info .info-card { background: hsl(var(--h) 26% 19% / 0.94); 
 /* ---------- Publicité simulée ---------- */
 
 .ad-overlay { background: hsl(var(--h) 20% 20% / 0.9); }
+.ad-loading {
+  position: absolute; inset: 0; z-index: 40;
+  display: grid; place-content: center; justify-items: center; gap: 14px;
+  background: hsl(var(--h) 20% 12% / 0.55); backdrop-filter: blur(2px);
+  color: #fff; font: 500 15px var(--font-ui);
+  animation: screen-in 0.2s ease both;
+}
+.ad-spinner {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 3px solid rgb(255 255 255 / 0.3); border-top-color: #fff;
+  animation: ad-spin 0.8s linear infinite;
+}
+@keyframes ad-spin { to { transform: rotate(360deg); } }
 .ad-card {
   width: 100%; padding: 26px 22px 22px;
   border: 1px dashed hsl(var(--h) 15% 55%); border-radius: 22px;
@@ -1874,10 +1887,11 @@ html.night #overlay-info .info-card { background: hsl(var(--h) 26% 19% / 0.94); 
   position: static; transform: none; width: auto; margin-top: 18px;
   border: 1px solid var(--line); border-radius: 12px;
 }
-/* Natively the result's banner is the AdMob view at the bottom of the screen,
-   under the card: no slot inside the card, room kept below it instead. */
-.native-app .banner-result { display: none; }
-.native-app #overlay-result.with-banner { padding-bottom: 64px; }
+/* Natively the AdMob view (320 wide) is laid over this slot, which stays
+   invisible: the card is widened just enough on a 360-wide phone for the ad
+   to sit inside it. */
+.native-app #overlay-result { padding-inline: 14px; }
+.native-app .banner-result { border: 0; }
 
 /* ---------- Toast ---------- */
 

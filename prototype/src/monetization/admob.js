@@ -58,7 +58,7 @@ const INTERSTITIAL_LOAD_MS = 5000;
  * "Replay" left the won, empty board frozen on screen. Loading is also capped:
  * a request that never settles must not hold the level hostage either.
  */
-export async function showInterstitial() {
+export async function showInterstitial(onLoaded) {
   try {
     let timer;
     const timeout = new Promise((_, reject) => {
@@ -68,6 +68,7 @@ export async function showInterstitial() {
       ensureInitialized().then(() => AdMob.prepareInterstitial({ adId: AD_UNITS.INTERSTITIAL })),
       timeout,
     ]).finally(() => clearTimeout(timer));
+    onLoaded?.();
     await AdMob.showInterstitial();
     return true;
   } catch {
@@ -75,27 +76,41 @@ export async function showInterstitial() {
   }
 }
 
+/** How long a rewarded video may take to load before we give up and say so. */
+const REWARDED_LOAD_MS = 10000;
+
 /**
+ * @param {() => void} [onLoaded] called once the video has loaded, just before
+ *   it plays — the caller's "loading" veil comes down then.
  * @returns {Promise<boolean>} true if the reward was earned.
  *
  * `showRewardVideoAd()`'s own promise settles on native SDK quirks that
  * differ enough between "dismissed early" and "failed to show" that the
  * plugin's events are the more reliable source of truth here — `Rewarded`
  * fires before `Dismissed` when the reward is earned, never after.
+ *
+ * Loading (consent, then the video itself) is capped: past REWARDED_LOAD_MS
+ * the promise settles false, and a video that arrives later is not played —
+ * the player had been left staring at a button that seemed to do nothing.
  */
-export function showRewarded() {
+export function showRewarded(onLoaded) {
   return new Promise((resolve) => {
     let earned = false;
+    let settled = false;
     let rewardedHandle;
     let dismissedHandle;
     let failedHandle;
 
     const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       rewardedHandle?.then((h) => h.remove());
       dismissedHandle?.then((h) => h.remove());
       failedHandle?.then((h) => h.remove());
       resolve(value);
     };
+    const timer = setTimeout(() => finish(false), REWARDED_LOAD_MS);
 
     ensureInitialized()
       .then(() => {
@@ -104,40 +119,62 @@ export function showRewarded() {
         failedHandle = AdMob.addListener(RewardAdPluginEvents.FailedToShow, () => finish(false));
         return AdMob.prepareRewardVideoAd({ adId: AD_UNITS.REWARDED });
       })
-      .then(() => AdMob.showRewardVideoAd())
+      .then(() => {
+        if (settled) return;
+        clearTimeout(timer);
+        onLoaded?.();
+        return AdMob.showRewardVideoAd();
+      })
       .catch(() => finish(false));
   });
 }
 
 /**
- * Shows the real bottom banner. Safe to call repeatedly (e.g. once per
- * screen change): the plugin's own `showBanner()` creates the native view,
- * so later calls resume the same view instead of creating a second one.
+ * The plugin has ONE banner view, placed when it is created: a later
+ * `showBanner()` only reloads it where it already is. The menu's sits at the
+ * bottom of the screen; the result card's in the slot under its buttons, so
+ * moving between the two removes the view and creates it again. Calls are
+ * chained: a hide and a show sent back to back must reach the plugin in order.
  */
-export async function showBanner() {
-  await ensureInitialized();
-  try {
-    if (bannerLoaded) {
-      await AdMob.resumeBanner();
-      return;
+let bannerAt = null;
+let queue = Promise.resolve();
+const chained = (fn) => (queue = queue.then(fn, fn));
+
+/**
+ * @param {number|null} top distance from the top of the screen, in CSS px
+ *   (= dp in the WebView), to show a 320×50 banner there; null for the
+ *   full-width banner at the bottom.
+ */
+export function showBanner(top = null) {
+  return chained(async () => {
+    const at = top == null ? 'bottom' : Math.round(top);
+    try {
+      await ensureInitialized();
+      if (bannerLoaded && bannerAt === at) {
+        await AdMob.resumeBanner();
+        return;
+      }
+      if (bannerLoaded) await AdMob.removeBanner();
+      bannerLoaded = false;
+      await AdMob.showBanner(at === 'bottom'
+        ? { adId: AD_UNITS.BANNER, adSize: BannerAdSize.ADAPTIVE_BANNER, position: BannerAdPosition.BOTTOM_CENTER }
+        : { adId: AD_UNITS.BANNER, adSize: BannerAdSize.BANNER, position: BannerAdPosition.TOP_CENTER, margin: at });
+      bannerLoaded = true;
+      bannerAt = at;
+    } catch {
+      bannerLoaded = false;
     }
-    await AdMob.showBanner({
-      adId: AD_UNITS.BANNER,
-      adSize: BannerAdSize.ADAPTIVE_BANNER,
-      position: BannerAdPosition.BOTTOM_CENTER,
-    });
-    bannerLoaded = true;
-  } catch {
-    bannerLoaded = false;
-  }
+  });
 }
 
 /** Hides the banner without destroying it — cheaper to bring back than a fresh showBanner(). */
-export async function hideBanner() {
-  if (!bannerLoaded) return;
-  try {
-    await AdMob.hideBanner();
-  } catch {
-    // Already gone (e.g. never actually loaded): nothing to hide.
-  }
+export function hideBanner() {
+  return chained(async () => {
+    if (!bannerLoaded) return;
+    try {
+      await AdMob.hideBanner();
+    } catch {
+      // Already gone (e.g. never actually loaded): nothing to hide.
+    }
+  });
 }
