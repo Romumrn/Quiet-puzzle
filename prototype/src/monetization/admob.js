@@ -8,7 +8,7 @@
  */
 
 import {
-  AdMob, RewardAdPluginEvents, AdmobConsentStatus, BannerAdSize, BannerAdPosition,
+  AdMob, RewardAdPluginEvents, AdmobConsentStatus, BannerAdSize, BannerAdPosition, BannerAdPluginEvents,
 } from '../../vendor/capacitor-admob.esm.js';
 import { AD_UNITS } from './admobConfig.js';
 
@@ -137,8 +137,35 @@ export function showRewarded(onLoaded) {
  * chained: a hide and a show sent back to back must reach the plugin in order.
  */
 let bannerAt = null;
+const BANNER_HEIGHT = 50; // BannerAdSize.BANNER is 320×50 dp
 let queue = Promise.resolve();
 const chained = (fn) => (queue = queue.then(fn, fn));
+
+/**
+ * `removeBanner()` resolves BEFORE the view is gone: the plugin posts the
+ * removal to the UI thread and answers at once. A `showBanner()` sent right
+ * after still found the old view, merely reloaded it — and the removal then
+ * destroyed it: the result card's slot stayed empty (1.12, seen on device).
+ * The removal's own "size 0" event says it really happened.
+ */
+async function removeBannerAndWait() {
+  let done;
+  const gone = new Promise((r) => { done = r; });
+  const sub = await AdMob.addListener(BannerAdPluginEvents.SizeChanged, (s) => { if (!s?.height) done(); });
+  try {
+    await AdMob.removeBanner();
+    await Promise.race([gone, new Promise((r) => setTimeout(r, 1000))]);
+  } finally {
+    sub.remove();
+  }
+}
+
+// A banner that found no ad is destroyed by the plugin: the next show must
+// create one again, not resume a view that no longer exists.
+let failWatch = null;
+const watchBannerFailures = () => {
+  failWatch ??= AdMob.addListener(BannerAdPluginEvents.FailedToLoad, () => { bannerLoaded = false; });
+};
 
 /**
  * @param {number|null} top distance from the top of the screen, in CSS px
@@ -147,18 +174,29 @@ const chained = (fn) => (queue = queue.then(fn, fn));
  */
 export function showBanner(top = null) {
   return chained(async () => {
-    const at = top == null ? 'bottom' : Math.round(top);
+    // The plugin applies `margin` to BOTH the top and the bottom of the view:
+    // a slot 616 dp down on an 873 dp screen asked for 616 + 616 dp of margin
+    // and Android squeezed the banner to 0 px high (1.12, seen on device). So
+    // the margin is taken from the nearer edge: the bottom for a slot in the
+    // lower half, as the result card's is.
+    const fromBottom = top == null ? 0 : Math.round(window.innerHeight - top - BANNER_HEIGHT);
+    const at = top == null ? 'bottom'
+      : fromBottom < top ? `b${fromBottom}` : `t${Math.round(top)}`;
     try {
       await ensureInitialized();
+      watchBannerFailures();
       if (bannerLoaded && bannerAt === at) {
         await AdMob.resumeBanner();
         return;
       }
-      if (bannerLoaded) await AdMob.removeBanner();
+      if (bannerLoaded) await removeBannerAndWait();
       bannerLoaded = false;
       await AdMob.showBanner(at === 'bottom'
         ? { adId: AD_UNITS.BANNER, adSize: BannerAdSize.ADAPTIVE_BANNER, position: BannerAdPosition.BOTTOM_CENTER }
-        : { adId: AD_UNITS.BANNER, adSize: BannerAdSize.BANNER, position: BannerAdPosition.TOP_CENTER, margin: at });
+        : {
+          adId: AD_UNITS.BANNER, adSize: BannerAdSize.BANNER, margin: Number(at.slice(1)),
+          position: at[0] === 'b' ? BannerAdPosition.BOTTOM_CENTER : BannerAdPosition.TOP_CENTER,
+        });
       bannerLoaded = true;
       bannerAt = at;
     } catch {

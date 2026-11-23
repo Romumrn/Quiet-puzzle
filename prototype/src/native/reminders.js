@@ -2,8 +2,11 @@
  * Reminders — local notifications, scheduled on the phone (no server).
  *
  * Few on purpose (user decision: "not too many, and an option to turn them
- * off"). Planned when the player leaves the app, cancelled as soon as they
- * come back, so a reminder never lands while they are playing:
+ * off"). Planned while the game is OPEN — at start, on resume, and whenever
+ * the hearts or the streak change (`watch()`): Android freezes the page as
+ * soon as the app goes to the background, so planning on `pause` never got to
+ * the end. Each plan replaces the last, so coming back pushes tomorrow's
+ * reminder one day further:
  *
  *  - LIVES: hearts back to full, if they were short — the same day, between
  *    9:00 and 21:00, never at night;
@@ -22,6 +25,7 @@ import { isNative } from './capacitor.js';
 import * as store from '../data/save.js';
 import * as lives from '../meta/lives.js';
 import { t } from '../ui/i18n.js';
+import { subscribe } from '../data/events.js';
 
 const ID = Object.freeze({ LIVES: 1, TOMORROW: 2 });
 const ASK_FROM_LEVEL = 3;
@@ -43,6 +47,7 @@ export async function afterWin(level) {
   d.notificationsAsked = true;
   store.save(d);
   try { await LocalNotifications.requestPermissions(); } catch { /* the switch can ask again */ }
+  plan();
 }
 
 /** The settings switch. Turning it on asks again; false: Android refuses (blocked in its settings). */
@@ -52,8 +57,12 @@ export async function setEnabled(on) {
   store.save(d);
   if (!isNative()) return true;
   if (!on) { await cancel(); return true; }
-  if (await granted()) return true;
-  try { return (await LocalNotifications.requestPermissions()).display === 'granted'; } catch { return false; }
+  let ok = await granted();
+  if (!ok) {
+    try { ok = (await LocalNotifications.requestPermissions()).display === 'granted'; } catch { ok = false; }
+  }
+  if (ok) plan();
+  return ok;
 }
 
 export async function cancel() {
@@ -68,7 +77,23 @@ const atHour = (daysAhead, hour) => {
   return d;
 };
 
-/** Called when the player leaves the app. */
+/** What changes a reminder: the hearts, the day's session, the streak. */
+const REPLAN_ON = new Set(['life_lost', 'life_gained', 'session_started', 'streak_continued', 'streak_started']);
+let replanTimer = null;
+let watching = false;
+
+/** Once, at game start: replans (debounced) after any event in REPLAN_ON. */
+export function watch() {
+  if (!isNative() || watching) return;
+  watching = true;
+  subscribe((e) => {
+    if (!REPLAN_ON.has(e.eventName)) return;
+    clearTimeout(replanTimer);
+    replanTimer = setTimeout(plan, 500);
+  });
+}
+
+/** Replaces whatever was planned with what the game's state calls for now. */
 export async function plan() {
   if (!isNative()) return;
   await cancel();
@@ -93,7 +118,10 @@ export async function plan() {
 
   try {
     await LocalNotifications.schedule({
-      notifications: notifications.map((n) => ({ ...n, smallIcon: 'ic_stat_notify', iconColor: '#c9577b' })),
+      // isExactNotification false: a reminder needs no exact minute, and the
+      // default (true) sent Android 12+ players to the "Alarms & reminders"
+      // settings page on every plan — a permission we leave out on purpose.
+      notifications: notifications.map((n) => ({ ...n, smallIcon: 'ic_stat_notify', iconColor: '#c9577b', isExactNotification: false })),
     });
   } catch { /* nothing to remind of */ }
 }

@@ -19,3 +19,14 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Capacitor reads its plugins' annotations at runtime (@CapacitorPlugin,
+# @Permission: the permission aliases behind checkPermissions /
+# requestPermissions). Minified, they came back null and the first
+# LocalNotifications.checkPermissions() crashed 1.12 — every time an ad sent
+# the game to the background, since that is when the reminders get planned.
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
+-keep class com.getcapacitor.** { *; }
+-keep class com.capacitorjs.plugins.** { *; }
+-keep class com.getcapacitor.community.** { *; }
+-keep class io.capawesome.** { *; }

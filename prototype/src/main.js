@@ -1390,9 +1390,9 @@ registerBackHandler(() => {
 // some Android WebViews are inconsistent about firing document visibility on
 // backgrounding via the app switcher, `pause`/`resume` are not.
 registerLifecycle({
-  onPause: () => { stopClock(); reminders.plan(); },
+  onPause: stopClock,
   onResume: () => {
-    reminders.cancel();
+    reminders.plan();
     checkForUpdate();
     if (board?.gameState === GameState.PLAYING && screens.current() === 'game') startClock();
   },
@@ -2354,8 +2354,8 @@ function refreshDebug() {
     window.addEventListener('pagehide', () => track('session_ended', {}));
     showMenu();
     checkForUpdate();
-    // Back in the game: whatever was planned for this absence is moot.
-    reminders.cancel();
+    reminders.watch();
+    reminders.plan();
   }
 
   /** Stops the game cleanly on sign-out. */
